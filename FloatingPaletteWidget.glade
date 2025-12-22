@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk+" version="3.18"/>
+  <object class="GtkWindow" id="FloatingPaletteWindow">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Palette</property>
+    <property name="default_width">360</property>
+    <property name="default_height">360</property>
+    <child>
+      <object class="GtkNotebook" id="_paletteTabs">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <child>
+          <object class="GtkDrawingArea" id="_palettePage0">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="tab_label">0</property>
+            <property name="tab_fill">True</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkDrawingArea" id="_palettePage1">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="tab_label">1</property>
+            <property name="tab_fill">True</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkDrawingArea" id="_palettePage2">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="tab_label">2</property>
+            <property name="tab_fill">True</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkDrawingArea" id="_palettePage3">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+          <packing>
+            <property name="tab_label">3</property>
+            <property name="tab_fill">True</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>
