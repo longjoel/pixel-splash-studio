@@ -353,29 +353,28 @@ public class CanvasViewportWidget : DrawingArea
             int minY = Math.Min(startY, endY);
             int maxY = Math.Max(startY, endY);
 
-            WorldToScreen(minX, minY, out double screenX, out double screenY);
-            double width = (maxX - minX + 1) * _viewport.PixelSize;
-            double height = (maxY - minY + 1) * _viewport.PixelSize;
+            GetEllipseMetrics(minX, maxX, minY, maxY, out double centerX, out double centerY, out double rx, out double ry);
 
-            double dashOffset = GetMarchingAntsOffset();
-            context.LineWidth = 1.0;
+            double alpha = isAdd ? 0.4 : 0.45;
+            if (isAdd)
+            {
+                context.SetSourceRGBA(0.9, 0.9, 0.9, alpha);
+            }
+            else
+            {
+                context.SetSourceRGBA(0.9, 0.6, 0.6, alpha);
+            }
 
-            context.Save();
-            context.Translate(screenX + (width / 2.0), screenY + (height / 2.0));
-            context.Scale(width / 2.0, height / 2.0);
-
-            context.SetSourceRGBA(0, 0, 0, 1);
-            context.SetDash(new double[] { 4.0 / Math.Max(1.0, width / 2.0), 4.0 / Math.Max(1.0, width / 2.0) }, dashOffset);
-            context.NewPath();
-            context.Arc(0, 0, 1, 0, Math.PI * 2.0);
-            context.Stroke();
-
-            context.SetSourceRGBA(1, 1, 1, 1);
-            context.SetDash(new double[] { 4.0 / Math.Max(1.0, width / 2.0), 4.0 / Math.Max(1.0, width / 2.0) }, dashOffset + 4);
-            context.NewPath();
-            context.Arc(0, 0, 1, 0, Math.PI * 2.0);
-            context.Stroke();
-            context.Restore();
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (IsInsideEllipse(x, y, centerX, centerY, rx, ry))
+                    {
+                        DrawPreviewPixel(context, x, y);
+                    }
+                }
+            }
         }
     }
 
