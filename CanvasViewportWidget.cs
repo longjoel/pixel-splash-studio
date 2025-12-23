@@ -14,6 +14,9 @@ public class CanvasViewportWidget : DrawingArea
     private int _cursorWorldX;
     private int _cursorWorldY;
     private Cursor _crosshairCursor;
+    private bool _middlePanning;
+    private double _middlePanLastX;
+    private double _middlePanLastY;
 
     public event Action<CanvasViewportWidget> DetachRequested;
     public event Action<CanvasViewportWidget> ReattachRequested;
@@ -100,6 +103,15 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
+        if (args.Event.Button == 2)
+        {
+            _middlePanning = true;
+            _middlePanLastX = args.Event.X;
+            _middlePanLastY = args.Event.Y;
+            GrabFocus();
+            return;
+        }
+
         if (_toolManager == null || (args.Event.Button != 1 && args.Event.Button != 3))
         {
             return;
@@ -112,6 +124,7 @@ public class CanvasViewportWidget : DrawingArea
         }
 
         GrabFocus();
+        UpdateGrabToolViewSize();
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
         UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
         bool primary = args.Event.Button == 1;
@@ -120,6 +133,12 @@ public class CanvasViewportWidget : DrawingArea
 
     private void CanvasViewportWidget_ButtonReleaseEvent(object o, ButtonReleaseEventArgs args)
     {
+        if (args.Event.Button == 2)
+        {
+            _middlePanning = false;
+            return;
+        }
+
         if (args.Event.Button == 1 || args.Event.Button == 3)
         {
             GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
@@ -148,12 +167,19 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
+        if (_middlePanning)
+        {
+            PanViewportByScreenDelta(args.Event.X, args.Event.Y);
+            return;
+        }
+
         if ((_toolManager.ActiveTool is PenTool || _toolManager.ActiveTool is LineTool || _toolManager.ActiveTool is RectangleTool || _toolManager.ActiveTool is OvalTool) &&
             (args.Event.State & ModifierType.Button1Mask) == 0)
         {
             return;
         }
 
+        UpdateGrabToolViewSize();
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
         _toolManager.UseTool(toolX, toolY);
         QueueDraw();
@@ -202,7 +228,7 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
-        _toolManager.ZoomAt((int)args.Event.X, (int)args.Event.Y, delta, AllocatedWidth, AllocatedHeight);
+        ZoomViewportAt((int)args.Event.X, (int)args.Event.Y, delta);
         QueueDraw();
     }
 
@@ -761,5 +787,64 @@ public class CanvasViewportWidget : DrawingArea
         startY = _viewport.CameraPixelY - (viewportPixelHeight / 2);
         endX = startX + viewportPixelWidth - 1;
         endY = startY + viewportPixelHeight - 1;
+    }
+
+    private void UpdateGrabToolViewSize()
+    {
+        if (_activeTool is GrabAndZoomTool grabTool && AllocatedWidth > 0 && AllocatedHeight > 0)
+        {
+            grabTool.SetViewSize(AllocatedWidth, AllocatedHeight);
+        }
+    }
+
+    private void PanViewportByScreenDelta(double screenX, double screenY)
+    {
+        if (_viewport == null || _viewport.PixelSize <= 0)
+        {
+            return;
+        }
+
+        double deltaX = screenX - _middlePanLastX;
+        double deltaY = screenY - _middlePanLastY;
+        _middlePanLastX = screenX;
+        _middlePanLastY = screenY;
+
+        int worldDeltaX = (int)Math.Round(deltaX / _viewport.PixelSize);
+        int worldDeltaY = (int)Math.Round(deltaY / _viewport.PixelSize);
+
+        if (worldDeltaX != 0 || worldDeltaY != 0)
+        {
+            _viewport.Pan(-worldDeltaX, -worldDeltaY);
+            QueueDraw();
+        }
+    }
+
+    private void ZoomViewportAt(int screenX, int screenY, int deltaPixelSize)
+    {
+        if (_viewport == null || AllocatedWidth <= 0 || AllocatedHeight <= 0)
+        {
+            return;
+        }
+
+        int oldSize = _viewport.PixelSize;
+        int nextSize = oldSize + deltaPixelSize;
+        if (nextSize < 1)
+        {
+            nextSize = 1;
+        }
+
+        if (nextSize == oldSize)
+        {
+            return;
+        }
+
+        double worldX = _viewport.CameraPixelX - (AllocatedWidth / (2.0 * oldSize)) + (screenX / (double)oldSize);
+        double worldY = _viewport.CameraPixelY - (AllocatedHeight / (2.0 * oldSize)) + (screenY / (double)oldSize);
+
+        double newCameraX = worldX + (AllocatedWidth / (2.0 * nextSize)) - (screenX / (double)nextSize);
+        double newCameraY = worldY + (AllocatedHeight / (2.0 * nextSize)) - (screenY / (double)nextSize);
+
+        _viewport.SetPixelSize(nextSize);
+        _viewport.SetCamera((int)Math.Round(newCameraX), (int)Math.Round(newCameraY));
     }
 }

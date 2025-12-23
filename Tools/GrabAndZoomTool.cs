@@ -2,14 +2,22 @@ public class GrabAndZoomTool : ITool
 {
     private CanvasViewport _viewport;
     private bool _isPanning;
+    private bool _isZooming;
     private double _lastPanX;
     private double _lastPanY;
+    private double _lastZoomX;
+    private double _lastZoomY;
+    private double _zoomAccumulator;
+    private int _viewWidth;
+    private int _viewHeight;
+    private readonly double _zoomStepPixels;
 
     public event System.Action PreviewChanged;
 
-    public GrabAndZoomTool(CanvasViewport viewport)
+    public GrabAndZoomTool(CanvasViewport viewport, double zoomStepPixels = 8.0)
     {
         _viewport = viewport;
+        _zoomStepPixels = zoomStepPixels <= 0 ? 8.0 : zoomStepPixels;
     }
 
     public void BeginUseTool(bool primary, int x, int y)
@@ -19,37 +27,68 @@ public class GrabAndZoomTool : ITool
             return;
         }
 
-        _isPanning = true;
-        _lastPanX = x;
-        _lastPanY = y;
+        if (primary)
+        {
+            _isPanning = true;
+            _isZooming = false;
+            _lastPanX = x;
+            _lastPanY = y;
+        }
+        else
+        {
+            _isZooming = true;
+            _isPanning = false;
+            _lastZoomX = x;
+            _lastZoomY = y;
+            _zoomAccumulator = 0;
+        }
         PreviewChanged?.Invoke();
     }
 
     public void EndUseTool(bool primary, int x, int y)
     {
         _isPanning = false;
+        _isZooming = false;
         PreviewChanged?.Invoke();
     }
 
     public void UseTool(int x, int y)
     {
-        if (_viewport == null || !_isPanning || _viewport.PixelSize <= 0)
+        if (_viewport == null || _viewport.PixelSize <= 0)
         {
             return;
         }
 
-        double deltaX = x - _lastPanX;
-        double deltaY = y - _lastPanY;
-        _lastPanX = x;
-        _lastPanY = y;
-
-        int worldDeltaX = (int)System.Math.Round(deltaX / _viewport.PixelSize);
-        int worldDeltaY = (int)System.Math.Round(deltaY / _viewport.PixelSize);
-
-        if (worldDeltaX != 0 || worldDeltaY != 0)
+        if (_isPanning)
         {
-            _viewport.Pan(-worldDeltaX, -worldDeltaY);
-            PreviewChanged?.Invoke();
+            double deltaX = x - _lastPanX;
+            double deltaY = y - _lastPanY;
+            _lastPanX = x;
+            _lastPanY = y;
+
+            int worldDeltaX = (int)System.Math.Round(deltaX / _viewport.PixelSize);
+            int worldDeltaY = (int)System.Math.Round(deltaY / _viewport.PixelSize);
+
+            if (worldDeltaX != 0 || worldDeltaY != 0)
+            {
+                _viewport.Pan(-worldDeltaX, -worldDeltaY);
+                PreviewChanged?.Invoke();
+            }
+        }
+        else if (_isZooming)
+        {
+            double deltaY = y - _lastZoomY;
+            _lastZoomX = x;
+            _lastZoomY = y;
+            _zoomAccumulator += deltaY;
+
+            int steps = (int)System.Math.Truncate(_zoomAccumulator / _zoomStepPixels);
+            if (steps != 0)
+            {
+                ZoomAt((int)_lastZoomX, (int)_lastZoomY, -steps, _viewWidth, _viewHeight);
+                _zoomAccumulator -= steps * _zoomStepPixels;
+                PreviewChanged?.Invoke();
+            }
         }
     }
 
@@ -80,5 +119,11 @@ public class GrabAndZoomTool : ITool
 
         _viewport.SetPixelSize(nextSize);
         _viewport.SetCamera((int)System.Math.Round(newCameraX), (int)System.Math.Round(newCameraY));
+    }
+
+    public void SetViewSize(int viewWidth, int viewHeight)
+    {
+        _viewWidth = viewWidth;
+        _viewHeight = viewHeight;
     }
 }

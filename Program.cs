@@ -13,7 +13,8 @@ namespace pixel_splash_studio
             var app = new Application("org.pixel_splash_studio.pixel_splash_studio", GLib.ApplicationFlags.None);
             app.Register(GLib.Cancellable.Current);
 
-            var win = new MainWindow();
+            AppConfig config = AppConfig.Load();
+            var win = new MainWindow(config);
             app.AddWindow(win);
 
             win.Show();

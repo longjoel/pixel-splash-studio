@@ -214,7 +214,7 @@ public class CanvasViewport
         double viewportWidth = x2 - x1;
         double viewportHeight = y2 - y1;
 
-        const int pixelGridMinSize = 10;
+        int pixelGridMinSize = Math.Max(1, _settings.PixelGridMinSize);
         bool showPixelGrid = _pixelSize >= pixelGridMinSize;
         if (showPixelGrid)
         {
@@ -235,7 +235,7 @@ public class CanvasViewport
             context.Stroke();
         }
 
-        const int subGridSize = 8;
+        int subGridSize = Math.Max(1, _settings.TileGridSize);
         SetSourceColorScaled(context, _settings.GridR, _settings.GridG, _settings.GridB, _settings.GridA, 0.75, 1.0);
 
         int subGridStartX = NextMultiple(startX, subGridSize);

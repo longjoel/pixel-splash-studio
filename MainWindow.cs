@@ -53,6 +53,8 @@ namespace pixel_splash_studio
         private readonly OvalTool _ovalTool;
         private readonly FloatingPaletteWidget _paletteWindow;
         private readonly ViewportTool _viewportTool;
+        private readonly CanvasViewportSettings _viewportSettings;
+        private readonly AppConfig _config;
         private readonly List<CanvasViewportWidget> _viewports = new List<CanvasViewportWidget>();
         private readonly Dictionary<Gtk.Window, CanvasViewportWidget> _detachedViewports = new Dictionary<Gtk.Window, CanvasViewportWidget>();
         private ToolMode _activeToolMode = ToolMode.GrabZoom;
@@ -64,18 +66,26 @@ namespace pixel_splash_studio
         private string _currentFilePath;
         private SelectionClipboard _clipboard;
 
-        public MainWindow() : this(new Builder("MainWindow.glade")) { }
+        public MainWindow() : this(new Builder("MainWindow.glade"), AppConfig.Load()) { }
 
-        private MainWindow(Builder builder) : base(builder.GetRawOwnedObject("MainWindow"))
+        public MainWindow(AppConfig config) : this(new Builder("MainWindow.glade"), config) { }
+
+        private MainWindow(Builder builder, AppConfig config) : base(builder.GetRawOwnedObject("MainWindow"))
         {
             builder.Autoconnect(this);
             AddAccelGroup(_accelGroup);
+            _config = config ?? new AppConfig();
 
             _canvas = new PixelSplashCanvas();
             _palette = new PixelSplashPalette();
             InitializePalette(_palette);
-            _viewA = new CanvasViewportWidget(_canvas, _palette);
-            _viewB = new CanvasViewportWidget(_canvas, _palette);
+            _viewportSettings = new CanvasViewportSettings
+            {
+                PixelGridMinSize = _config.PixelGridMinSize,
+                TileGridSize = _config.TileGridSize
+            };
+            _viewA = new CanvasViewportWidget(_canvas, _palette, _viewportSettings);
+            _viewB = new CanvasViewportWidget(_canvas, _palette, _viewportSettings);
 
             _viewportTab1.PackStart(_viewA, true, true, 0);
             _viewportTab2.PackStart(_viewB, true, true, 0);
@@ -83,8 +93,8 @@ namespace pixel_splash_studio
             _viewA.Show();
             _viewB.Show();
 
-            _grabToolA = new GrabAndZoomTool(_viewA.Viewport);
-            _grabToolB = new GrabAndZoomTool(_viewB.Viewport);
+            _grabToolA = new GrabAndZoomTool(_viewA.Viewport, _config.ZoomDragStepPixels);
+            _grabToolB = new GrabAndZoomTool(_viewB.Viewport, _config.ZoomDragStepPixels);
             _penTool = new PenTool(_viewA.Viewport, _canvas, _palette);
             _lineTool = new LineTool(_canvas, _palette);
             _rectangleTool = new RectangleTool(_canvas, _palette);
@@ -93,7 +103,7 @@ namespace pixel_splash_studio
             _floodFillTool = new FloodFillTool(_canvas, _palette);
             _stampTool = new StampTool(_canvas, _palette, () => _clipboard);
             _ovalTool = new OvalTool(_canvas, _palette);
-            _viewportTool = new ViewportTool(_canvas, _palette);
+            _viewportTool = new ViewportTool(_canvas, _palette, _viewportSettings);
 
             _viewports.Add(_viewA);
             _viewports.Add(_viewB);
@@ -152,6 +162,9 @@ namespace pixel_splash_studio
             UpdateOptionsMenu();
             UpdateEditMenu();
             UpdateWindowTitle();
+
+            SetDefaultSize(_config.WindowDefaultWidth, _config.WindowDefaultHeight);
+            SetSizeRequest(_config.WindowMinWidth, _config.WindowMinHeight);
 
             DeleteEvent += Window_DeleteEvent;
         }
@@ -421,7 +434,7 @@ namespace pixel_splash_studio
                     }
                     else
                     {
-                        view.SetActiveTool(new GrabAndZoomTool(view.Viewport));
+                        view.SetActiveTool(new GrabAndZoomTool(view.Viewport, _config.ZoomDragStepPixels));
                     }
                     break;
             }

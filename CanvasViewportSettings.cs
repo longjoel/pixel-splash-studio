@@ -9,4 +9,7 @@ public class CanvasViewportSettings
     public byte GridG { get; set; } = 230;
     public byte GridB { get; set; } = 255;
     public byte GridA { get; set; } = 255;
+
+    public int PixelGridMinSize { get; set; } = 10;
+    public int TileGridSize { get; set; } = 8;
 }
