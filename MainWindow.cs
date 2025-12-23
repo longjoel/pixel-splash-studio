@@ -59,9 +59,9 @@ namespace pixel_splash_studio
         private readonly ViewportTool _viewportTool;
         private readonly CanvasViewportSettings _viewportSettings;
         private readonly AppConfig _config;
+        private readonly AppState _appState = new AppState();
         private readonly List<CanvasViewportWidget> _viewports = new List<CanvasViewportWidget>();
         private readonly Dictionary<Gtk.Window, CanvasViewportWidget> _detachedViewports = new Dictionary<Gtk.Window, CanvasViewportWidget>();
-        private ToolMode _activeToolMode = ToolMode.GrabZoom;
         private bool _suppressOptionEvents;
         private readonly Stack<PixelSplashCanvasSnapshot> _undoStack = new Stack<PixelSplashCanvasSnapshot>();
         private readonly Stack<PixelSplashCanvasSnapshot> _redoStack = new Stack<PixelSplashCanvasSnapshot>();
@@ -115,7 +115,6 @@ namespace pixel_splash_studio
             _viewports.Add(_viewB);
             AttachViewportHandlers(_viewA);
             AttachViewportHandlers(_viewB);
-            ApplyToolModeToAllViews();
 
             SeedCanvas(_canvas);
 
@@ -134,27 +133,131 @@ namespace pixel_splash_studio
             _toolbarWindow.SetDefaultSize(220, 520);
             _toolbarWindow.DeleteEvent += ToolbarWindow_DeleteEvent;
 
-            _toolbarPanel.GrabZoomRequested += () => ToolGrabZoom_Activated(this, EventArgs.Empty);
-            _toolbarPanel.PenRequested += () => ToolPen_Activated(this, EventArgs.Empty);
-            _toolbarPanel.LineRequested += () => ToolLine_Activated(this, EventArgs.Empty);
-            _toolbarPanel.RectangleRequested += () => ToolRectangle_Activated(this, EventArgs.Empty);
-            _toolbarPanel.OvalRequested += () => ToolOval_Activated(this, EventArgs.Empty);
-            _toolbarPanel.SelectionRequested += () => ToolSelection_Activated(this, EventArgs.Empty);
-            _toolbarPanel.SelectionOvalRequested += () => ToolSelectionOval_Activated(this, EventArgs.Empty);
-            _toolbarPanel.FloodFillRequested += () => ToolFloodFill_Activated(this, EventArgs.Empty);
-            _toolbarPanel.StampRequested += () => ToolStamp_Activated(this, EventArgs.Empty);
-            _toolbarPanel.RectangleFillToggled += SetRectangleFill;
-            _toolbarPanel.TransparentOverwriteToggled += SetTransparentOverwrite;
-            _toolbarPanel.SelectionModeChanged += SetSelectionMode;
-            _toolbarPanel.SelectionSnapModeChanged += SetSelectionSnapMode;
-            _toolbarPanel.StampOverwriteToggled += SetStampOverwrite;
-            _toolbarPanel.StampRotationChanged += SetStampRotation;
-            _toolbarPanel.StampFlipXToggled += SetStampFlipX;
-            _toolbarPanel.StampFlipYToggled += SetStampFlipY;
-            _toolbarPanel.StampScaleChanged += SetStampScale;
-            _toolbarPanel.StampSnapModeChanged += SetStampSnapMode;
+            // Wire up MESSAGE UP: Toolbar events notify changes
+            _toolbarPanel.GrabZoomRequested += () => _appState.SetActiveTool(ToolMode.GrabZoom);
+            _toolbarPanel.PenRequested += () => _appState.SetActiveTool(ToolMode.Pen);
+            _toolbarPanel.LineRequested += () => _appState.SetActiveTool(ToolMode.Line);
+            _toolbarPanel.RectangleRequested += () => _appState.SetActiveTool(ToolMode.Rectangle);
+            _toolbarPanel.OvalRequested += () => _appState.SetActiveTool(ToolMode.Oval);
+            _toolbarPanel.SelectionRequested += () => _appState.SetActiveTool(ToolMode.Selection);
+            _toolbarPanel.SelectionOvalRequested += () => _appState.SetActiveTool(ToolMode.SelectionOval);
+            _toolbarPanel.FloodFillRequested += () => _appState.SetActiveTool(ToolMode.FloodFill);
+            _toolbarPanel.StampRequested += () => _appState.SetActiveTool(ToolMode.Stamp);
+            _toolbarPanel.RectangleFillToggled += _appState.SetRectangleFill;
+            _toolbarPanel.TransparentOverwriteToggled += _appState.SetTransparentOverwrite;
+            _toolbarPanel.SelectionModeChanged += _appState.SetSelectionMode;
+            _toolbarPanel.SelectionSnapModeChanged += _appState.SetSelectionSnapMode;
+            _toolbarPanel.StampOverwriteToggled += _appState.SetStampOverwrite;
+            _toolbarPanel.StampRotationChanged += _appState.SetStampRotation;
+            _toolbarPanel.StampFlipXToggled += _appState.SetStampFlipX;
+            _toolbarPanel.StampFlipYToggled += _appState.SetStampFlipY;
+            _toolbarPanel.StampScaleChanged += _appState.SetStampScale;
+            _toolbarPanel.StampSnapModeChanged += _appState.SetStampSnapMode;
             _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
-            UpdateToolbarSelection();
+
+            // Wire up CALL DOWN: AppState changes call methods on UI components
+            _appState.ActiveToolChanged += (tool) => ApplyToolModeToAllViewsAndToolbar(tool);
+            _appState.RectangleFillEnabledChanged += (enabled) =>
+            {
+                _rectangleTool.Fill = enabled;
+                _ovalTool.Fill = enabled;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetRectangleFill(enabled);
+                }
+                _toolbarPanel.SetRectangleOptions(enabled, _rectangleTool.OverwriteTransparent);
+            };
+            _appState.TransparentOverwriteEnabledChanged += (enabled) =>
+            {
+                _rectangleTool.OverwriteTransparent = enabled;
+                _ovalTool.OverwriteTransparent = enabled;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetTransparentOverwrite(enabled);
+                }
+                _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, enabled);
+            };
+            _appState.SelectionModeChanged += (mode) =>
+            {
+                _selectionTool.Mode = mode;
+                _selectionOvalTool.Mode = mode;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetSelectionMode(mode);
+                }
+                _toolbarPanel.SetSelectionMode(mode);
+            };
+            _appState.SelectionSnapModeChanged += (mode) =>
+            {
+                _selectionTool.SnapMode = mode;
+                _selectionOvalTool.SnapMode = mode;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetSelectionSnapMode(mode);
+                }
+                _toolbarPanel.SetSelectionSnapMode(mode);
+            };
+            _appState.StampOverwriteEnabledChanged += (enabled) =>
+            {
+                _stampTool.OverwriteDestination = enabled;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetStampOverwrite(enabled);
+                }
+                _toolbarPanel.SetStampOverwrite(enabled);
+            };
+            _appState.StampRotationChanged += (rotation) =>
+            {
+                _stampTool.Rotation = rotation;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetStampRotation(rotation);
+                }
+                _toolbarPanel.SetStampTransform(rotation, _stampTool.FlipX, _stampTool.FlipY);
+            };
+            _appState.StampFlipXChanged += (flipX) =>
+            {
+                _stampTool.FlipX = flipX;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetStampFlip(flipX, _stampTool.FlipY);
+                }
+                _toolbarPanel.SetStampTransform(_stampTool.Rotation, flipX, _stampTool.FlipY);
+            };
+            _appState.StampFlipYChanged += (flipY) =>
+            {
+                _stampTool.FlipY = flipY;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetStampFlip(_stampTool.FlipX, flipY);
+                }
+                _toolbarPanel.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, flipY);
+            };
+            _appState.StampScaleChanged += (scale) =>
+            {
+                _stampTool.Scale = scale;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetStampScale(scale);
+                }
+                _toolbarPanel.SetStampScale(scale);
+            };
+            _appState.StampSnapModeChanged += (mode) =>
+            {
+                _stampTool.SnapMode = mode;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetStampSnapMode(mode);
+                }
+                _toolbarPanel.SetStampSnapMode(mode);
+            };
+
+            // Initialize: Trigger initial state sync by setting the default active tool
+            _appState.SetActiveTool(ToolMode.GrabZoom);
+            
+            // Ensure toolbar visibility is correctly set after all wiring
+            _toolbarPanel.EnsureOptionVisibility();
+
             if (_viewToolbarToggle != null && _viewToolbarToggle.Active)
             {
                 DockToolbar();
@@ -233,74 +336,47 @@ namespace pixel_splash_studio
 
         private void ToolGrabZoom_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.GrabZoom;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.GrabZoom);
         }
 
         private void ToolPen_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.Pen;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.Pen);
         }
 
         private void ToolLine_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.Line;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.Line);
         }
 
         private void ToolRectangle_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.Rectangle;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.Rectangle);
         }
 
         private void ToolSelection_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.Selection;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.Selection);
         }
 
         private void ToolFloodFill_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.FloodFill;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.FloodFill);
         }
 
         private void ToolSelectionOval_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.SelectionOval;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.SelectionOval);
         }
 
         private void ToolStamp_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.Stamp;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.Stamp);
         }
 
         private void ToolOval_Activated(object sender, EventArgs e)
         {
-            _activeToolMode = ToolMode.Oval;
-            ApplyToolModeToAllViews();
-            UpdateOptionsMenu();
-            UpdateToolbarSelection();
+            _appState.SetActiveTool(ToolMode.Oval);
         }
 
         private void ToolNewViewport_Activated(object sender, EventArgs e)
@@ -308,14 +384,14 @@ namespace pixel_splash_studio
             _viewportTool.OpenViewportWindow(this);
         }
 
-        private void UpdateToolbarSelection()
+        private void UpdateToolbarSelection(ToolMode toolMode = ToolMode.GrabZoom)
         {
             if (_toolbarPanel == null)
             {
                 return;
             }
 
-            switch (_activeToolMode)
+            switch (toolMode)
             {
                 case ToolMode.GrabZoom:
                     _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.GrabZoom);
@@ -515,7 +591,7 @@ namespace pixel_splash_studio
         {
             _viewports.Add(viewport);
             AttachViewportHandlers(viewport);
-            ApplyToolModeToView(viewport);
+            ApplyToolModeToView(viewport, _appState.ActiveTool);
         }
 
         private void HandleViewportClosed(CanvasViewportWidget viewport)
@@ -524,22 +600,27 @@ namespace pixel_splash_studio
             DetachViewportHandlers(viewport);
         }
 
-        private void ApplyToolModeToAllViews()
+        private void ApplyToolModeToAllViewsAndToolbar(ToolMode toolMode)
         {
-            for (int i = 0; i < _viewports.Count; i++)
+            // CALL DOWN to all viewports
+            foreach (var view in _viewports)
             {
-                ApplyToolModeToView(_viewports[i]);
+                ApplyToolModeToView(view, toolMode);
             }
+            
+            // CALL DOWN to toolbar - update selection AND visibility
+            UpdateToolbarSelection(toolMode);
+            UpdateOptionsMenu(toolMode);
         }
 
-        private void ApplyToolModeToView(CanvasViewportWidget view)
+        private void ApplyToolModeToView(CanvasViewportWidget view, ToolMode toolMode)
         {
             if (view?.Viewport == null)
             {
                 return;
             }
 
-            switch (_activeToolMode)
+            switch (toolMode)
             {
                 case ToolMode.Pen:
                     view.SetActiveTool(_penTool);
@@ -580,19 +661,6 @@ namespace pixel_splash_studio
                     }
                     break;
             }
-        }
-
-        private enum ToolMode
-        {
-            GrabZoom,
-            Pen,
-            Line,
-            Rectangle,
-            Selection,
-            FloodFill,
-            SelectionOval,
-            Stamp,
-            Oval
         }
 
         private void AttachViewportHandlers(CanvasViewportWidget viewport)
@@ -834,16 +902,16 @@ namespace pixel_splash_studio
             }
         }
 
-        private void UpdateOptionsMenu()
+        private void UpdateOptionsMenu(ToolMode toolMode = ToolMode.GrabZoom)
         {
             if (_menuOptions == null || _rectangleTool == null || _ovalTool == null || _optionClearSelection == null || _optionSeparator == null || _optionStampOverwrite == null)
             {
                 return;
             }
 
-            bool isShape = _activeToolMode == ToolMode.Rectangle || _activeToolMode == ToolMode.Oval;
-            bool isStamp = _activeToolMode == ToolMode.Stamp;
-            bool isSelectionTool = _activeToolMode == ToolMode.Selection || _activeToolMode == ToolMode.SelectionOval;
+            bool isShape = toolMode == ToolMode.Rectangle || toolMode == ToolMode.Oval;
+            bool isStamp = toolMode == ToolMode.Stamp;
+            bool isSelectionTool = toolMode == ToolMode.Selection || toolMode == ToolMode.SelectionOval;
             bool hasSelection = _canvas.Selection.HasSelection;
             _menuOptions.Sensitive = isShape || isStamp || isSelectionTool || hasSelection;
 
@@ -859,7 +927,7 @@ namespace pixel_splash_studio
             {
                 _optionStampOverwrite.Active = _stampTool.OverwriteDestination;
             }
-            else if (_activeToolMode == ToolMode.Oval)
+            else if (toolMode == ToolMode.Oval)
             {
                 _optionRectangleFill.Active = _ovalTool.Fill;
                 _optionTransparentOverwrite.Active = _ovalTool.OverwriteTransparent;
@@ -961,145 +1029,52 @@ namespace pixel_splash_studio
 
         private void SetRectangleFill(bool isFilled)
         {
-            if (_rectangleTool == null || _ovalTool == null)
-            {
-                return;
-            }
-
-            _rectangleTool.Fill = isFilled;
-            _ovalTool.Fill = isFilled;
-            _toolbarPanel?.SetRectangleOptions(isFilled, _rectangleTool.OverwriteTransparent);
+            _appState.SetRectangleFill(isFilled);
         }
 
         private void SetTransparentOverwrite(bool isEnabled)
         {
-            if (_rectangleTool == null || _ovalTool == null)
-            {
-                return;
-            }
-
-            _rectangleTool.OverwriteTransparent = isEnabled;
-            _ovalTool.OverwriteTransparent = isEnabled;
-            _toolbarPanel?.SetRectangleOptions(_rectangleTool.Fill, isEnabled);
+            _appState.SetTransparentOverwrite(isEnabled);
         }
 
         private void SetStampOverwrite(bool isEnabled)
         {
-            if (_stampTool == null)
-            {
-                return;
-            }
-
-            _stampTool.OverwriteDestination = isEnabled;
-            _toolbarPanel?.SetStampOverwrite(isEnabled);
-            _toolbarPanel?.SetStampScale(_stampTool.Scale);
+            _appState.SetStampOverwrite(isEnabled);
         }
 
         private void Viewport_StampRotationChanged(CanvasViewportWidget viewport, StampRotation rotation)
         {
-            SetStampRotation(rotation);
+            _appState.SetStampRotation(rotation);
         }
 
         private void Viewport_StampFlipXToggled(CanvasViewportWidget viewport, bool isEnabled)
         {
-            SetStampFlipX(isEnabled);
+            _appState.SetStampFlipX(isEnabled);
         }
 
         private void Viewport_StampFlipYToggled(CanvasViewportWidget viewport, bool isEnabled)
         {
-            SetStampFlipY(isEnabled);
+            _appState.SetStampFlipY(isEnabled);
         }
 
         private void Viewport_StampScaleChanged(CanvasViewportWidget viewport, int scale)
         {
-            SetStampScale(scale);
+            _appState.SetStampScale(scale);
         }
 
         private void Viewport_StampSnapModeChanged(CanvasViewportWidget viewport, SelectionSnapMode mode)
         {
-            SetStampSnapMode(mode);
-        }
-
-        private void SetStampRotation(StampRotation rotation)
-        {
-            if (_stampTool == null)
-            {
-                return;
-            }
-
-            _stampTool.Rotation = rotation;
-            _toolbarPanel?.SetStampTransform(rotation, _stampTool.FlipX, _stampTool.FlipY);
-            _toolbarPanel?.SetStampScale(_stampTool.Scale);
-        }
-
-        private void SetStampFlipX(bool isEnabled)
-        {
-            if (_stampTool == null)
-            {
-                return;
-            }
-
-            _stampTool.FlipX = isEnabled;
-            _toolbarPanel?.SetStampTransform(_stampTool.Rotation, isEnabled, _stampTool.FlipY);
-            _toolbarPanel?.SetStampScale(_stampTool.Scale);
-        }
-
-        private void SetStampFlipY(bool isEnabled)
-        {
-            if (_stampTool == null)
-            {
-                return;
-            }
-
-            _stampTool.FlipY = isEnabled;
-            _toolbarPanel?.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, isEnabled);
-            _toolbarPanel?.SetStampScale(_stampTool.Scale);
-        }
-
-        private void SetStampScale(int scale)
-        {
-            if (_stampTool == null)
-            {
-                return;
-            }
-
-            _stampTool.Scale = scale;
-            _toolbarPanel?.SetStampScale(_stampTool.Scale);
-        }
-
-        private void SetStampSnapMode(SelectionSnapMode mode)
-        {
-            if (_stampTool == null)
-            {
-                return;
-            }
-
-            _stampTool.SnapMode = mode;
-            _toolbarPanel?.SetStampSnapMode(mode);
+            _appState.SetStampSnapMode(mode);
         }
 
         private void SetSelectionMode(SelectionMode mode)
         {
-            if (_selectionTool == null || _selectionOvalTool == null)
-            {
-                return;
-            }
-
-            _selectionTool.Mode = mode;
-            _selectionOvalTool.Mode = mode;
-            _toolbarPanel?.SetSelectionMode(mode);
+            _appState.SetSelectionMode(mode);
         }
 
         private void SetSelectionSnapMode(SelectionSnapMode mode)
         {
-            if (_selectionTool == null || _selectionOvalTool == null)
-            {
-                return;
-            }
-
-            _selectionTool.SnapMode = mode;
-            _selectionOvalTool.SnapMode = mode;
-            _toolbarPanel?.SetSelectionSnapMode(mode);
+            _appState.SetSelectionSnapMode(mode);
         }
 
         private void UpdateToolbarOptions()

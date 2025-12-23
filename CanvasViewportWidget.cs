@@ -85,6 +85,122 @@ public class CanvasViewportWidget : DrawingArea
         }
     }
 
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetRectangleFill(bool enabled)
+    {
+        if (_activeTool is RectangleTool rectTool)
+        {
+            rectTool.Fill = enabled;
+        }
+        else if (_activeTool is OvalTool ovalTool)
+        {
+            ovalTool.Fill = enabled;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetTransparentOverwrite(bool enabled)
+    {
+        if (_activeTool is RectangleTool rectTool)
+        {
+            rectTool.OverwriteTransparent = enabled;
+        }
+        else if (_activeTool is OvalTool ovalTool)
+        {
+            ovalTool.OverwriteTransparent = enabled;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetSelectionMode(SelectionMode mode)
+    {
+        if (_activeTool is SelectionRectangleTool rectSelTool)
+        {
+            rectSelTool.Mode = mode;
+        }
+        else if (_activeTool is SelectionOvalTool ovalSelTool)
+        {
+            ovalSelTool.Mode = mode;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetSelectionSnapMode(SelectionSnapMode snapMode)
+    {
+        if (_activeTool is SelectionRectangleTool rectSelTool)
+        {
+            rectSelTool.SnapMode = snapMode;
+        }
+        else if (_activeTool is SelectionOvalTool ovalSelTool)
+        {
+            ovalSelTool.SnapMode = snapMode;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetStampOverwrite(bool enabled)
+    {
+        if (_activeTool is StampTool stampTool)
+        {
+            stampTool.OverwriteDestination = enabled;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetStampRotation(StampRotation rotation)
+    {
+        if (_activeTool is StampTool stampTool)
+        {
+            stampTool.Rotation = rotation;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetStampFlip(bool flipX, bool flipY)
+    {
+        if (_activeTool is StampTool stampTool)
+        {
+            stampTool.FlipX = flipX;
+            stampTool.FlipY = flipY;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetStampScale(int scale)
+    {
+        if (_activeTool is StampTool stampTool)
+        {
+            stampTool.Scale = scale;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetStampSnapMode(SelectionSnapMode snapMode)
+    {
+        if (_activeTool is StampTool stampTool)
+        {
+            stampTool.SnapMode = snapMode;
+        }
+    }
+
     private void CanvasViewportWidget_Drawn(object sender, DrawnArgs args)
     {
         _viewport?.RenderViewport(args.Cr);

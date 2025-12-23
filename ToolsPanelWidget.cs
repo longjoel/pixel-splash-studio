@@ -104,6 +104,15 @@ namespace pixel_splash_studio
             SetActiveTool(ToolId.GrabZoom);
         }
 
+        /// <summary>
+        /// Explicitly update option visibility based on currently active tool.
+        /// Used during initialization to ensure correct visibility state.
+        /// </summary>
+        public void EnsureOptionVisibility()
+        {
+            UpdateOptionsVisibility(_activeTool);
+        }
+
         public void SetActiveTool(ToolId tool)
         {
             if (_activeTool == tool)
