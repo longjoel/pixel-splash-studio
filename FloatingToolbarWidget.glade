@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk+" version="3.18"/>
+  <object class="GtkWindow" id="FloatingToolbarWindow">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Tools</property>
+    <property name="default_width">200</property>
+    <property name="default_height">360</property>
+    <child>
+      <object class="GtkBox" id="_toolbarBox">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="margin">8</property>
+        <property name="spacing">6</property>
+        <child>
+          <object class="GtkToggleButton" id="_toolGrabZoom">
+            <property name="label" translatable="yes">Grab/Zoom</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolPen">
+            <property name="label" translatable="yes">Pen</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolLine">
+            <property name="label" translatable="yes">Line</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolRectangle">
+            <property name="label" translatable="yes">Rectangle</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolOval">
+            <property name="label" translatable="yes">Oval</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkSeparator">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolSelection">
+            <property name="label" translatable="yes">Selection</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolSelectionOval">
+            <property name="label" translatable="yes">Selection Oval</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolFloodFill">
+            <property name="label" translatable="yes">Flood Fill</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkToggleButton" id="_toolStamp">
+            <property name="label" translatable="yes">Stamp</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkSeparator">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="_toolOptionsBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">6</property>
+            <child>
+              <object class="GtkBox" id="_rectangleOptions">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="orientation">vertical</property>
+                <property name="spacing">4</property>
+                <child>
+                  <object class="GtkCheckButton" id="_optionFillShape">
+                    <property name="label" translatable="yes">Fill Shape</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="_optionTransparentOverwrite">
+                    <property name="label" translatable="yes">Overwrite Transparent Pixels</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox" id="_selectionOptions">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="orientation">vertical</property>
+                <property name="spacing">4</property>
+                <child>
+                  <object class="GtkButton" id="_optionSelectionCopy">
+                    <property name="label" translatable="yes">Copy Selection</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparator">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionSelectionAdd">
+                    <property name="label" translatable="yes">Add to Selection</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionSelectionSubtract">
+                    <property name="label" translatable="yes">Subtract from Selection</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionSelectionAdd</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparator">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionSnapPixel">
+                    <property name="label" translatable="yes">Snap to Pixels</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionSnapTile">
+                    <property name="label" translatable="yes">Snap to Tiles</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionSnapPixel</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox" id="_stampOptions">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="orientation">vertical</property>
+                <property name="spacing">4</property>
+                <child>
+                  <object class="GtkCheckButton" id="_optionStampOverwrite">
+                    <property name="label" translatable="yes">Overwrite Destination</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparator">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionRotate0">
+                    <property name="label" translatable="yes">Rotate 0°</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionRotate90">
+                    <property name="label" translatable="yes">Rotate 90°</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionRotate0</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionRotate180">
+                    <property name="label" translatable="yes">Rotate 180°</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionRotate0</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionRotate270">
+                    <property name="label" translatable="yes">Rotate 270°</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionRotate0</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparator">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="_optionFlipX">
+                    <property name="label" translatable="yes">Flip X</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="_optionFlipY">
+                    <property name="label" translatable="yes">Flip Y</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

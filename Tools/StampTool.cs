@@ -13,6 +13,9 @@ public class StampTool : ITool
     private bool _hasPreview;
     private bool _snapToTile;
     private bool _overwriteDestination = true;
+    private StampRotation _rotation = StampRotation.Deg0;
+    private bool _flipX;
+    private bool _flipY;
 
     public event Action PreviewChanged;
 
@@ -29,6 +32,51 @@ public class StampTool : ITool
             }
 
             _overwriteDestination = value;
+            PreviewChanged?.Invoke();
+        }
+    }
+
+    public StampRotation Rotation
+    {
+        get { return _rotation; }
+        set
+        {
+            if (_rotation == value)
+            {
+                return;
+            }
+
+            _rotation = value;
+            PreviewChanged?.Invoke();
+        }
+    }
+
+    public bool FlipX
+    {
+        get { return _flipX; }
+        set
+        {
+            if (_flipX == value)
+            {
+                return;
+            }
+
+            _flipX = value;
+            PreviewChanged?.Invoke();
+        }
+    }
+
+    public bool FlipY
+    {
+        get { return _flipY; }
+        set
+        {
+            if (_flipY == value)
+            {
+                return;
+            }
+
+            _flipY = value;
             PreviewChanged?.Invoke();
         }
     }
@@ -113,19 +161,15 @@ public class StampTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public bool TryGetPreview(out int originX, out int originY, out SelectionClipboard clipboard)
+    public bool TryGetPreviewPixels(out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels)
     {
-        clipboard = _clipboardProvider?.Invoke();
-        if (!_hasPreview || clipboard == null || clipboard.Pixels.Count == 0)
+        pixels = null;
+        if (!_hasPreview)
         {
-            originX = 0;
-            originY = 0;
             return false;
         }
 
-        originX = _previewX;
-        originY = _previewY;
-        return true;
+        return TryGetTransformedPixels(_previewX, _previewY, out pixels);
     }
 
     public bool CanWriteTo(int x, int y)
@@ -147,23 +191,94 @@ public class StampTool : ITool
 
     private void PlaceStamp(int originX, int originY)
     {
-        SelectionClipboard clipboard = _clipboardProvider?.Invoke();
-        if (clipboard == null || clipboard.Pixels.Count == 0)
+        if (!TryGetTransformedPixels(originX, originY, out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels))
         {
             return;
         }
 
-        for (int i = 0; i < clipboard.Pixels.Count; i++)
+        for (int i = 0; i < pixels.Count; i++)
         {
-            ClipboardPixel pixel = clipboard.Pixels[i];
-            int worldX = originX + pixel.X;
-            int worldY = originY + pixel.Y;
+            (int worldX, int worldY, byte colorIndex) = pixels[i];
             if (!CanWriteTo(worldX, worldY))
             {
                 continue;
             }
 
-            _canvas.DrawPixel(worldX, worldY, pixel.ColorIndex);
+            _canvas.DrawPixel(worldX, worldY, colorIndex);
+        }
+    }
+
+    private bool TryGetTransformedPixels(int originX, int originY, out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels)
+    {
+        pixels = null;
+        SelectionClipboard clipboard = _clipboardProvider?.Invoke();
+        if (clipboard == null || clipboard.Pixels.Count == 0)
+        {
+            return false;
+        }
+
+        if (!TryGetClipboardSize(clipboard, out int width, out int height))
+        {
+            return false;
+        }
+
+        pixels = new System.Collections.Generic.List<(int x, int y, byte colorIndex)>(clipboard.Pixels.Count);
+        for (int i = 0; i < clipboard.Pixels.Count; i++)
+        {
+            ClipboardPixel pixel = clipboard.Pixels[i];
+            TransformPixel(pixel.X, pixel.Y, width, height, out int tx, out int ty);
+            pixels.Add((originX + tx, originY + ty, pixel.ColorIndex));
+        }
+
+        return true;
+    }
+
+    private bool TryGetClipboardSize(SelectionClipboard clipboard, out int width, out int height)
+    {
+        width = 0;
+        height = 0;
+        if (clipboard == null || clipboard.Pixels.Count == 0)
+        {
+            return false;
+        }
+
+        int maxX = 0;
+        int maxY = 0;
+        for (int i = 0; i < clipboard.Pixels.Count; i++)
+        {
+            ClipboardPixel pixel = clipboard.Pixels[i];
+            if (pixel.X > maxX) maxX = pixel.X;
+            if (pixel.Y > maxY) maxY = pixel.Y;
+        }
+
+        width = maxX + 1;
+        height = maxY + 1;
+        return width > 0 && height > 0;
+    }
+
+    private void TransformPixel(int x, int y, int width, int height, out int tx, out int ty)
+    {
+        int localX = _flipX ? (width - 1 - x) : x;
+        int localY = _flipY ? (height - 1 - y) : y;
+
+        switch (_rotation)
+        {
+            case StampRotation.Deg90:
+                tx = (height - 1) - localY;
+                ty = localX;
+                break;
+            case StampRotation.Deg180:
+                tx = (width - 1) - localX;
+                ty = (height - 1) - localY;
+                break;
+            case StampRotation.Deg270:
+                tx = localY;
+                ty = (width - 1) - localX;
+                break;
+            default:
+                tx = localX;
+                ty = localY;
+                break;
         }
     }
 

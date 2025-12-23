@@ -13,6 +13,9 @@ public class SelectionOvalTool : ITool
     public event Action PreviewChanged;
 
     public bool HasPreview => _isSelecting;
+    public SelectionMode Mode { get; set; } = SelectionMode.Add;
+    public SelectionSnapMode SnapMode { get; set; } = SelectionSnapMode.Pixel;
+    public int TileSize { get; set; } = 8;
 
     public SelectionOvalTool(PixelSplashCanvas canvas)
     {
@@ -27,11 +30,11 @@ public class SelectionOvalTool : ITool
         }
 
         _isSelecting = true;
-        _isAdd = primary;
-        _startX = x;
-        _startY = y;
-        _currentX = x;
-        _currentY = y;
+        _isAdd = Mode == SelectionMode.Add;
+        _startX = ApplySnap(x);
+        _startY = ApplySnap(y);
+        _currentX = ApplySnap(x);
+        _currentY = ApplySnap(y);
         PreviewChanged?.Invoke();
     }
 
@@ -76,8 +79,8 @@ public class SelectionOvalTool : ITool
             return;
         }
 
-        _currentX = x;
-        _currentY = y;
+        _currentX = ApplySnap(x);
+        _currentY = ApplySnap(y);
         PreviewChanged?.Invoke();
     }
 
@@ -88,5 +91,15 @@ public class SelectionOvalTool : ITool
         endX = _currentX;
         endY = _currentY;
         isAdd = _isAdd;
+    }
+
+    private int ApplySnap(int value)
+    {
+        if (SnapMode == SelectionSnapMode.Tile && TileSize > 1)
+        {
+            return (int)Math.Round(value / (double)TileSize, MidpointRounding.AwayFromZero) * TileSize;
+        }
+
+        return value;
     }
 }

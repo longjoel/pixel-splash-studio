@@ -27,6 +27,12 @@ public class CanvasViewportWidget : DrawingArea
     public event Action<CanvasViewportWidget, bool> TransparentOverwriteToggled;
     public event Action<CanvasViewportWidget, bool> StampOverwriteToggled;
     public event Action<CanvasViewportWidget> ClearSelectionRequested;
+    public event Action<CanvasViewportWidget, SelectionMode> SelectionModeChanged;
+    public event Action<CanvasViewportWidget, SelectionSnapMode> SelectionSnapModeChanged;
+    public event Action<CanvasViewportWidget, StampRotation> StampRotationChanged;
+    public event Action<CanvasViewportWidget, bool> StampFlipXToggled;
+    public event Action<CanvasViewportWidget, bool> StampFlipYToggled;
+    public event Action<CanvasViewportWidget> SelectionCopyRequested;
 
     public CanvasViewport Viewport => _viewport;
 
@@ -431,27 +437,20 @@ public class CanvasViewportWidget : DrawingArea
                 return;
             }
 
-            if (!stampTool.TryGetPreview(out int originX, out int originY, out SelectionClipboard clipboard))
+            if (!stampTool.TryGetPreviewPixels(out List<(int x, int y, byte colorIndex)> pixels))
             {
                 return;
             }
 
             HashSet<(int, int)> previewPixels = new HashSet<(int, int)>();
-            for (int i = 0; i < clipboard.Pixels.Count; i++)
+            for (int i = 0; i < pixels.Count; i++)
             {
-                ClipboardPixel pixel = clipboard.Pixels[i];
-                int worldX = originX + pixel.X;
-                int worldY = originY + pixel.Y;
+                (int worldX, int worldY, byte colorIndex) = pixels[i];
                 if (_viewport.Selection?.HasSelection == true && !_viewport.Selection.IsSelected(worldX, worldY))
                 {
                     continue;
                 }
-                if (!stampTool.CanWriteTo(worldX, worldY))
-                {
-                    continue;
-                }
-
-                int paletteIndex = pixel.ColorIndex;
+                int paletteIndex = colorIndex;
                 if (paletteIndex < 0 || paletteIndex >= _viewport.Palette.Palette.Count)
                 {
                     continue;
@@ -630,7 +629,19 @@ public class CanvasViewportWidget : DrawingArea
         else if (_activeTool is StampTool stampTool)
         {
             menu.Append(new SeparatorMenuItem());
-            AppendStampOptions(menu, stampTool.OverwriteDestination);
+            AppendStampOptions(menu, stampTool);
+            addedOptions = true;
+        }
+        else if (_activeTool is SelectionRectangleTool selectionTool)
+        {
+            menu.Append(new SeparatorMenuItem());
+            AppendSelectionOptions(menu, selectionTool.Mode, selectionTool.SnapMode);
+            addedOptions = true;
+        }
+        else if (_activeTool is SelectionOvalTool selectionOvalTool)
+        {
+            menu.Append(new SeparatorMenuItem());
+            AppendSelectionOptions(menu, selectionOvalTool.Mode, selectionOvalTool.SnapMode);
             addedOptions = true;
         }
 
@@ -668,14 +679,147 @@ public class CanvasViewportWidget : DrawingArea
         menu.Append(overwriteItem);
     }
 
-    private void AppendStampOptions(Menu menu, bool overwriteDestination)
+    private void AppendSelectionOptions(Menu menu, SelectionMode mode, SelectionSnapMode snapMode)
+    {
+        MenuItem copyItem = new MenuItem("Copy Selection");
+        copyItem.Activated += (_, __) => SelectionCopyRequested?.Invoke(this);
+        menu.Append(copyItem);
+        menu.Append(new SeparatorMenuItem());
+
+        RadioMenuItem addItem = new RadioMenuItem("Add to Selection")
+        {
+            Active = mode == SelectionMode.Add
+        };
+        RadioMenuItem subtractItem = new RadioMenuItem(addItem, "Subtract from Selection")
+        {
+            Active = mode == SelectionMode.Subtract
+        };
+
+        addItem.Toggled += (_, __) =>
+        {
+            if (addItem.Active)
+            {
+                SelectionModeChanged?.Invoke(this, SelectionMode.Add);
+            }
+        };
+        subtractItem.Toggled += (_, __) =>
+        {
+            if (subtractItem.Active)
+            {
+                SelectionModeChanged?.Invoke(this, SelectionMode.Subtract);
+            }
+        };
+
+        menu.Append(addItem);
+        menu.Append(subtractItem);
+
+        menu.Append(new SeparatorMenuItem());
+
+        RadioMenuItem snapPixelItem = new RadioMenuItem("Snap to Pixels")
+        {
+            Active = snapMode == SelectionSnapMode.Pixel
+        };
+        RadioMenuItem snapTileItem = new RadioMenuItem(snapPixelItem, "Snap to Tiles")
+        {
+            Active = snapMode == SelectionSnapMode.Tile
+        };
+
+        snapPixelItem.Toggled += (_, __) =>
+        {
+            if (snapPixelItem.Active)
+            {
+                SelectionSnapModeChanged?.Invoke(this, SelectionSnapMode.Pixel);
+            }
+        };
+        snapTileItem.Toggled += (_, __) =>
+        {
+            if (snapTileItem.Active)
+            {
+                SelectionSnapModeChanged?.Invoke(this, SelectionSnapMode.Tile);
+            }
+        };
+
+        menu.Append(snapPixelItem);
+        menu.Append(snapTileItem);
+    }
+
+    private void AppendStampOptions(Menu menu, StampTool stampTool)
     {
         CheckMenuItem overwriteItem = new CheckMenuItem("Overwrite Destination")
         {
-            Active = overwriteDestination
+            Active = stampTool.OverwriteDestination
         };
         overwriteItem.Toggled += (_, __) => StampOverwriteToggled?.Invoke(this, overwriteItem.Active);
         menu.Append(overwriteItem);
+
+        menu.Append(new SeparatorMenuItem());
+
+        RadioMenuItem rotate0Item = new RadioMenuItem("Rotate 0°")
+        {
+            Active = stampTool.Rotation == StampRotation.Deg0
+        };
+        RadioMenuItem rotate90Item = new RadioMenuItem(rotate0Item, "Rotate 90°")
+        {
+            Active = stampTool.Rotation == StampRotation.Deg90
+        };
+        RadioMenuItem rotate180Item = new RadioMenuItem(rotate0Item, "Rotate 180°")
+        {
+            Active = stampTool.Rotation == StampRotation.Deg180
+        };
+        RadioMenuItem rotate270Item = new RadioMenuItem(rotate0Item, "Rotate 270°")
+        {
+            Active = stampTool.Rotation == StampRotation.Deg270
+        };
+
+        rotate0Item.Toggled += (_, __) =>
+        {
+            if (rotate0Item.Active)
+            {
+                StampRotationChanged?.Invoke(this, StampRotation.Deg0);
+            }
+        };
+        rotate90Item.Toggled += (_, __) =>
+        {
+            if (rotate90Item.Active)
+            {
+                StampRotationChanged?.Invoke(this, StampRotation.Deg90);
+            }
+        };
+        rotate180Item.Toggled += (_, __) =>
+        {
+            if (rotate180Item.Active)
+            {
+                StampRotationChanged?.Invoke(this, StampRotation.Deg180);
+            }
+        };
+        rotate270Item.Toggled += (_, __) =>
+        {
+            if (rotate270Item.Active)
+            {
+                StampRotationChanged?.Invoke(this, StampRotation.Deg270);
+            }
+        };
+
+        menu.Append(rotate0Item);
+        menu.Append(rotate90Item);
+        menu.Append(rotate180Item);
+        menu.Append(rotate270Item);
+
+        menu.Append(new SeparatorMenuItem());
+
+        CheckMenuItem flipXItem = new CheckMenuItem("Flip X")
+        {
+            Active = stampTool.FlipX
+        };
+        CheckMenuItem flipYItem = new CheckMenuItem("Flip Y")
+        {
+            Active = stampTool.FlipY
+        };
+        flipXItem.Toggled += (_, __) => StampFlipXToggled?.Invoke(this, flipXItem.Active);
+        flipYItem.Toggled += (_, __) => StampFlipYToggled?.Invoke(this, flipYItem.Active);
+
+        menu.Append(flipXItem);
+        menu.Append(flipYItem);
     }
 
     private void GetToolCoordinates(int screenX, int screenY, out int toolX, out int toolY)

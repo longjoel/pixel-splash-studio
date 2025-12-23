@@ -126,6 +126,14 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkCheckMenuItem" id="_viewToolbarToggle">
+                        <property name="label" translatable="yes">Toolbar Window</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkCheckMenuItem" id="_viewPaletteToggle">
                         <property name="label" translatable="yes">Palette Window</property>
                         <property name="visible">True</property>
