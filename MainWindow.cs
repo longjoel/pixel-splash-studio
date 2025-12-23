@@ -12,6 +12,7 @@ namespace pixel_splash_studio
         [UI] private Box _viewportTab1 = null;
         [UI] private Box _viewportTab2 = null;
         [UI] private Notebook _viewportTabs = null;
+        [UI] private Box _dockToolsHost = null;
         [UI] private MenuItem _toolGrabZoom = null;
         [UI] private MenuItem _toolPen = null;
         [UI] private MenuItem _toolLine = null;
@@ -53,7 +54,8 @@ namespace pixel_splash_studio
         private readonly StampTool _stampTool;
         private readonly OvalTool _ovalTool;
         private readonly FloatingPaletteWidget _paletteWindow;
-        private readonly FloatingToolbarWidget _toolbarWindow;
+        private readonly ToolsPanelWidget _toolbarPanel;
+        private readonly Gtk.Window _toolbarWindow;
         private readonly ViewportTool _viewportTool;
         private readonly CanvasViewportSettings _viewportSettings;
         private readonly AppConfig _config;
@@ -124,31 +126,37 @@ namespace pixel_splash_studio
             _paletteWindow.Show();
             _paletteWindow.DeleteEvent += PaletteWindow_DeleteEvent;
 
-            _toolbarWindow = new FloatingToolbarWidget
+            _toolbarPanel = new ToolsPanelWidget();
+            _toolbarWindow = new Gtk.Window("Tools")
             {
                 TransientFor = this
             };
-            _toolbarWindow.Show();
+            _toolbarWindow.SetDefaultSize(220, 520);
             _toolbarWindow.DeleteEvent += ToolbarWindow_DeleteEvent;
-            _toolbarWindow.GrabZoomRequested += () => ToolGrabZoom_Activated(this, EventArgs.Empty);
-            _toolbarWindow.PenRequested += () => ToolPen_Activated(this, EventArgs.Empty);
-            _toolbarWindow.LineRequested += () => ToolLine_Activated(this, EventArgs.Empty);
-            _toolbarWindow.RectangleRequested += () => ToolRectangle_Activated(this, EventArgs.Empty);
-            _toolbarWindow.OvalRequested += () => ToolOval_Activated(this, EventArgs.Empty);
-            _toolbarWindow.SelectionRequested += () => ToolSelection_Activated(this, EventArgs.Empty);
-            _toolbarWindow.SelectionOvalRequested += () => ToolSelectionOval_Activated(this, EventArgs.Empty);
-            _toolbarWindow.FloodFillRequested += () => ToolFloodFill_Activated(this, EventArgs.Empty);
-            _toolbarWindow.StampRequested += () => ToolStamp_Activated(this, EventArgs.Empty);
-            _toolbarWindow.RectangleFillToggled += SetRectangleFill;
-            _toolbarWindow.TransparentOverwriteToggled += SetTransparentOverwrite;
-            _toolbarWindow.SelectionModeChanged += SetSelectionMode;
-            _toolbarWindow.SelectionSnapModeChanged += SetSelectionSnapMode;
-            _toolbarWindow.StampOverwriteToggled += SetStampOverwrite;
-            _toolbarWindow.StampRotationChanged += SetStampRotation;
-            _toolbarWindow.StampFlipXToggled += SetStampFlipX;
-            _toolbarWindow.StampFlipYToggled += SetStampFlipY;
-            _toolbarWindow.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
+
+            _toolbarPanel.GrabZoomRequested += () => ToolGrabZoom_Activated(this, EventArgs.Empty);
+            _toolbarPanel.PenRequested += () => ToolPen_Activated(this, EventArgs.Empty);
+            _toolbarPanel.LineRequested += () => ToolLine_Activated(this, EventArgs.Empty);
+            _toolbarPanel.RectangleRequested += () => ToolRectangle_Activated(this, EventArgs.Empty);
+            _toolbarPanel.OvalRequested += () => ToolOval_Activated(this, EventArgs.Empty);
+            _toolbarPanel.SelectionRequested += () => ToolSelection_Activated(this, EventArgs.Empty);
+            _toolbarPanel.SelectionOvalRequested += () => ToolSelectionOval_Activated(this, EventArgs.Empty);
+            _toolbarPanel.FloodFillRequested += () => ToolFloodFill_Activated(this, EventArgs.Empty);
+            _toolbarPanel.StampRequested += () => ToolStamp_Activated(this, EventArgs.Empty);
+            _toolbarPanel.RectangleFillToggled += SetRectangleFill;
+            _toolbarPanel.TransparentOverwriteToggled += SetTransparentOverwrite;
+            _toolbarPanel.SelectionModeChanged += SetSelectionMode;
+            _toolbarPanel.SelectionSnapModeChanged += SetSelectionSnapMode;
+            _toolbarPanel.StampOverwriteToggled += SetStampOverwrite;
+            _toolbarPanel.StampRotationChanged += SetStampRotation;
+            _toolbarPanel.StampFlipXToggled += SetStampFlipX;
+            _toolbarPanel.StampFlipYToggled += SetStampFlipY;
+            _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
             UpdateToolbarSelection();
+            if (_viewToolbarToggle != null && _viewToolbarToggle.Active)
+            {
+                DockToolbar();
+            }
 
             _viewportTool.ViewportCreated += HandleViewportCreated;
             _viewportTool.ViewportClosed += HandleViewportClosed;
@@ -300,7 +308,7 @@ namespace pixel_splash_studio
 
         private void UpdateToolbarSelection()
         {
-            if (_toolbarWindow == null)
+            if (_toolbarPanel == null)
             {
                 return;
             }
@@ -308,31 +316,31 @@ namespace pixel_splash_studio
             switch (_activeToolMode)
             {
                 case ToolMode.GrabZoom:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.GrabZoom);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.GrabZoom);
                     break;
                 case ToolMode.Pen:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.Pen);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Pen);
                     break;
                 case ToolMode.Line:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.Line);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Line);
                     break;
                 case ToolMode.Rectangle:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.Rectangle);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Rectangle);
                     break;
                 case ToolMode.Oval:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.Oval);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Oval);
                     break;
                 case ToolMode.Selection:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.Selection);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Selection);
                     break;
                 case ToolMode.SelectionOval:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.SelectionOval);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.SelectionOval);
                     break;
                 case ToolMode.FloodFill:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.FloodFill);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.FloodFill);
                     break;
                 case ToolMode.Stamp:
-                    _toolbarWindow.SetActiveTool(FloatingToolbarWidget.ToolId.Stamp);
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Stamp);
                     break;
             }
         }
@@ -439,18 +447,18 @@ namespace pixel_splash_studio
 
         private void ViewToolbarToggle_Toggled(object sender, EventArgs e)
         {
-            if (_toolbarWindow == null)
+            if (_toolbarPanel == null || _dockToolsHost == null || _toolbarWindow == null)
             {
                 return;
             }
 
             if (_viewToolbarToggle.Active)
             {
-                _toolbarWindow.Show();
+                DockToolbar();
             }
             else
             {
-                _toolbarWindow.Hide();
+                UndockToolbar();
             }
         }
 
@@ -469,11 +477,36 @@ namespace pixel_splash_studio
         {
             if (_viewToolbarToggle != null)
             {
-                _viewToolbarToggle.Active = false;
+                _viewToolbarToggle.Active = true;
             }
 
             _toolbarWindow.Hide();
             e.RetVal = true;
+        }
+
+        private void DockToolbar()
+        {
+            if (_toolbarPanel.Parent is Container parent)
+            {
+                parent.Remove(_toolbarPanel);
+            }
+
+            _dockToolsHost.PackStart(_toolbarPanel, false, false, 0);
+            _toolbarPanel.ShowAll();
+            _dockToolsHost.Visible = true;
+            _toolbarWindow.Hide();
+        }
+
+        private void UndockToolbar()
+        {
+            if (_toolbarPanel.Parent is Container parent)
+            {
+                parent.Remove(_toolbarPanel);
+            }
+
+            _toolbarWindow.Add(_toolbarPanel);
+            _toolbarWindow.ShowAll();
+            _dockToolsHost.Visible = false;
         }
 
         private void HandleViewportCreated(CanvasViewportWidget viewport)
@@ -929,7 +962,7 @@ namespace pixel_splash_studio
 
             _rectangleTool.Fill = isFilled;
             _ovalTool.Fill = isFilled;
-            _toolbarWindow?.SetRectangleOptions(isFilled, _rectangleTool.OverwriteTransparent);
+            _toolbarPanel?.SetRectangleOptions(isFilled, _rectangleTool.OverwriteTransparent);
         }
 
         private void SetTransparentOverwrite(bool isEnabled)
@@ -941,7 +974,7 @@ namespace pixel_splash_studio
 
             _rectangleTool.OverwriteTransparent = isEnabled;
             _ovalTool.OverwriteTransparent = isEnabled;
-            _toolbarWindow?.SetRectangleOptions(_rectangleTool.Fill, isEnabled);
+            _toolbarPanel?.SetRectangleOptions(_rectangleTool.Fill, isEnabled);
         }
 
         private void SetStampOverwrite(bool isEnabled)
@@ -952,7 +985,7 @@ namespace pixel_splash_studio
             }
 
             _stampTool.OverwriteDestination = isEnabled;
-            _toolbarWindow?.SetStampOverwrite(isEnabled);
+            _toolbarPanel?.SetStampOverwrite(isEnabled);
         }
 
         private void Viewport_StampRotationChanged(CanvasViewportWidget viewport, StampRotation rotation)
@@ -978,7 +1011,7 @@ namespace pixel_splash_studio
             }
 
             _stampTool.Rotation = rotation;
-            _toolbarWindow?.SetStampTransform(rotation, _stampTool.FlipX, _stampTool.FlipY);
+            _toolbarPanel?.SetStampTransform(rotation, _stampTool.FlipX, _stampTool.FlipY);
         }
 
         private void SetStampFlipX(bool isEnabled)
@@ -989,7 +1022,7 @@ namespace pixel_splash_studio
             }
 
             _stampTool.FlipX = isEnabled;
-            _toolbarWindow?.SetStampTransform(_stampTool.Rotation, isEnabled, _stampTool.FlipY);
+            _toolbarPanel?.SetStampTransform(_stampTool.Rotation, isEnabled, _stampTool.FlipY);
         }
 
         private void SetStampFlipY(bool isEnabled)
@@ -1000,7 +1033,7 @@ namespace pixel_splash_studio
             }
 
             _stampTool.FlipY = isEnabled;
-            _toolbarWindow?.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, isEnabled);
+            _toolbarPanel?.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, isEnabled);
         }
 
         private void SetSelectionMode(SelectionMode mode)
@@ -1012,7 +1045,7 @@ namespace pixel_splash_studio
 
             _selectionTool.Mode = mode;
             _selectionOvalTool.Mode = mode;
-            _toolbarWindow?.SetSelectionMode(mode);
+            _toolbarPanel?.SetSelectionMode(mode);
         }
 
         private void SetSelectionSnapMode(SelectionSnapMode mode)
@@ -1024,21 +1057,21 @@ namespace pixel_splash_studio
 
             _selectionTool.SnapMode = mode;
             _selectionOvalTool.SnapMode = mode;
-            _toolbarWindow?.SetSelectionSnapMode(mode);
+            _toolbarPanel?.SetSelectionSnapMode(mode);
         }
 
         private void UpdateToolbarOptions()
         {
-            if (_toolbarWindow == null)
+            if (_toolbarPanel == null)
             {
                 return;
             }
 
-            _toolbarWindow.SetRectangleOptions(_rectangleTool.Fill, _rectangleTool.OverwriteTransparent);
-            _toolbarWindow.SetStampOverwrite(_stampTool.OverwriteDestination);
-            _toolbarWindow.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, _stampTool.FlipY);
-            _toolbarWindow.SetSelectionMode(_selectionTool.Mode);
-            _toolbarWindow.SetSelectionSnapMode(_selectionTool.SnapMode);
+            _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, _rectangleTool.OverwriteTransparent);
+            _toolbarPanel.SetStampOverwrite(_stampTool.OverwriteDestination);
+            _toolbarPanel.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, _stampTool.FlipY);
+            _toolbarPanel.SetSelectionMode(_selectionTool.Mode);
+            _toolbarPanel.SetSelectionSnapMode(_selectionTool.SnapMode);
         }
 
         private void Viewport_ClearSelectionRequested(CanvasViewportWidget viewport)

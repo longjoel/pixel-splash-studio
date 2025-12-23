@@ -31,10 +31,10 @@ public class SelectionOvalTool : ITool
 
         _isSelecting = true;
         _isAdd = Mode == SelectionMode.Add;
-        _startX = ApplySnap(x);
-        _startY = ApplySnap(y);
-        _currentX = ApplySnap(x);
-        _currentY = ApplySnap(y);
+        _startX = x;
+        _startY = y;
+        _currentX = x;
+        _currentY = y;
         PreviewChanged?.Invoke();
     }
 
@@ -47,10 +47,7 @@ public class SelectionOvalTool : ITool
 
         _isSelecting = false;
 
-        int minX = Math.Min(_startX, _currentX);
-        int maxX = Math.Max(_startX, _currentX);
-        int minY = Math.Min(_startY, _currentY);
-        int maxY = Math.Max(_startY, _currentY);
+        GetSnappedRect(out int minX, out int minY, out int maxX, out int maxY);
 
         int width = maxX - minX + 1;
         int height = maxY - minY + 1;
@@ -79,27 +76,62 @@ public class SelectionOvalTool : ITool
             return;
         }
 
-        _currentX = ApplySnap(x);
-        _currentY = ApplySnap(y);
+        _currentX = x;
+        _currentY = y;
         PreviewChanged?.Invoke();
     }
 
     public void GetPreviewRect(out int startX, out int startY, out int endX, out int endY, out bool isAdd)
     {
-        startX = _startX;
-        startY = _startY;
-        endX = _currentX;
-        endY = _currentY;
+        GetSnappedRect(out startX, out startY, out endX, out endY);
         isAdd = _isAdd;
     }
 
-    private int ApplySnap(int value)
+    private void GetSnappedRect(out int startX, out int startY, out int endX, out int endY)
     {
+        int minX = Math.Min(_startX, _currentX);
+        int maxX = Math.Max(_startX, _currentX);
+        int minY = Math.Min(_startY, _currentY);
+        int maxY = Math.Max(_startY, _currentY);
+
         if (SnapMode == SelectionSnapMode.Tile && TileSize > 1)
         {
-            return (int)Math.Round(value / (double)TileSize, MidpointRounding.AwayFromZero) * TileSize;
+            minX = FloorToTile(minX, TileSize);
+            minY = FloorToTile(minY, TileSize);
+            maxX = CeilToTile(maxX + 1, TileSize) - 1;
+            maxY = CeilToTile(maxY + 1, TileSize) - 1;
         }
 
-        return value;
+        startX = minX;
+        startY = minY;
+        endX = maxX;
+        endY = maxY;
+    }
+
+    private static int FloorToTile(int value, int tileSize)
+    {
+        int mod = value % tileSize;
+        if (mod < 0)
+        {
+            mod += tileSize;
+        }
+
+        return value - mod;
+    }
+
+    private static int CeilToTile(int value, int tileSize)
+    {
+        int mod = value % tileSize;
+        if (mod < 0)
+        {
+            mod += tileSize;
+        }
+
+        if (mod == 0)
+        {
+            return value;
+        }
+
+        return value + (tileSize - mod);
     }
 }

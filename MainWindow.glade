@@ -127,7 +127,7 @@
                     </child>
                     <child>
                       <object class="GtkCheckMenuItem" id="_viewToolbarToggle">
-                        <property name="label" translatable="yes">Toolbar Window</property>
+                        <property name="label" translatable="yes">Dock Tools</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="active">True</property>
@@ -284,27 +284,51 @@
           </packing>
         </child>
         <child>
-          <object class="GtkNotebook" id="_viewportTabs">
+          <object class="GtkBox" id="_mainContent">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
+            <property name="orientation">horizontal</property>
             <child>
-              <object class="GtkBox" id="_viewportTab1">
+              <object class="GtkBox" id="_dockToolsHost">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <property name="orientation">vertical</property>
               </object>
               <packing>
-                <property name="tab_label">View A</property>
-                <property name="tab_fill">True</property>
+                <property name="expand">False</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
               </packing>
             </child>
             <child>
-              <object class="GtkBox" id="_viewportTab2">
+              <object class="GtkNotebook" id="_viewportTabs">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <child>
+                  <object class="GtkBox" id="_viewportTab1">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                  <packing>
+                    <property name="tab_label">View A</property>
+                    <property name="tab_fill">True</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkBox" id="_viewportTab2">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                  <packing>
+                    <property name="tab_label">View B</property>
+                    <property name="tab_fill">True</property>
+                  </packing>
+                </child>
               </object>
               <packing>
-                <property name="tab_label">View B</property>
-                <property name="tab_fill">True</property>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">1</property>
               </packing>
             </child>
           </object>
