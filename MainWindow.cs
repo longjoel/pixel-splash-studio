@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text.Json;
+using Gdk;
 using Gtk;
 using UI = Gtk.Builder.ObjectAttribute;
 
@@ -165,6 +167,7 @@ namespace pixel_splash_studio
             _toolbarPanel.StampScaleChanged += _appState.SetStampScale;
             _toolbarPanel.StampSnapModeChanged += _appState.SetStampSnapMode;
             _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
+            _toolbarPanel.SelectionExportRequested += () => ExportSelection_Activated(this, EventArgs.Empty);
             _toolbarPanel.PaletteToggleRequested += () =>
             {
                 if (_paletteWindow != null)
@@ -731,6 +734,7 @@ namespace pixel_splash_studio
             viewport.SelectionModeChanged += Viewport_SelectionModeChanged;
             viewport.SelectionSnapModeChanged += Viewport_SelectionSnapModeChanged;
             viewport.SelectionCopyRequested += Viewport_SelectionCopyRequested;
+            viewport.SelectionExportRequested += Viewport_SelectionExportRequested;
         }
 
         private void DetachViewportHandlers(CanvasViewportWidget viewport)
@@ -757,6 +761,7 @@ namespace pixel_splash_studio
             viewport.SelectionModeChanged -= Viewport_SelectionModeChanged;
             viewport.SelectionSnapModeChanged -= Viewport_SelectionSnapModeChanged;
             viewport.SelectionCopyRequested -= Viewport_SelectionCopyRequested;
+            viewport.SelectionExportRequested -= Viewport_SelectionExportRequested;
         }
 
         private void Viewport_DetachRequested(CanvasViewportWidget viewport)
@@ -918,6 +923,68 @@ namespace pixel_splash_studio
             ClearSelection();
             ToolStamp_Activated(this, EventArgs.Empty);
             UpdateEditMenu();
+        }
+
+        private void ExportSelection_Activated(object sender, EventArgs e)
+        {
+            if (!_canvas.Selection.HasSelection)
+            {
+                return;
+            }
+
+            if (!_canvas.Selection.TryGetBounds(out int minX, out int minY, out int maxX, out int maxY))
+            {
+                return;
+            }
+
+            int width = maxX - minX + 1;
+            int height = maxY - minY + 1;
+            if (width <= 0 || height <= 0)
+            {
+                return;
+            }
+
+            FileChooserDialog dialog = new FileChooserDialog(
+                "Export Selection",
+                this,
+                FileChooserAction.Save,
+                "Cancel",
+                ResponseType.Cancel,
+                "Export",
+                ResponseType.Accept);
+            dialog.DoOverwriteConfirmation = true;
+            dialog.CurrentName = "selection.png";
+
+            FileFilter pngFilter = new FileFilter();
+            pngFilter.Name = "PNG files";
+            pngFilter.AddPattern("*.png");
+            dialog.AddFilter(pngFilter);
+
+            FileFilter allFilter = new FileFilter();
+            allFilter.Name = "All files";
+            allFilter.AddPattern("*");
+            dialog.AddFilter(allFilter);
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Accept)
+                {
+                    string filename = dialog.Filename;
+                    if (string.IsNullOrWhiteSpace(System.IO.Path.GetExtension(filename)))
+                    {
+                        filename += ".png";
+                    }
+                    SaveSelectionToPng(filename, minX, minY, width, height);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Export failed: {ex.Message}");
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
         }
 
         private void RedrawAllViewports()
@@ -1163,6 +1230,11 @@ namespace pixel_splash_studio
             EditCopy_Activated(this, EventArgs.Empty);
         }
 
+        private void Viewport_SelectionExportRequested(CanvasViewportWidget viewport)
+        {
+            ExportSelection_Activated(this, EventArgs.Empty);
+        }
+
         private void UpdateWindowTitle()
         {
             string title = "Pixel Splash Studio";
@@ -1198,6 +1270,51 @@ namespace pixel_splash_studio
             catch (Exception ex)
             {
                 ShowError($"Save failed: {ex.Message}");
+            }
+        }
+
+        private void SaveSelectionToPng(string path, int minX, int minY, int width, int height)
+        {
+            if (_palette == null || _palette.Palette == null || _palette.Palette.Count == 0)
+            {
+                return;
+            }
+
+            using (Pixbuf pixbuf = new Pixbuf(Colorspace.Rgb, true, 8, width, height))
+            {
+                int rowstride = pixbuf.Rowstride;
+                int channels = pixbuf.NChannels;
+                byte[] data = new byte[rowstride * height];
+
+                for (int y = 0; y < height; y++)
+                {
+                    int worldY = minY + y;
+                    int rowOffset = y * rowstride;
+                    for (int x = 0; x < width; x++)
+                    {
+                        int worldX = minX + x;
+                        if (!_canvas.Selection.IsSelected(worldX, worldY))
+                        {
+                            continue;
+                        }
+
+                        byte colorIndex = _canvas.GetPixel(worldX, worldY);
+                        if (colorIndex >= _palette.Palette.Count)
+                        {
+                            continue;
+                        }
+
+                        var color = _palette.Palette[colorIndex];
+                        int offset = rowOffset + (x * channels);
+                        data[offset] = color.Item1;
+                        data[offset + 1] = color.Item2;
+                        data[offset + 2] = color.Item3;
+                        data[offset + 3] = color.Item4;
+                    }
+                }
+
+                Marshal.Copy(data, 0, pixbuf.Pixels, data.Length);
+                pixbuf.Save(path, "png");
             }
         }
 

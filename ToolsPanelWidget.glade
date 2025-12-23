@@ -172,6 +172,13 @@
               </object>
             </child>
             <child>
+              <object class="GtkButton" id="_optionSelectionExport">
+                <property name="label" translatable="yes">Export Selection</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+            </child>
+            <child>
               <object class="GtkSeparator">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>

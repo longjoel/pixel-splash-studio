@@ -23,6 +23,7 @@ namespace pixel_splash_studio
         [UI] private CheckButton _optionFillShape = null;
         [UI] private CheckButton _optionTransparentOverwrite = null;
         [UI] private Button _optionSelectionCopy = null;
+        [UI] private Button _optionSelectionExport = null;
         [UI] private RadioButton _optionSelectionAdd = null;
         [UI] private RadioButton _optionSelectionSubtract = null;
         [UI] private RadioButton _optionSnapPixel = null;
@@ -59,6 +60,7 @@ namespace pixel_splash_studio
         public event System.Action<bool> StampFlipXToggled;
         public event System.Action<bool> StampFlipYToggled;
         public event System.Action SelectionCopyRequested;
+        public event System.Action SelectionExportRequested;
         public event System.Action<int> StampScaleChanged;
         public event System.Action<SelectionSnapMode> StampSnapModeChanged;
 
@@ -90,6 +92,7 @@ namespace pixel_splash_studio
             _optionFillShape.Toggled += (_, __) => HandleOptionToggle(() => RectangleFillToggled?.Invoke(_optionFillShape.Active));
             _optionTransparentOverwrite.Toggled += (_, __) => HandleOptionToggle(() => TransparentOverwriteToggled?.Invoke(_optionTransparentOverwrite.Active));
             _optionSelectionCopy.Clicked += (_, __) => SelectionCopyRequested?.Invoke();
+            _optionSelectionExport.Clicked += (_, __) => SelectionExportRequested?.Invoke();
             _optionSelectionAdd.Toggled += (_, __) => HandleSelectionModeToggle();
             _optionSelectionSubtract.Toggled += (_, __) => HandleSelectionModeToggle();
             _optionSnapPixel.Toggled += (_, __) => HandleSelectionSnapToggle();

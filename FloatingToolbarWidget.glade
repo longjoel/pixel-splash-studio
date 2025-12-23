@@ -129,19 +129,26 @@
                 <property name="can_focus">False</property>
                 <property name="orientation">vertical</property>
                 <property name="spacing">4</property>
-                <child>
-                  <object class="GtkButton" id="_optionSelectionCopy">
-                    <property name="label" translatable="yes">Copy Selection</property>
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                  </object>
-                </child>
-                <child>
-                  <object class="GtkSeparator">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                  </object>
-                </child>
+        <child>
+          <object class="GtkButton" id="_optionSelectionCopy">
+            <property name="label" translatable="yes">Copy Selection</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkButton" id="_optionSelectionExport">
+            <property name="label" translatable="yes">Export Selection</property>
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
+        <child>
+          <object class="GtkSeparator">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+          </object>
+        </child>
                 <child>
                   <object class="GtkRadioButton" id="_optionSelectionAdd">
                     <property name="label" translatable="yes">Add to Selection</property>

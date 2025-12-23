@@ -33,6 +33,7 @@ public class CanvasViewportWidget : DrawingArea
     public event Action<CanvasViewportWidget, bool> StampFlipXToggled;
     public event Action<CanvasViewportWidget, bool> StampFlipYToggled;
     public event Action<CanvasViewportWidget> SelectionCopyRequested;
+    public event Action<CanvasViewportWidget> SelectionExportRequested;
     public event Action<CanvasViewportWidget, int> StampScaleChanged;
     public event Action<CanvasViewportWidget, SelectionSnapMode> StampSnapModeChanged;
 
@@ -818,6 +819,11 @@ public class CanvasViewportWidget : DrawingArea
         MenuItem copyItem = new MenuItem("Copy Selection");
         copyItem.Activated += (_, __) => SelectionCopyRequested?.Invoke(this);
         menu.Append(copyItem);
+
+        MenuItem exportItem = new MenuItem("Export Selection");
+        exportItem.Activated += (_, __) => SelectionExportRequested?.Invoke(this);
+        menu.Append(exportItem);
+
         menu.Append(new SeparatorMenuItem());
 
         RadioMenuItem addItem = new RadioMenuItem("Add to Selection")
