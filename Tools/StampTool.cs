@@ -16,6 +16,8 @@ public class StampTool : ITool
     private StampRotation _rotation = StampRotation.Deg0;
     private bool _flipX;
     private bool _flipY;
+    private int _scale = 1;
+    private SelectionSnapMode _snapMode = SelectionSnapMode.Pixel;
 
     public event Action PreviewChanged;
 
@@ -77,6 +79,37 @@ public class StampTool : ITool
             }
 
             _flipY = value;
+            PreviewChanged?.Invoke();
+        }
+    }
+
+    public int Scale
+    {
+        get { return _scale; }
+        set
+        {
+            int next = value < 1 ? 1 : value;
+            if (next == _scale)
+            {
+                return;
+            }
+
+            _scale = next;
+            PreviewChanged?.Invoke();
+        }
+    }
+
+    public SelectionSnapMode SnapMode
+    {
+        get { return _snapMode; }
+        set
+        {
+            if (_snapMode == value)
+            {
+                return;
+            }
+
+            _snapMode = value;
             PreviewChanged?.Invoke();
         }
     }
@@ -227,7 +260,15 @@ public class StampTool : ITool
         {
             ClipboardPixel pixel = clipboard.Pixels[i];
             TransformPixel(pixel.X, pixel.Y, width, height, out int tx, out int ty);
-            pixels.Add((originX + tx, originY + ty, pixel.ColorIndex));
+            int scaledX = tx * _scale;
+            int scaledY = ty * _scale;
+            for (int sy = 0; sy < _scale; sy++)
+            {
+                for (int sx = 0; sx < _scale; sx++)
+                {
+                    pixels.Add((originX + scaledX + sx, originY + scaledY + sy, pixel.ColorIndex));
+                }
+            }
         }
 
         return true;
@@ -303,12 +344,22 @@ public class StampTool : ITool
 
     private int GetTargetX(int x)
     {
-        return _snapToTile ? SnapToTile(x, PixelSplashCanvasChunk.ChunkWidth) : x;
+        if (_snapToTile || _snapMode == SelectionSnapMode.Tile)
+        {
+            return SnapToTile(x, PixelSplashCanvasChunk.ChunkWidth);
+        }
+
+        return x;
     }
 
     private int GetTargetY(int y)
     {
-        return _snapToTile ? SnapToTile(y, PixelSplashCanvasChunk.ChunkHeight) : y;
+        if (_snapToTile || _snapMode == SelectionSnapMode.Tile)
+        {
+            return SnapToTile(y, PixelSplashCanvasChunk.ChunkHeight);
+        }
+
+        return y;
     }
 
     private static int SnapToTile(int value, int tileSize)

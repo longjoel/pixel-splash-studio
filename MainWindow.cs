@@ -151,6 +151,8 @@ namespace pixel_splash_studio
             _toolbarPanel.StampRotationChanged += SetStampRotation;
             _toolbarPanel.StampFlipXToggled += SetStampFlipX;
             _toolbarPanel.StampFlipYToggled += SetStampFlipY;
+            _toolbarPanel.StampScaleChanged += SetStampScale;
+            _toolbarPanel.StampSnapModeChanged += SetStampSnapMode;
             _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
             UpdateToolbarSelection();
             if (_viewToolbarToggle != null && _viewToolbarToggle.Active)
@@ -610,6 +612,8 @@ namespace pixel_splash_studio
             viewport.StampRotationChanged += Viewport_StampRotationChanged;
             viewport.StampFlipXToggled += Viewport_StampFlipXToggled;
             viewport.StampFlipYToggled += Viewport_StampFlipYToggled;
+            viewport.StampScaleChanged += Viewport_StampScaleChanged;
+            viewport.StampSnapModeChanged += Viewport_StampSnapModeChanged;
             viewport.ClearSelectionRequested += Viewport_ClearSelectionRequested;
             viewport.SelectionChanged += Viewport_SelectionChanged;
             viewport.SelectionModeChanged += Viewport_SelectionModeChanged;
@@ -634,6 +638,8 @@ namespace pixel_splash_studio
             viewport.StampRotationChanged -= Viewport_StampRotationChanged;
             viewport.StampFlipXToggled -= Viewport_StampFlipXToggled;
             viewport.StampFlipYToggled -= Viewport_StampFlipYToggled;
+            viewport.StampScaleChanged -= Viewport_StampScaleChanged;
+            viewport.StampSnapModeChanged -= Viewport_StampSnapModeChanged;
             viewport.ClearSelectionRequested -= Viewport_ClearSelectionRequested;
             viewport.SelectionChanged -= Viewport_SelectionChanged;
             viewport.SelectionModeChanged -= Viewport_SelectionModeChanged;
@@ -986,6 +992,7 @@ namespace pixel_splash_studio
 
             _stampTool.OverwriteDestination = isEnabled;
             _toolbarPanel?.SetStampOverwrite(isEnabled);
+            _toolbarPanel?.SetStampScale(_stampTool.Scale);
         }
 
         private void Viewport_StampRotationChanged(CanvasViewportWidget viewport, StampRotation rotation)
@@ -1003,6 +1010,16 @@ namespace pixel_splash_studio
             SetStampFlipY(isEnabled);
         }
 
+        private void Viewport_StampScaleChanged(CanvasViewportWidget viewport, int scale)
+        {
+            SetStampScale(scale);
+        }
+
+        private void Viewport_StampSnapModeChanged(CanvasViewportWidget viewport, SelectionSnapMode mode)
+        {
+            SetStampSnapMode(mode);
+        }
+
         private void SetStampRotation(StampRotation rotation)
         {
             if (_stampTool == null)
@@ -1012,6 +1029,7 @@ namespace pixel_splash_studio
 
             _stampTool.Rotation = rotation;
             _toolbarPanel?.SetStampTransform(rotation, _stampTool.FlipX, _stampTool.FlipY);
+            _toolbarPanel?.SetStampScale(_stampTool.Scale);
         }
 
         private void SetStampFlipX(bool isEnabled)
@@ -1023,6 +1041,7 @@ namespace pixel_splash_studio
 
             _stampTool.FlipX = isEnabled;
             _toolbarPanel?.SetStampTransform(_stampTool.Rotation, isEnabled, _stampTool.FlipY);
+            _toolbarPanel?.SetStampScale(_stampTool.Scale);
         }
 
         private void SetStampFlipY(bool isEnabled)
@@ -1034,6 +1053,29 @@ namespace pixel_splash_studio
 
             _stampTool.FlipY = isEnabled;
             _toolbarPanel?.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, isEnabled);
+            _toolbarPanel?.SetStampScale(_stampTool.Scale);
+        }
+
+        private void SetStampScale(int scale)
+        {
+            if (_stampTool == null)
+            {
+                return;
+            }
+
+            _stampTool.Scale = scale;
+            _toolbarPanel?.SetStampScale(_stampTool.Scale);
+        }
+
+        private void SetStampSnapMode(SelectionSnapMode mode)
+        {
+            if (_stampTool == null)
+            {
+                return;
+            }
+
+            _stampTool.SnapMode = mode;
+            _toolbarPanel?.SetStampSnapMode(mode);
         }
 
         private void SetSelectionMode(SelectionMode mode)
@@ -1070,6 +1112,8 @@ namespace pixel_splash_studio
             _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, _rectangleTool.OverwriteTransparent);
             _toolbarPanel.SetStampOverwrite(_stampTool.OverwriteDestination);
             _toolbarPanel.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, _stampTool.FlipY);
+            _toolbarPanel.SetStampScale(_stampTool.Scale);
+            _toolbarPanel.SetStampSnapMode(_stampTool.SnapMode);
             _toolbarPanel.SetSelectionMode(_selectionTool.Mode);
             _toolbarPanel.SetSelectionSnapMode(_selectionTool.SnapMode);
         }

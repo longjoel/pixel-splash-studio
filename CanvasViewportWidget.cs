@@ -33,6 +33,8 @@ public class CanvasViewportWidget : DrawingArea
     public event Action<CanvasViewportWidget, bool> StampFlipXToggled;
     public event Action<CanvasViewportWidget, bool> StampFlipYToggled;
     public event Action<CanvasViewportWidget> SelectionCopyRequested;
+    public event Action<CanvasViewportWidget, int> StampScaleChanged;
+    public event Action<CanvasViewportWidget, SelectionSnapMode> StampSnapModeChanged;
 
     public CanvasViewport Viewport => _viewport;
 
@@ -751,6 +753,74 @@ public class CanvasViewportWidget : DrawingArea
         };
         overwriteItem.Toggled += (_, __) => StampOverwriteToggled?.Invoke(this, overwriteItem.Active);
         menu.Append(overwriteItem);
+
+        menu.Append(new SeparatorMenuItem());
+
+        RadioMenuItem snapPixelItem = new RadioMenuItem("Snap to Pixels")
+        {
+            Active = stampTool.SnapMode == SelectionSnapMode.Pixel
+        };
+        RadioMenuItem snapTileItem = new RadioMenuItem(snapPixelItem, "Snap to Tiles")
+        {
+            Active = stampTool.SnapMode == SelectionSnapMode.Tile
+        };
+        snapPixelItem.Toggled += (_, __) =>
+        {
+            if (snapPixelItem.Active)
+            {
+                StampSnapModeChanged?.Invoke(this, SelectionSnapMode.Pixel);
+            }
+        };
+        snapTileItem.Toggled += (_, __) =>
+        {
+            if (snapTileItem.Active)
+            {
+                StampSnapModeChanged?.Invoke(this, SelectionSnapMode.Tile);
+            }
+        };
+        menu.Append(snapPixelItem);
+        menu.Append(snapTileItem);
+
+        menu.Append(new SeparatorMenuItem());
+
+        RadioMenuItem scale1Item = new RadioMenuItem("Scale 1x")
+        {
+            Active = stampTool.Scale <= 1
+        };
+        RadioMenuItem scale2Item = new RadioMenuItem(scale1Item, "Scale 2x")
+        {
+            Active = stampTool.Scale == 2
+        };
+        RadioMenuItem scale4Item = new RadioMenuItem(scale1Item, "Scale 4x")
+        {
+            Active = stampTool.Scale == 4
+        };
+
+        scale1Item.Toggled += (_, __) =>
+        {
+            if (scale1Item.Active)
+            {
+                StampScaleChanged?.Invoke(this, 1);
+            }
+        };
+        scale2Item.Toggled += (_, __) =>
+        {
+            if (scale2Item.Active)
+            {
+                StampScaleChanged?.Invoke(this, 2);
+            }
+        };
+        scale4Item.Toggled += (_, __) =>
+        {
+            if (scale4Item.Active)
+            {
+                StampScaleChanged?.Invoke(this, 4);
+            }
+        };
+
+        menu.Append(scale1Item);
+        menu.Append(scale2Item);
+        menu.Append(scale4Item);
 
         menu.Append(new SeparatorMenuItem());
 

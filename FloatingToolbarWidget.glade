@@ -196,6 +196,58 @@
                   </object>
                 </child>
                 <child>
+                  <object class="GtkRadioButton" id="_optionStampSnapPixel">
+                    <property name="label" translatable="yes">Snap to Pixels</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionStampSnapTile">
+                    <property name="label" translatable="yes">Snap to Tiles</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionStampSnapPixel</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparator">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionScale1x">
+                    <property name="label" translatable="yes">Scale 1x</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="active">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionScale2x">
+                    <property name="label" translatable="yes">Scale 2x</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionScale1x</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkRadioButton" id="_optionScale4x">
+                    <property name="label" translatable="yes">Scale 4x</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="group">_optionScale1x</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkSeparator">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                  </object>
+                </child>
+                <child>
                   <object class="GtkRadioButton" id="_optionRotate0">
                     <property name="label" translatable="yes">Rotate 0°</property>
                     <property name="visible">True</property>

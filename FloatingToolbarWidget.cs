@@ -27,6 +27,11 @@ namespace pixel_splash_studio
         [UI] private RadioButton _optionSnapPixel = null;
         [UI] private RadioButton _optionSnapTile = null;
         [UI] private CheckButton _optionStampOverwrite = null;
+        [UI] private RadioButton _optionStampSnapPixel = null;
+        [UI] private RadioButton _optionStampSnapTile = null;
+        [UI] private RadioButton _optionScale1x = null;
+        [UI] private RadioButton _optionScale2x = null;
+        [UI] private RadioButton _optionScale4x = null;
         [UI] private RadioButton _optionRotate0 = null;
         [UI] private RadioButton _optionRotate90 = null;
         [UI] private RadioButton _optionRotate180 = null;
@@ -52,6 +57,8 @@ namespace pixel_splash_studio
         public event System.Action<bool> StampFlipXToggled;
         public event System.Action<bool> StampFlipYToggled;
         public event System.Action SelectionCopyRequested;
+        public event System.Action<int> StampScaleChanged;
+        public event System.Action<SelectionSnapMode> StampSnapModeChanged;
 
         private ToolId _activeTool = ToolId.GrabZoom;
         private bool _suppressToggle;
@@ -85,6 +92,11 @@ namespace pixel_splash_studio
             _optionSnapPixel.Toggled += (_, __) => HandleSelectionSnapToggle();
             _optionSnapTile.Toggled += (_, __) => HandleSelectionSnapToggle();
             _optionStampOverwrite.Toggled += (_, __) => HandleOptionToggle(() => StampOverwriteToggled?.Invoke(_optionStampOverwrite.Active));
+            _optionStampSnapPixel.Toggled += (_, __) => HandleStampSnapToggle();
+            _optionStampSnapTile.Toggled += (_, __) => HandleStampSnapToggle();
+            _optionScale1x.Toggled += (_, __) => HandleScaleToggle();
+            _optionScale2x.Toggled += (_, __) => HandleScaleToggle();
+            _optionScale4x.Toggled += (_, __) => HandleScaleToggle();
             _optionRotate0.Toggled += (_, __) => HandleRotationToggle();
             _optionRotate90.Toggled += (_, __) => HandleRotationToggle();
             _optionRotate180.Toggled += (_, __) => HandleRotationToggle();
@@ -133,6 +145,23 @@ namespace pixel_splash_studio
             _optionRotate270.Active = rotation == StampRotation.Deg270;
             _optionFlipX.Active = flipX;
             _optionFlipY.Active = flipY;
+            _suppressOptionEvents = false;
+        }
+
+        public void SetStampScale(int scale)
+        {
+            _suppressOptionEvents = true;
+            _optionScale1x.Active = scale <= 1;
+            _optionScale2x.Active = scale == 2;
+            _optionScale4x.Active = scale == 4;
+            _suppressOptionEvents = false;
+        }
+
+        public void SetStampSnapMode(SelectionSnapMode mode)
+        {
+            _suppressOptionEvents = true;
+            _optionStampSnapPixel.Active = mode == SelectionSnapMode.Pixel;
+            _optionStampSnapTile.Active = mode == SelectionSnapMode.Tile;
             _suppressOptionEvents = false;
         }
 
@@ -257,6 +286,37 @@ namespace pixel_splash_studio
             }
 
             StampRotationChanged?.Invoke(rotation);
+        }
+
+        private void HandleScaleToggle()
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            int scale = 1;
+            if (_optionScale2x.Active)
+            {
+                scale = 2;
+            }
+            else if (_optionScale4x.Active)
+            {
+                scale = 4;
+            }
+
+            StampScaleChanged?.Invoke(scale);
+        }
+
+        private void HandleStampSnapToggle()
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            SelectionSnapMode mode = _optionStampSnapTile.Active ? SelectionSnapMode.Tile : SelectionSnapMode.Pixel;
+            StampSnapModeChanged?.Invoke(mode);
         }
 
         private void RaiseToolRequested(ToolId tool)
