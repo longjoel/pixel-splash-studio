@@ -1,5 +1,4 @@
 using System;
-using Gdk;
 using pixel_splash_studio;
 
 namespace pixel_splash_studio
@@ -15,29 +14,16 @@ namespace pixel_splash_studio
         /// </summary>
         public static AppState Current { get; set; }
 
-        // ========== COLOR STATE ==========
-        public Color PrimaryColor { get; private set; } = new Color(0, 0, 0);
-        public event Action<Color> PrimaryColorChanged;
+        /// <summary>
+        /// Reference to the palette for color access.
+        /// </summary>
+        public PixelSplashPalette Palette { get; set; }
 
-        public void SetPrimaryColor(Color color)
+        public event Action PaletteColorsChanged;
+
+        public void NotifyPaletteColorsChanged()
         {
-            if (!PrimaryColor.Equals(color))
-            {
-                PrimaryColor = color;
-                PrimaryColorChanged?.Invoke(color);
-            }
-        }
-
-        public Color SecondaryColor { get; private set; } = new Color(255, 255, 255);
-        public event Action<Color> SecondaryColorChanged;
-
-        public void SetSecondaryColor(Color color)
-        {
-            if (!SecondaryColor.Equals(color))
-            {
-                SecondaryColor = color;
-                SecondaryColorChanged?.Invoke(color);
-            }
+            PaletteColorsChanged?.Invoke();
         }
 
         // ========== TOOL STATE ==========

@@ -7,6 +7,7 @@ namespace pixel_splash_studio
         Line,
         Rectangle,
         Selection,
+        SelectionWand,
         FloodFill,
         SelectionOval,
         Stamp,

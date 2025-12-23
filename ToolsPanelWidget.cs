@@ -14,6 +14,7 @@ namespace pixel_splash_studio
         [UI] private ToggleButton _toolRectangle = null;
         [UI] private ToggleButton _toolOval = null;
         [UI] private ToggleButton _toolSelection = null;
+        [UI] private ToggleButton _toolSelectionWand = null;
         [UI] private ToggleButton _toolSelectionOval = null;
         [UI] private ToggleButton _toolFloodFill = null;
         [UI] private ToggleButton _toolStamp = null;
@@ -47,6 +48,7 @@ namespace pixel_splash_studio
         public event System.Action RectangleRequested;
         public event System.Action OvalRequested;
         public event System.Action SelectionRequested;
+        public event System.Action SelectionWandRequested;
         public event System.Action SelectionOvalRequested;
         public event System.Action FloodFillRequested;
         public event System.Action StampRequested;
@@ -88,6 +90,7 @@ namespace pixel_splash_studio
             _toolRectangle.Toggled += (_, __) => HandleToolToggle(ToolId.Rectangle, _toolRectangle);
             _toolOval.Toggled += (_, __) => HandleToolToggle(ToolId.Oval, _toolOval);
             _toolSelection.Toggled += (_, __) => HandleToolToggle(ToolId.Selection, _toolSelection);
+            _toolSelectionWand.Toggled += (_, __) => HandleToolToggle(ToolId.SelectionWand, _toolSelectionWand);
             _toolSelectionOval.Toggled += (_, __) => HandleToolToggle(ToolId.SelectionOval, _toolSelectionOval);
             _toolFloodFill.Toggled += (_, __) => HandleToolToggle(ToolId.FloodFill, _toolFloodFill);
             _toolStamp.Toggled += (_, __) => HandleToolToggle(ToolId.Stamp, _toolStamp);
@@ -231,6 +234,7 @@ namespace pixel_splash_studio
             _toolRectangle.Active = tool == ToolId.Rectangle;
             _toolOval.Active = tool == ToolId.Oval;
             _toolSelection.Active = tool == ToolId.Selection;
+            _toolSelectionWand.Active = tool == ToolId.SelectionWand;
             _toolSelectionOval.Active = tool == ToolId.SelectionOval;
             _toolFloodFill.Active = tool == ToolId.FloodFill;
             _toolStamp.Active = tool == ToolId.Stamp;
@@ -240,7 +244,7 @@ namespace pixel_splash_studio
         private void UpdateOptionsVisibility(ToolId tool)
         {
             bool showRectangle = tool == ToolId.Rectangle || tool == ToolId.Oval;
-            bool showSelection = tool == ToolId.Selection || tool == ToolId.SelectionOval;
+            bool showSelection = tool == ToolId.Selection || tool == ToolId.SelectionOval || tool == ToolId.SelectionWand;
             bool showStamp = tool == ToolId.Stamp;
 
             _rectangleOptions.Visible = showRectangle;
@@ -358,6 +362,9 @@ namespace pixel_splash_studio
                 case ToolId.Selection:
                     SelectionRequested?.Invoke();
                     break;
+                case ToolId.SelectionWand:
+                    SelectionWandRequested?.Invoke();
+                    break;
                 case ToolId.SelectionOval:
                     SelectionOvalRequested?.Invoke();
                     break;
@@ -373,33 +380,37 @@ namespace pixel_splash_studio
         [GLib.ConnectBefore]
         private void OnPrimaryColorDraw(object sender, DrawnArgs args)
         {
-            if (AppState.Current != null)
+            var palette = AppState.Current?.Palette;
+            if (palette != null && palette.PrimaryIndex >= 0 && palette.PrimaryIndex < palette.Palette.Count)
             {
-                DrawColorSwatch(args.Cr, AppState.Current.PrimaryColor);
+                var color = palette.Palette[palette.PrimaryIndex];
+                DrawColorSwatch(args.Cr, color.Item1, color.Item2, color.Item3);
             }
             else
             {
-                DrawColorSwatch(args.Cr, new Gdk.Color(0, 0, 0));
+                DrawColorSwatch(args.Cr, 0, 0, 0);
             }
         }
 
         [GLib.ConnectBefore]
         private void OnSecondaryColorDraw(object sender, DrawnArgs args)
         {
-            if (AppState.Current != null)
+            var palette = AppState.Current?.Palette;
+            if (palette != null && palette.SecondaryIndex >= 0 && palette.SecondaryIndex < palette.Palette.Count)
             {
-                DrawColorSwatch(args.Cr, AppState.Current.SecondaryColor);
+                var color = palette.Palette[palette.SecondaryIndex];
+                DrawColorSwatch(args.Cr, color.Item1, color.Item2, color.Item3);
             }
             else
             {
-                DrawColorSwatch(args.Cr, new Gdk.Color(255, 255, 255));
+                DrawColorSwatch(args.Cr, 255, 255, 255);
             }
         }
 
-        private void DrawColorSwatch(Cairo.Context ctx, Gdk.Color color)
+        private void DrawColorSwatch(Cairo.Context ctx, byte r, byte g, byte b)
         {
             // Draw the color rectangle
-            ctx.SetSourceRGB(color.Red / 65535.0, color.Green / 65535.0, color.Blue / 65535.0);
+            ctx.SetSourceRGB(r / 255.0, g / 255.0, b / 255.0);
             ctx.Rectangle(0, 0, _primaryColorSwatch.AllocatedWidth, _primaryColorSwatch.AllocatedHeight);
             ctx.Fill();
 
@@ -423,6 +434,7 @@ namespace pixel_splash_studio
             Rectangle,
             Oval,
             Selection,
+            SelectionWand,
             SelectionOval,
             FloodFill,
             Stamp

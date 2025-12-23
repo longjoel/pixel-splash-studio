@@ -18,6 +18,7 @@ namespace pixel_splash_studio
         [UI] private MenuItem _toolLine = null;
         [UI] private MenuItem _toolRectangle = null;
         [UI] private MenuItem _toolSelection = null;
+        [UI] private MenuItem _toolSelectionWand = null;
         [UI] private MenuItem _toolFloodFill = null;
         [UI] private MenuItem _toolSelectionOval = null;
         [UI] private MenuItem _toolStamp = null;
@@ -50,6 +51,7 @@ namespace pixel_splash_studio
         private readonly RectangleTool _rectangleTool;
         private readonly SelectionRectangleTool _selectionTool;
         private readonly SelectionOvalTool _selectionOvalTool;
+        private readonly SelectionWandTool _selectionWandTool;
         private readonly FloodFillTool _floodFillTool;
         private readonly StampTool _stampTool;
         private readonly OvalTool _ovalTool;
@@ -85,6 +87,10 @@ namespace pixel_splash_studio
 
             _canvas = new PixelSplashCanvas();
             _palette = new PixelSplashPalette();
+            
+            // Set palette in AppState so color swatches can access it
+            _appState.Palette = _palette;
+            
             InitializePalette(_palette);
             _viewportSettings = new CanvasViewportSettings
             {
@@ -107,6 +113,7 @@ namespace pixel_splash_studio
             _rectangleTool = new RectangleTool(_canvas, _palette);
             _selectionTool = new SelectionRectangleTool(_canvas);
             _selectionOvalTool = new SelectionOvalTool(_canvas);
+            _selectionWandTool = new SelectionWandTool(_canvas);
             _selectionTool.TileSize = _config.TileGridSize;
             _selectionOvalTool.TileSize = _config.TileGridSize;
             _floodFillTool = new FloodFillTool(_canvas, _palette);
@@ -143,6 +150,7 @@ namespace pixel_splash_studio
             _toolbarPanel.RectangleRequested += () => _appState.SetActiveTool(ToolMode.Rectangle);
             _toolbarPanel.OvalRequested += () => _appState.SetActiveTool(ToolMode.Oval);
             _toolbarPanel.SelectionRequested += () => _appState.SetActiveTool(ToolMode.Selection);
+            _toolbarPanel.SelectionWandRequested += () => _appState.SetActiveTool(ToolMode.SelectionWand);
             _toolbarPanel.SelectionOvalRequested += () => _appState.SetActiveTool(ToolMode.SelectionOval);
             _toolbarPanel.FloodFillRequested += () => _appState.SetActiveTool(ToolMode.FloodFill);
             _toolbarPanel.StampRequested += () => _appState.SetActiveTool(ToolMode.Stamp);
@@ -200,6 +208,7 @@ namespace pixel_splash_studio
             {
                 _selectionTool.Mode = mode;
                 _selectionOvalTool.Mode = mode;
+                _selectionWandTool.Mode = mode;
                 foreach (var viewport in _viewports)
                 {
                     viewport.SetSelectionMode(mode);
@@ -210,6 +219,7 @@ namespace pixel_splash_studio
             {
                 _selectionTool.SnapMode = mode;
                 _selectionOvalTool.SnapMode = mode;
+                _selectionWandTool.SnapMode = mode;
                 foreach (var viewport in _viewports)
                 {
                     viewport.SetSelectionSnapMode(mode);
@@ -270,8 +280,7 @@ namespace pixel_splash_studio
                 }
                 _toolbarPanel.SetStampSnapMode(mode);
             };
-            _appState.PrimaryColorChanged += (_) => _toolbarPanel.UpdateColorSwatches();
-            _appState.SecondaryColorChanged += (_) => _toolbarPanel.UpdateColorSwatches();
+            _appState.PaletteColorsChanged += () => _toolbarPanel.UpdateColorSwatches();
 
             // Initialize: Trigger initial state sync by setting the default active tool
             _appState.SetActiveTool(ToolMode.GrabZoom);
@@ -292,6 +301,7 @@ namespace pixel_splash_studio
             _toolLine.Activated += ToolLine_Activated;
             _toolRectangle.Activated += ToolRectangle_Activated;
             _toolSelection.Activated += ToolSelection_Activated;
+            _toolSelectionWand.Activated += ToolSelectionWand_Activated;
             _toolFloodFill.Activated += ToolFloodFill_Activated;
             _toolSelectionOval.Activated += ToolSelectionOval_Activated;
             _toolStamp.Activated += ToolStamp_Activated;
@@ -380,6 +390,11 @@ namespace pixel_splash_studio
             _appState.SetActiveTool(ToolMode.Selection);
         }
 
+        private void ToolSelectionWand_Activated(object sender, EventArgs e)
+        {
+            _appState.SetActiveTool(ToolMode.SelectionWand);
+        }
+
         private void ToolFloodFill_Activated(object sender, EventArgs e)
         {
             _appState.SetActiveTool(ToolMode.FloodFill);
@@ -431,6 +446,9 @@ namespace pixel_splash_studio
                     break;
                 case ToolMode.Selection:
                     _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Selection);
+                    break;
+                case ToolMode.SelectionWand:
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.SelectionWand);
                     break;
                 case ToolMode.SelectionOval:
                     _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.SelectionOval);
@@ -656,6 +674,9 @@ namespace pixel_splash_studio
                     break;
                 case ToolMode.Selection:
                     view.SetActiveTool(_selectionTool);
+                    break;
+                case ToolMode.SelectionWand:
+                    view.SetActiveTool(_selectionWandTool);
                     break;
                 case ToolMode.FloodFill:
                     view.SetActiveTool(_floodFillTool);
@@ -934,7 +955,7 @@ namespace pixel_splash_studio
 
             bool isShape = toolMode == ToolMode.Rectangle || toolMode == ToolMode.Oval;
             bool isStamp = toolMode == ToolMode.Stamp;
-            bool isSelectionTool = toolMode == ToolMode.Selection || toolMode == ToolMode.SelectionOval;
+            bool isSelectionTool = toolMode == ToolMode.Selection || toolMode == ToolMode.SelectionOval || toolMode == ToolMode.SelectionWand;
             bool hasSelection = _canvas.Selection.HasSelection;
             _menuOptions.Sensitive = isShape || isStamp || isSelectionTool || hasSelection;
 

@@ -124,6 +124,10 @@ public class CanvasViewportWidget : DrawingArea
         {
             rectSelTool.Mode = mode;
         }
+        else if (_activeTool is SelectionWandTool wandTool)
+        {
+            wandTool.Mode = mode;
+        }
         else if (_activeTool is SelectionOvalTool ovalSelTool)
         {
             ovalSelTool.Mode = mode;
@@ -138,6 +142,10 @@ public class CanvasViewportWidget : DrawingArea
         if (_activeTool is SelectionRectangleTool rectSelTool)
         {
             rectSelTool.SnapMode = snapMode;
+        }
+        else if (_activeTool is SelectionWandTool wandTool)
+        {
+            wandTool.SnapMode = snapMode;
         }
         else if (_activeTool is SelectionOvalTool ovalSelTool)
         {
@@ -275,7 +283,9 @@ public class CanvasViewportWidget : DrawingArea
                 ToolUseCompleted?.Invoke(this);
             }
 
-            if (_toolManager?.ActiveTool is SelectionRectangleTool || _toolManager?.ActiveTool is SelectionOvalTool)
+            if (_toolManager?.ActiveTool is SelectionRectangleTool ||
+                _toolManager?.ActiveTool is SelectionOvalTool ||
+                _toolManager?.ActiveTool is SelectionWandTool)
             {
                 SelectionChanged?.Invoke(this);
             }
@@ -754,6 +764,12 @@ public class CanvasViewportWidget : DrawingArea
         {
             menu.Append(new SeparatorMenuItem());
             AppendSelectionOptions(menu, selectionTool.Mode, selectionTool.SnapMode);
+            addedOptions = true;
+        }
+        else if (_activeTool is SelectionWandTool selectionWandTool)
+        {
+            menu.Append(new SeparatorMenuItem());
+            AppendSelectionOptions(menu, selectionWandTool.Mode, selectionWandTool.SnapMode);
             addedOptions = true;
         }
         else if (_activeTool is SelectionOvalTool selectionOvalTool)

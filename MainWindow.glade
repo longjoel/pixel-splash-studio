@@ -238,6 +238,13 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="_toolSelectionWand">
+                        <property name="label" translatable="yes">Magic Wand</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkMenuItem" id="_toolFloodFill">
                         <property name="label" translatable="yes">Flood Fill</property>
                         <property name="visible">True</property>
@@ -316,12 +323,12 @@
                 </child>
                 <child>
                   <object class="GtkBox" id="_viewportTab2">
-                    <property name="visible">True</property>
+                    <property name="visible">False</property>
                     <property name="can_focus">False</property>
                   </object>
                   <packing>
                     <property name="tab_label">View B</property>
-                    <property name="tab_fill">True</property>
+                    <property name="tab_fill">False</property>
                   </packing>
                 </child>
               </object>

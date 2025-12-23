@@ -62,7 +62,6 @@ namespace pixel_splash_studio
             {
                 return;
             }
-
             if (!TryGetPaletteIndex(page, pageIndex, args.Event.X, args.Event.Y, out int paletteIndex))
             {
                 return;
@@ -77,6 +76,7 @@ namespace pixel_splash_studio
                 _palette.SecondaryIndex = paletteIndex;
             }
 
+            AppState.Current?.NotifyPaletteColorsChanged();
             QueueRedrawPages();
         }
 

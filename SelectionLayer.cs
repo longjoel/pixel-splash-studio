@@ -31,6 +31,46 @@ public class SelectionLayer
         _shapes.Add(new SelectionShape(x, y, width, height, false, SelectionShapeType.Ellipse));
     }
 
+    public void AddPixelMask(HashSet<(int, int)> pixels)
+    {
+        AddPixelMask(pixels, true);
+    }
+
+    public void SubtractPixelMask(HashSet<(int, int)> pixels)
+    {
+        AddPixelMask(pixels, false);
+    }
+
+    private void AddPixelMask(HashSet<(int, int)> pixels, bool isAdd)
+    {
+        if (pixels == null || pixels.Count == 0)
+        {
+            return;
+        }
+
+        int minX = int.MaxValue;
+        int minY = int.MaxValue;
+        int maxX = int.MinValue;
+        int maxY = int.MinValue;
+
+        foreach ((int x, int y) in pixels)
+        {
+            if (x < minX) minX = x;
+            if (y < minY) minY = y;
+            if (x > maxX) maxX = x;
+            if (y > maxY) maxY = y;
+        }
+
+        int width = maxX - minX + 1;
+        int height = maxY - minY + 1;
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        _shapes.Add(new SelectionShape(minX, minY, width, height, isAdd, SelectionShapeType.Mask, pixels));
+    }
+
     public bool TryGetBounds(out int minX, out int minY, out int maxX, out int maxY)
     {
         minX = 0;
@@ -88,7 +128,8 @@ public class SelectionLayer
     private enum SelectionShapeType
     {
         Rectangle,
-        Ellipse
+        Ellipse,
+        Mask
     }
 
     private struct SelectionShape
@@ -99,6 +140,7 @@ public class SelectionLayer
         public int Height { get; }
         public bool IsAdd { get; }
         public SelectionShapeType ShapeType { get; }
+        public HashSet<(int, int)> Mask { get; }
 
         public SelectionShape(int x, int y, int width, int height, bool isAdd, SelectionShapeType shapeType)
         {
@@ -108,6 +150,18 @@ public class SelectionLayer
             Height = height;
             IsAdd = isAdd;
             ShapeType = shapeType;
+            Mask = null;
+        }
+
+        public SelectionShape(int x, int y, int width, int height, bool isAdd, SelectionShapeType shapeType, HashSet<(int, int)> mask)
+        {
+            X = x;
+            Y = y;
+            Width = width;
+            Height = height;
+            IsAdd = isAdd;
+            ShapeType = shapeType;
+            Mask = mask;
         }
 
         public bool Contains(int x, int y)
@@ -120,6 +174,11 @@ public class SelectionLayer
             if (ShapeType == SelectionShapeType.Rectangle)
             {
                 return true;
+            }
+
+            if (ShapeType == SelectionShapeType.Mask)
+            {
+                return Mask != null && Mask.Contains((x, y));
             }
 
             double rx = Width / 2.0;

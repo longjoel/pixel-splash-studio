@@ -12,6 +12,7 @@ namespace pixel_splash_studio
         [UI] private ToggleButton _toolRectangle = null;
         [UI] private ToggleButton _toolOval = null;
         [UI] private ToggleButton _toolSelection = null;
+        [UI] private ToggleButton _toolSelectionWand = null;
         [UI] private ToggleButton _toolSelectionOval = null;
         [UI] private ToggleButton _toolFloodFill = null;
         [UI] private ToggleButton _toolStamp = null;
@@ -45,6 +46,7 @@ namespace pixel_splash_studio
         public event System.Action RectangleRequested;
         public event System.Action OvalRequested;
         public event System.Action SelectionRequested;
+        public event System.Action SelectionWandRequested;
         public event System.Action SelectionOvalRequested;
         public event System.Action FloodFillRequested;
         public event System.Action StampRequested;
@@ -80,6 +82,7 @@ namespace pixel_splash_studio
             _toolRectangle.Toggled += (_, __) => HandleToolToggle(ToolId.Rectangle, _toolRectangle);
             _toolOval.Toggled += (_, __) => HandleToolToggle(ToolId.Oval, _toolOval);
             _toolSelection.Toggled += (_, __) => HandleToolToggle(ToolId.Selection, _toolSelection);
+            _toolSelectionWand.Toggled += (_, __) => HandleToolToggle(ToolId.SelectionWand, _toolSelectionWand);
             _toolSelectionOval.Toggled += (_, __) => HandleToolToggle(ToolId.SelectionOval, _toolSelectionOval);
             _toolFloodFill.Toggled += (_, __) => HandleToolToggle(ToolId.FloodFill, _toolFloodFill);
             _toolStamp.Toggled += (_, __) => HandleToolToggle(ToolId.Stamp, _toolStamp);
@@ -214,6 +217,7 @@ namespace pixel_splash_studio
             _toolRectangle.Active = tool == ToolId.Rectangle;
             _toolOval.Active = tool == ToolId.Oval;
             _toolSelection.Active = tool == ToolId.Selection;
+            _toolSelectionWand.Active = tool == ToolId.SelectionWand;
             _toolSelectionOval.Active = tool == ToolId.SelectionOval;
             _toolFloodFill.Active = tool == ToolId.FloodFill;
             _toolStamp.Active = tool == ToolId.Stamp;
@@ -223,7 +227,7 @@ namespace pixel_splash_studio
         private void UpdateOptionsVisibility(ToolId tool)
         {
             bool showRectangle = tool == ToolId.Rectangle || tool == ToolId.Oval;
-            bool showSelection = tool == ToolId.Selection || tool == ToolId.SelectionOval;
+            bool showSelection = tool == ToolId.Selection || tool == ToolId.SelectionOval || tool == ToolId.SelectionWand;
             bool showStamp = tool == ToolId.Stamp;
 
             _rectangleOptions.Visible = showRectangle;
@@ -341,6 +345,9 @@ namespace pixel_splash_studio
                 case ToolId.Selection:
                     SelectionRequested?.Invoke();
                     break;
+                case ToolId.SelectionWand:
+                    SelectionWandRequested?.Invoke();
+                    break;
                 case ToolId.SelectionOval:
                     SelectionOvalRequested?.Invoke();
                     break;
@@ -361,6 +368,7 @@ namespace pixel_splash_studio
             Rectangle,
             Oval,
             Selection,
+            SelectionWand,
             SelectionOval,
             FloodFill,
             Stamp

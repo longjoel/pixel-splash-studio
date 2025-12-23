@@ -122,6 +122,23 @@ public class PixelSplashCanvas : ICanvasOperations
         return chunk.Data[chunkPixelY * PixelSplashCanvasChunk.ChunkWidth + chunkPixelX];
     }
 
+    public bool TryGetPixel(int x, int y, out byte colorIndex)
+    {
+        int chunkX = FloorDiv(x, PixelSplashCanvasChunk.ChunkWidth);
+        int chunkY = FloorDiv(y, PixelSplashCanvasChunk.ChunkHeight);
+        int chunkPixelX = PositiveMod(x, PixelSplashCanvasChunk.ChunkWidth);
+        int chunkPixelY = PositiveMod(y, PixelSplashCanvasChunk.ChunkHeight);
+
+        if (!Chunks.TryGetValue((chunkX, chunkY), out PixelSplashCanvasChunk chunk))
+        {
+            colorIndex = 0;
+            return false;
+        }
+
+        colorIndex = chunk.Data[chunkPixelY * PixelSplashCanvasChunk.ChunkWidth + chunkPixelX];
+        return true;
+    }
+
     public void DrawRectangle(int x, int y, int width, int height, byte colorIndex)
     {
         DrawLine(x, y, x + width, y, colorIndex);
