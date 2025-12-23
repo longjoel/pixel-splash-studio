@@ -10,13 +10,19 @@ public class CanvasViewportWidget : DrawingArea
     private ToolManager _toolManager;
     private ITool _activeTool;
     private bool _historyPending;
+    private bool _cursorVisible;
+    private int _cursorWorldX;
+    private int _cursorWorldY;
+    private Cursor _crosshairCursor;
 
     public event Action<CanvasViewportWidget> DetachRequested;
     public event Action<CanvasViewportWidget> ReattachRequested;
     public event Action<CanvasViewportWidget> ToolUseStarted;
     public event Action<CanvasViewportWidget> ToolUseCompleted;
+    public event Action<CanvasViewportWidget> SelectionChanged;
     public event Action<CanvasViewportWidget, bool> RectangleFillToggled;
     public event Action<CanvasViewportWidget, bool> TransparentOverwriteToggled;
+    public event Action<CanvasViewportWidget, bool> StampOverwriteToggled;
     public event Action<CanvasViewportWidget> ClearSelectionRequested;
 
     public CanvasViewport Viewport => _viewport;
@@ -77,11 +83,13 @@ public class CanvasViewportWidget : DrawingArea
     private void ConfigureInput()
     {
         CanFocus = true;
-        AddEvents((int)(EventMask.ButtonPressMask | EventMask.ButtonReleaseMask | EventMask.PointerMotionMask | EventMask.ScrollMask));
+        AddEvents((int)(EventMask.ButtonPressMask | EventMask.ButtonReleaseMask | EventMask.PointerMotionMask | EventMask.ScrollMask | EventMask.EnterNotifyMask | EventMask.LeaveNotifyMask));
         ButtonPressEvent += CanvasViewportWidget_ButtonPressEvent;
         ButtonReleaseEvent += CanvasViewportWidget_ButtonReleaseEvent;
         MotionNotifyEvent += CanvasViewportWidget_MotionNotifyEvent;
         ScrollEvent += CanvasViewportWidget_ScrollEvent;
+        EnterNotifyEvent += CanvasViewportWidget_EnterNotifyEvent;
+        LeaveNotifyEvent += CanvasViewportWidget_LeaveNotifyEvent;
     }
 
     private void CanvasViewportWidget_ButtonPressEvent(object o, ButtonPressEventArgs args)
@@ -105,6 +113,7 @@ public class CanvasViewportWidget : DrawingArea
 
         GrabFocus();
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
+        UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
         bool primary = args.Event.Button == 1;
         _toolManager.BeginUseTool(primary, toolX, toolY);
     }
@@ -114,6 +123,7 @@ public class CanvasViewportWidget : DrawingArea
         if (args.Event.Button == 1 || args.Event.Button == 3)
         {
             GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
+            UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
             bool primary = args.Event.Button == 1;
             _toolManager?.EndUseTool(primary, toolX, toolY);
             if (_historyPending)
@@ -121,11 +131,18 @@ public class CanvasViewportWidget : DrawingArea
                 _historyPending = false;
                 ToolUseCompleted?.Invoke(this);
             }
+
+            if (_toolManager?.ActiveTool is SelectionRectangleTool || _toolManager?.ActiveTool is SelectionOvalTool)
+            {
+                SelectionChanged?.Invoke(this);
+            }
         }
     }
 
     private void CanvasViewportWidget_MotionNotifyEvent(object o, MotionNotifyEventArgs args)
     {
+        UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
+
         if (_toolManager == null || !HasFocus)
         {
             return;
@@ -139,6 +156,23 @@ public class CanvasViewportWidget : DrawingArea
 
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
         _toolManager.UseTool(toolX, toolY);
+        QueueDraw();
+    }
+
+    private void CanvasViewportWidget_EnterNotifyEvent(object o, EnterNotifyEventArgs args)
+    {
+        _cursorVisible = true;
+        EnsureCrosshairCursor();
+        UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
+    }
+
+    private void CanvasViewportWidget_LeaveNotifyEvent(object o, LeaveNotifyEventArgs args)
+    {
+        _cursorVisible = false;
+        if (Window != null)
+        {
+            Window.Cursor = null;
+        }
         QueueDraw();
     }
 
@@ -182,36 +216,35 @@ public class CanvasViewportWidget : DrawingArea
         if (_activeTool is PenTool penTool)
         {
             IReadOnlyList<(int, int)> points = penTool.PreviewPoints;
-            if (points.Count == 0)
+            if (points.Count > 0)
             {
-                return;
+                Tuple<byte, byte, byte, byte> color = penTool.PreviewColor;
+                double alpha = (color.Item4 / 255.0) * 0.4;
+                context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
+                context.LineWidth = _viewport.PixelSize;
+                context.LineCap = LineCap.Square;
+                context.LineJoin = LineJoin.Miter;
+
+                if (points.Count == 1)
+                {
+                    WorldToScreen(points[0].Item1, points[0].Item2, out double screenX, out double screenY);
+                    context.Rectangle(screenX, screenY, _viewport.PixelSize, _viewport.PixelSize);
+                    context.Fill();
+                }
+                else
+                {
+                    WorldToScreen(points[0].Item1, points[0].Item2, out double startX, out double startY);
+                    context.MoveTo(startX + (_viewport.PixelSize / 2.0), startY + (_viewport.PixelSize / 2.0));
+
+                    for (int i = 1; i < points.Count; i++)
+                    {
+                        WorldToScreen(points[i].Item1, points[i].Item2, out double nextX, out double nextY);
+                        context.LineTo(nextX + (_viewport.PixelSize / 2.0), nextY + (_viewport.PixelSize / 2.0));
+                    }
+
+                    context.Stroke();
+                }
             }
-
-            Tuple<byte, byte, byte, byte> color = penTool.PreviewColor;
-            double alpha = (color.Item4 / 255.0) * 0.4;
-            context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
-            context.LineWidth = _viewport.PixelSize;
-            context.LineCap = LineCap.Square;
-            context.LineJoin = LineJoin.Miter;
-
-            if (points.Count == 1)
-            {
-                WorldToScreen(points[0].Item1, points[0].Item2, out double screenX, out double screenY);
-                context.Rectangle(screenX, screenY, _viewport.PixelSize, _viewport.PixelSize);
-                context.Fill();
-                return;
-            }
-
-            WorldToScreen(points[0].Item1, points[0].Item2, out double startX, out double startY);
-            context.MoveTo(startX + (_viewport.PixelSize / 2.0), startY + (_viewport.PixelSize / 2.0));
-
-            for (int i = 1; i < points.Count; i++)
-            {
-                WorldToScreen(points[i].Item1, points[i].Item2, out double nextX, out double nextY);
-                context.LineTo(nextX + (_viewport.PixelSize / 2.0), nextY + (_viewport.PixelSize / 2.0));
-            }
-
-            context.Stroke();
         }
         else if (_activeTool is LineTool lineTool && lineTool.HasPreview)
         {
@@ -376,6 +409,109 @@ public class CanvasViewportWidget : DrawingArea
                 }
             }
         }
+        else if (_activeTool is StampTool stampTool && stampTool.HasPreview)
+        {
+            if (_viewport?.Palette == null)
+            {
+                return;
+            }
+
+            if (!stampTool.TryGetPreview(out int originX, out int originY, out SelectionClipboard clipboard))
+            {
+                return;
+            }
+
+            HashSet<(int, int)> previewPixels = new HashSet<(int, int)>();
+            for (int i = 0; i < clipboard.Pixels.Count; i++)
+            {
+                ClipboardPixel pixel = clipboard.Pixels[i];
+                int worldX = originX + pixel.X;
+                int worldY = originY + pixel.Y;
+                if (_viewport.Selection?.HasSelection == true && !_viewport.Selection.IsSelected(worldX, worldY))
+                {
+                    continue;
+                }
+                if (!stampTool.CanWriteTo(worldX, worldY))
+                {
+                    continue;
+                }
+
+                int paletteIndex = pixel.ColorIndex;
+                if (paletteIndex < 0 || paletteIndex >= _viewport.Palette.Palette.Count)
+                {
+                    continue;
+                }
+
+                Tuple<byte, byte, byte, byte> color = _viewport.Palette.Palette[paletteIndex];
+                double alpha = (color.Item4 / 255.0) * 0.4;
+                context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
+                DrawPreviewPixel(context, worldX, worldY);
+                previewPixels.Add((worldX, worldY));
+            }
+
+            if (previewPixels.Count == 0)
+            {
+                return;
+            }
+
+            double dashOffset = GetMarchingAntsOffset();
+            context.LineWidth = 1.0;
+
+            context.SetSourceRGBA(0, 0, 0, 1);
+            context.SetDash(new double[] { 4, 4 }, dashOffset);
+            DrawStampOutline(context, previewPixels);
+            context.Stroke();
+
+            context.SetSourceRGBA(1, 1, 1, 1);
+            context.SetDash(new double[] { 4, 4 }, dashOffset + 4);
+            DrawStampOutline(context, previewPixels);
+            context.Stroke();
+        }
+
+        DrawVirtualCursor(context);
+    }
+
+    private void DrawStampOutline(Context context, HashSet<(int, int)> pixels)
+    {
+        foreach ((int x, int y) in pixels)
+        {
+            bool top = !pixels.Contains((x, y - 1));
+            bool right = !pixels.Contains((x + 1, y));
+            bool bottom = !pixels.Contains((x, y + 1));
+            bool left = !pixels.Contains((x - 1, y));
+
+            if (!(top || right || bottom || left))
+            {
+                continue;
+            }
+
+            WorldToScreen(x, y, out double screenX, out double screenY);
+            double x0 = screenX + 0.5;
+            double y0 = screenY + 0.5;
+            double x1 = screenX + _viewport.PixelSize + 0.5;
+            double y1 = screenY + _viewport.PixelSize + 0.5;
+
+            if (top)
+            {
+                context.MoveTo(x0, y0);
+                context.LineTo(x1, y0);
+            }
+            if (right)
+            {
+                context.MoveTo(x1, y0);
+                context.LineTo(x1, y1);
+            }
+            if (bottom)
+            {
+                context.MoveTo(x0, y1);
+                context.LineTo(x1, y1);
+            }
+            if (left)
+            {
+                context.MoveTo(x0, y0);
+                context.LineTo(x0, y1);
+            }
+        }
     }
 
     private bool ShouldRecordHistory()
@@ -384,7 +520,8 @@ public class CanvasViewportWidget : DrawingArea
                _toolManager?.ActiveTool is LineTool ||
                _toolManager?.ActiveTool is RectangleTool ||
                _toolManager?.ActiveTool is OvalTool ||
-               _toolManager?.ActiveTool is FloodFillTool;
+               _toolManager?.ActiveTool is FloodFillTool ||
+               (_toolManager?.ActiveTool is StampTool stampTool && stampTool.CanStamp);
     }
 
     private void HandleToolPreviewChanged()
@@ -397,6 +534,28 @@ public class CanvasViewportWidget : DrawingArea
         WorldToScreen(worldX, worldY, out double screenX, out double screenY);
         context.Rectangle(screenX, screenY, _viewport.PixelSize, _viewport.PixelSize);
         context.Fill();
+    }
+
+    private void DrawVirtualCursor(Context context)
+    {
+        if (!_cursorVisible || _viewport == null)
+        {
+            return;
+        }
+
+        WorldToScreen(_cursorWorldX, _cursorWorldY, out double screenX, out double screenY);
+        double x0 = screenX + 0.5;
+        double y0 = screenY + 0.5;
+        double size = _viewport.PixelSize;
+
+        context.LineWidth = 1.0;
+        context.SetSourceRGBA(0, 0, 0, 1);
+        context.Rectangle(x0, y0, size, size);
+        context.Stroke();
+
+        context.SetSourceRGBA(1, 1, 1, 1);
+        context.Rectangle(x0 + 1, y0 + 1, Math.Max(0, size - 2), Math.Max(0, size - 2));
+        context.Stroke();
     }
 
     private static void GetEllipseMetrics(int minX, int maxX, int minY, int maxY, out double centerX, out double centerY, out double rx, out double ry)
@@ -440,19 +599,33 @@ public class CanvasViewportWidget : DrawingArea
             menu.Append(detachItem);
         }
 
+        bool addedOptions = false;
         if (_activeTool is RectangleTool rectangleTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendShapeOptions(menu, rectangleTool.Fill, rectangleTool.OverwriteTransparent);
+            addedOptions = true;
         }
         else if (_activeTool is OvalTool ovalTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendShapeOptions(menu, ovalTool.Fill, ovalTool.OverwriteTransparent);
+            addedOptions = true;
         }
-        else if (_activeTool is SelectionRectangleTool || _activeTool is SelectionOvalTool || (_viewport?.Selection?.HasSelection ?? false))
+        else if (_activeTool is StampTool stampTool)
         {
             menu.Append(new SeparatorMenuItem());
+            AppendStampOptions(menu, stampTool.OverwriteDestination);
+            addedOptions = true;
+        }
+
+        if (_viewport?.Selection?.HasSelection ?? false)
+        {
+            if (!addedOptions)
+            {
+                menu.Append(new SeparatorMenuItem());
+            }
+
             MenuItem clearSelection = new MenuItem("Clear Selection");
             clearSelection.Activated += (_, __) => ClearSelectionRequested?.Invoke(this);
             menu.Append(clearSelection);
@@ -480,6 +653,16 @@ public class CanvasViewportWidget : DrawingArea
         menu.Append(overwriteItem);
     }
 
+    private void AppendStampOptions(Menu menu, bool overwriteDestination)
+    {
+        CheckMenuItem overwriteItem = new CheckMenuItem("Overwrite Destination")
+        {
+            Active = overwriteDestination
+        };
+        overwriteItem.Toggled += (_, __) => StampOverwriteToggled?.Invoke(this, overwriteItem.Active);
+        menu.Append(overwriteItem);
+    }
+
     private void GetToolCoordinates(int screenX, int screenY, out int toolX, out int toolY)
     {
         if (_toolManager?.ActiveTool is GrabAndZoomTool)
@@ -502,14 +685,44 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
-        double viewWidth = AllocatedWidth;
-        double viewHeight = AllocatedHeight;
+        GetViewportBounds(out int startX, out int startY, out _, out _);
+        worldX = startX + (int)Math.Floor(screenX / (double)_viewport.PixelSize);
+        worldY = startY + (int)Math.Floor(screenY / (double)_viewport.PixelSize);
+    }
 
-        double worldXDouble = _viewport.CameraPixelX - (viewWidth / (2.0 * _viewport.PixelSize)) + (screenX / (double)_viewport.PixelSize);
-        double worldYDouble = _viewport.CameraPixelY - (viewHeight / (2.0 * _viewport.PixelSize)) + (screenY / (double)_viewport.PixelSize);
+    private void UpdateCursorPosition(int screenX, int screenY)
+    {
+        if (_viewport == null)
+        {
+            return;
+        }
 
-        worldX = (int)Math.Floor(worldXDouble);
-        worldY = (int)Math.Floor(worldYDouble);
+        ScreenToWorld(screenX, screenY, out int worldX, out int worldY);
+        if (worldX == _cursorWorldX && worldY == _cursorWorldY && _cursorVisible)
+        {
+            return;
+        }
+
+        _cursorWorldX = worldX;
+        _cursorWorldY = worldY;
+        _cursorVisible = true;
+        QueueDraw();
+    }
+
+    private void EnsureCrosshairCursor()
+    {
+        if (Window == null)
+        {
+            return;
+        }
+
+        if (_crosshairCursor == null)
+        {
+            Display display = Window?.Display ?? Display.Default;
+            _crosshairCursor = new Cursor(display, CursorType.Crosshair);
+        }
+
+        Window.Cursor = _crosshairCursor;
     }
 
     private void WorldToScreen(int worldX, int worldY, out double screenX, out double screenY)
@@ -522,10 +735,31 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
+        GetViewportBounds(out int startX, out int startY, out _, out _);
+        screenX = (worldX - startX) * _viewport.PixelSize;
+        screenY = (worldY - startY) * _viewport.PixelSize;
+    }
+
+    private void GetViewportBounds(out int startX, out int startY, out int endX, out int endY)
+    {
+        startX = 0;
+        startY = 0;
+        endX = 0;
+        endY = 0;
+
+        if (_viewport == null || _viewport.PixelSize <= 0 || AllocatedWidth <= 0 || AllocatedHeight <= 0)
+        {
+            return;
+        }
+
         double viewWidth = AllocatedWidth;
         double viewHeight = AllocatedHeight;
+        int viewportPixelWidth = (int)Math.Ceiling(viewWidth / _viewport.PixelSize);
+        int viewportPixelHeight = (int)Math.Ceiling(viewHeight / _viewport.PixelSize);
 
-        screenX = ((worldX - _viewport.CameraPixelX) * _viewport.PixelSize) + (viewWidth / 2.0);
-        screenY = ((worldY - _viewport.CameraPixelY) * _viewport.PixelSize) + (viewHeight / 2.0);
+        startX = _viewport.CameraPixelX - (viewportPixelWidth / 2);
+        startY = _viewport.CameraPixelY - (viewportPixelHeight / 2);
+        endX = startX + viewportPixelWidth - 1;
+        endY = startY + viewportPixelHeight - 1;
     }
 }

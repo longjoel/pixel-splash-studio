@@ -33,6 +33,7 @@ public class CanvasViewport
     }
 
     public SelectionLayer Selection => _canvas?.Selection;
+    public PixelSplashPalette Palette => _palette;
 
     public void SetPixelSize(int pixelSize)
     {
@@ -213,21 +214,26 @@ public class CanvasViewport
         double viewportWidth = x2 - x1;
         double viewportHeight = y2 - y1;
 
-        for (int x = 0; x <= viewportPixelWidth; x++)
+        const int pixelGridMinSize = 10;
+        bool showPixelGrid = _pixelSize >= pixelGridMinSize;
+        if (showPixelGrid)
         {
-            double xPos = (x * _pixelSize) + 0.5;
-            context.MoveTo(xPos, 0);
-            context.LineTo(xPos, viewportHeight);
-        }
+            for (int x = 0; x <= viewportPixelWidth; x++)
+            {
+                double xPos = (x * _pixelSize) + 0.5;
+                context.MoveTo(xPos, 0);
+                context.LineTo(xPos, viewportHeight);
+            }
 
-        for (int y = 0; y <= viewportPixelHeight; y++)
-        {
-            double yPos = (y * _pixelSize) + 0.5;
-            context.MoveTo(0, yPos);
-            context.LineTo(viewportWidth, yPos);
-        }
+            for (int y = 0; y <= viewportPixelHeight; y++)
+            {
+                double yPos = (y * _pixelSize) + 0.5;
+                context.MoveTo(0, yPos);
+                context.LineTo(viewportWidth, yPos);
+            }
 
-        context.Stroke();
+            context.Stroke();
+        }
 
         const int subGridSize = 8;
         SetSourceColorScaled(context, _settings.GridR, _settings.GridG, _settings.GridB, _settings.GridA, 0.75, 1.0);

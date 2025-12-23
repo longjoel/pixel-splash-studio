@@ -87,6 +87,19 @@
                         <property name="can_focus">False</property>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_editSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_editCopy">
+                        <property name="label" translatable="yes">Copy</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -146,6 +159,14 @@
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="active">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckMenuItem" id="_optionStampOverwrite">
+                        <property name="label" translatable="yes">Overwrite Destination</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
                       </object>
                     </child>
                     <child>
@@ -218,6 +239,13 @@
                     <child>
                       <object class="GtkMenuItem" id="_toolSelectionOval">
                         <property name="label" translatable="yes">Selection Oval</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_toolStamp">
+                        <property name="label" translatable="yes">Stamp</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                       </object>
