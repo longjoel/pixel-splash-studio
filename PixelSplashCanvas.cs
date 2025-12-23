@@ -81,20 +81,8 @@ public class PixelSplashCanvas : ICanvasOperations
 
     public void DrawLine(int x1, int y1, int x2, int y2, byte colorIndex)
     {
-        int dx = x2 - x1;
-        int dy = y2 - y1;
-        int steps = System.Math.Max(System.Math.Abs(dx), System.Math.Abs(dy));
-
-        if (steps == 0)
+        foreach ((int x, int y) in LineRasterizer.Rasterize(x1, y1, x2, y2))
         {
-            DrawPixel(x1, y1, colorIndex);
-            return;
-        }
-
-        for (int i = 0; i <= steps; i++)
-        {
-            int x = x1 + (dx * i) / steps;
-            int y = y1 + (dy * i) / steps;
             DrawPixel(x, y, colorIndex);
         }
     }

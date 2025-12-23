@@ -51,7 +51,10 @@ public class LineTool : ITool
             return;
         }
 
-        _canvas.DrawLine(_startX, _startY, _currentX, _currentY, (byte)_palette.PrimaryIndex);
+        foreach ((int px, int py) in LineRasterizer.Rasterize(_startX, _startY, _currentX, _currentY))
+        {
+            _canvas.DrawPixel(px, py, (byte)_palette.PrimaryIndex);
+        }
         _isDrawing = false;
         PreviewChanged?.Invoke();
     }

@@ -247,28 +247,22 @@ public class CanvasViewportWidget : DrawingArea
                 Tuple<byte, byte, byte, byte> color = penTool.PreviewColor;
                 double alpha = (color.Item4 / 255.0) * 0.4;
                 context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
-                context.LineWidth = _viewport.PixelSize;
-                context.LineCap = LineCap.Square;
-                context.LineJoin = LineJoin.Miter;
 
                 if (points.Count == 1)
                 {
-                    WorldToScreen(points[0].Item1, points[0].Item2, out double screenX, out double screenY);
-                    context.Rectangle(screenX, screenY, _viewport.PixelSize, _viewport.PixelSize);
-                    context.Fill();
+                    DrawPreviewPixel(context, points[0].Item1, points[0].Item2);
                 }
                 else
                 {
-                    WorldToScreen(points[0].Item1, points[0].Item2, out double startX, out double startY);
-                    context.MoveTo(startX + (_viewport.PixelSize / 2.0), startY + (_viewport.PixelSize / 2.0));
-
                     for (int i = 1; i < points.Count; i++)
                     {
-                        WorldToScreen(points[i].Item1, points[i].Item2, out double nextX, out double nextY);
-                        context.LineTo(nextX + (_viewport.PixelSize / 2.0), nextY + (_viewport.PixelSize / 2.0));
+                        (int startX, int startY) = points[i - 1];
+                        (int endX, int endY) = points[i];
+                        foreach ((int px, int py) in LineRasterizer.Rasterize(startX, startY, endX, endY))
+                        {
+                            DrawPreviewPixel(context, px, py);
+                        }
                     }
-
-                    context.Stroke();
                 }
             }
         }
@@ -278,15 +272,10 @@ public class CanvasViewportWidget : DrawingArea
             Tuple<byte, byte, byte, byte> color = lineTool.PreviewColor;
             double alpha = (color.Item4 / 255.0) * 0.4;
             context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
-            context.LineWidth = _viewport.PixelSize;
-            context.LineCap = LineCap.Square;
-            context.LineJoin = LineJoin.Miter;
-
-            WorldToScreen(startX, startY, out double screenStartX, out double screenStartY);
-            WorldToScreen(endX, endY, out double screenEndX, out double screenEndY);
-            context.MoveTo(screenStartX + (_viewport.PixelSize / 2.0), screenStartY + (_viewport.PixelSize / 2.0));
-            context.LineTo(screenEndX + (_viewport.PixelSize / 2.0), screenEndY + (_viewport.PixelSize / 2.0));
-            context.Stroke();
+            foreach ((int px, int py) in LineRasterizer.Rasterize(startX, startY, endX, endY))
+            {
+                DrawPreviewPixel(context, px, py);
+            }
         }
         else if (_activeTool is RectangleTool rectangleTool && rectangleTool.HasPreview)
         {

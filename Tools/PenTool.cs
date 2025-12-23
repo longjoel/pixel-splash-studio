@@ -43,9 +43,12 @@ public class PenTool : ITool
     {
         for (int i = 1; i < _points.Count; i++)
         {
-            (int, int) start = _points[i - 1];
-            (int, int) end = _points[i];
-            _canvas.DrawLine(start.Item1, start.Item2, end.Item1, end.Item2, (byte)_palette.PrimaryIndex);
+            (int startX, int startY) = _points[i - 1];
+            (int endX, int endY) = _points[i];
+            foreach ((int px, int py) in LineRasterizer.Rasterize(startX, startY, endX, endY))
+            {
+                _canvas.DrawPixel(px, py, (byte)_palette.PrimaryIndex);
+            }
         }
 
         _points.Clear();
