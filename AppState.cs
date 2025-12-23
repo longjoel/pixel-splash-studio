@@ -1,4 +1,5 @@
 using System;
+using Gdk;
 using pixel_splash_studio;
 
 namespace pixel_splash_studio
@@ -9,6 +10,36 @@ namespace pixel_splash_studio
     /// </summary>
     public class AppState
     {
+        /// <summary>
+        /// Global current AppState instance.
+        /// </summary>
+        public static AppState Current { get; set; }
+
+        // ========== COLOR STATE ==========
+        public Color PrimaryColor { get; private set; } = new Color(0, 0, 0);
+        public event Action<Color> PrimaryColorChanged;
+
+        public void SetPrimaryColor(Color color)
+        {
+            if (!PrimaryColor.Equals(color))
+            {
+                PrimaryColor = color;
+                PrimaryColorChanged?.Invoke(color);
+            }
+        }
+
+        public Color SecondaryColor { get; private set; } = new Color(255, 255, 255);
+        public event Action<Color> SecondaryColorChanged;
+
+        public void SetSecondaryColor(Color color)
+        {
+            if (!SecondaryColor.Equals(color))
+            {
+                SecondaryColor = color;
+                SecondaryColorChanged?.Invoke(color);
+            }
+        }
+
         // ========== TOOL STATE ==========
         public ToolMode ActiveTool { get; private set; } = ToolMode.GrabZoom;
         public event Action<ToolMode> ActiveToolChanged;

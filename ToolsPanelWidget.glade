@@ -8,6 +8,43 @@
     <property name="margin">8</property>
     <property name="spacing">6</property>
     <child>
+      <object class="GtkButton" id="_colorSwatchButton">
+        <property name="visible">True</property>
+        <property name="can_focus">True</property>
+        <property name="receives_default">True</property>
+        <property name="height_request">48</property>
+        <child>
+          <object class="GtkBox">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="spacing">4</property>
+            <child>
+              <object class="GtkDrawingArea" id="_primaryColorSwatch">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="width_request">20</property>
+                <property name="height_request">20</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkDrawingArea" id="_secondaryColorSwatch">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="width_request">20</property>
+                <property name="height_request">20</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+    <child>
+      <object class="GtkSeparator">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+      </object>
+    </child>
+    <child>
       <object class="GtkToggleButton" id="_toolGrabZoom">
         <property name="label" translatable="yes">Grab/Zoom</property>
         <property name="visible">True</property>

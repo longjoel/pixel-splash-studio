@@ -5,6 +5,9 @@ namespace pixel_splash_studio
 {
     class ToolsPanelWidget : Gtk.Box
     {
+        [UI] private Button _colorSwatchButton = null;
+        [UI] private DrawingArea _primaryColorSwatch = null;
+        [UI] private DrawingArea _secondaryColorSwatch = null;
         [UI] private ToggleButton _toolGrabZoom = null;
         [UI] private ToggleButton _toolPen = null;
         [UI] private ToggleButton _toolLine = null;
@@ -47,6 +50,7 @@ namespace pixel_splash_studio
         public event System.Action SelectionOvalRequested;
         public event System.Action FloodFillRequested;
         public event System.Action StampRequested;
+        public event System.Action PaletteToggleRequested;
         public event System.Action<bool> RectangleFillToggled;
         public event System.Action<bool> TransparentOverwriteToggled;
         public event System.Action SelectionCopyRequested;
@@ -70,6 +74,13 @@ namespace pixel_splash_studio
         private ToolsPanelWidget(Builder builder) : base(builder.GetRawOwnedObject("ToolsPanelWidget"))
         {
             builder.Autoconnect(this);
+
+            // Color swatch button wiring
+            _colorSwatchButton.Clicked += (_, __) => PaletteToggleRequested?.Invoke();
+
+            // Setup color swatch drawing areas
+            _primaryColorSwatch.Drawn += OnPrimaryColorDraw;
+            _secondaryColorSwatch.Drawn += OnSecondaryColorDraw;
 
             _toolGrabZoom.Toggled += (_, __) => HandleToolToggle(ToolId.GrabZoom, _toolGrabZoom);
             _toolPen.Toggled += (_, __) => HandleToolToggle(ToolId.Pen, _toolPen);
@@ -357,6 +368,51 @@ namespace pixel_splash_studio
                     StampRequested?.Invoke();
                     break;
             }
+        }
+
+        [GLib.ConnectBefore]
+        private void OnPrimaryColorDraw(object sender, DrawnArgs args)
+        {
+            if (AppState.Current != null)
+            {
+                DrawColorSwatch(args.Cr, AppState.Current.PrimaryColor);
+            }
+            else
+            {
+                DrawColorSwatch(args.Cr, new Gdk.Color(0, 0, 0));
+            }
+        }
+
+        [GLib.ConnectBefore]
+        private void OnSecondaryColorDraw(object sender, DrawnArgs args)
+        {
+            if (AppState.Current != null)
+            {
+                DrawColorSwatch(args.Cr, AppState.Current.SecondaryColor);
+            }
+            else
+            {
+                DrawColorSwatch(args.Cr, new Gdk.Color(255, 255, 255));
+            }
+        }
+
+        private void DrawColorSwatch(Cairo.Context ctx, Gdk.Color color)
+        {
+            // Draw the color rectangle
+            ctx.SetSourceRGB(color.Red / 65535.0, color.Green / 65535.0, color.Blue / 65535.0);
+            ctx.Rectangle(0, 0, _primaryColorSwatch.AllocatedWidth, _primaryColorSwatch.AllocatedHeight);
+            ctx.Fill();
+
+            // Draw border
+            ctx.SetSourceRGB(0.5, 0.5, 0.5);
+            ctx.Rectangle(0, 0, _primaryColorSwatch.AllocatedWidth, _primaryColorSwatch.AllocatedHeight);
+            ctx.Stroke();
+        }
+
+        public void UpdateColorSwatches()
+        {
+            _primaryColorSwatch?.QueueDraw();
+            _secondaryColorSwatch?.QueueDraw();
         }
 
         public enum ToolId

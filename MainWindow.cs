@@ -79,6 +79,9 @@ namespace pixel_splash_studio
             builder.Autoconnect(this);
             AddAccelGroup(_accelGroup);
             _config = config ?? new AppConfig();
+            
+            // Set the global Current instance for access by other components
+            AppState.Current = _appState;
 
             _canvas = new PixelSplashCanvas();
             _palette = new PixelSplashPalette();
@@ -154,6 +157,22 @@ namespace pixel_splash_studio
             _toolbarPanel.StampScaleChanged += _appState.SetStampScale;
             _toolbarPanel.StampSnapModeChanged += _appState.SetStampSnapMode;
             _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
+            _toolbarPanel.PaletteToggleRequested += () =>
+            {
+                if (_paletteWindow != null)
+                {
+                    if (_paletteWindow.Visible)
+                    {
+                        _paletteWindow.Hide();
+                        _viewPaletteToggle.Active = false;
+                    }
+                    else
+                    {
+                        _paletteWindow.Show();
+                        _viewPaletteToggle.Active = true;
+                    }
+                }
+            };
 
             // Wire up CALL DOWN: AppState changes call methods on UI components
             _appState.ActiveToolChanged += (tool) => ApplyToolModeToAllViewsAndToolbar(tool);
@@ -251,6 +270,8 @@ namespace pixel_splash_studio
                 }
                 _toolbarPanel.SetStampSnapMode(mode);
             };
+            _appState.PrimaryColorChanged += (_) => _toolbarPanel.UpdateColorSwatches();
+            _appState.SecondaryColorChanged += (_) => _toolbarPanel.UpdateColorSwatches();
 
             // Initialize: Trigger initial state sync by setting the default active tool
             _appState.SetActiveTool(ToolMode.GrabZoom);
@@ -571,6 +592,7 @@ namespace pixel_splash_studio
 
             _dockToolsHost.PackStart(_toolbarPanel, false, false, 0);
             _toolbarPanel.ShowAll();
+            _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
             _dockToolsHost.Visible = true;
             _toolbarWindow.Hide();
         }
@@ -584,6 +606,7 @@ namespace pixel_splash_studio
 
             _toolbarWindow.Add(_toolbarPanel);
             _toolbarWindow.ShowAll();
+            _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
             _dockToolsHost.Visible = false;
         }
 
