@@ -12,7 +12,7 @@ public class GrabAndZoomTool : ITool
         _viewport = viewport;
     }
 
-    public void BeginUseTool(int x, int y)
+    public void BeginUseTool(bool primary, int x, int y)
     {
         if (_viewport == null)
         {
@@ -25,7 +25,7 @@ public class GrabAndZoomTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public void EndUseTool()
+    public void EndUseTool(bool primary, int x, int y)
     {
         _isPanning = false;
         PreviewChanged?.Invoke();

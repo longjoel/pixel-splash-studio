@@ -24,6 +24,71 @@
                 <property name="label" translatable="yes">File</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="_fileMenu">
+                    <property name="visible">True</property>
+                    <child>
+                      <object class="GtkMenuItem" id="_fileNew">
+                        <property name="label" translatable="yes">New</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_fileOpen">
+                        <property name="label" translatable="yes">Open</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_fileSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_fileSave">
+                        <property name="label" translatable="yes">Save</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_fileSaveAs">
+                        <property name="label" translatable="yes">Save As</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkMenuItem" id="_menuEdit">
+                <property name="label" translatable="yes">Edit</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="_editMenu">
+                    <property name="visible">True</property>
+                    <child>
+                      <object class="GtkMenuItem" id="_editUndo">
+                        <property name="label" translatable="yes">Undo</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_editRedo">
+                        <property name="label" translatable="yes">Redo</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
             <child>
@@ -83,6 +148,19 @@
                         <property name="active">False</property>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionClearSelection">
+                        <property name="label" translatable="yes">Clear Selection</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -119,6 +197,27 @@
                     <child>
                       <object class="GtkMenuItem" id="_toolRectangle">
                         <property name="label" translatable="yes">Rectangle</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_toolSelection">
+                        <property name="label" translatable="yes">Selection</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_toolFloodFill">
+                        <property name="label" translatable="yes">Flood Fill</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_toolSelectionOval">
+                        <property name="label" translatable="yes">Selection Oval</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                       </object>

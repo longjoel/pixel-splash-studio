@@ -34,7 +34,7 @@ public class LineTool : ITool
         _palette = palette;
     }
 
-    public void BeginUseTool(int x, int y)
+    public void BeginUseTool(bool primary, int x, int y)
     {
         _isDrawing = true;
         _startX = x;
@@ -44,7 +44,7 @@ public class LineTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public void EndUseTool()
+    public void EndUseTool(bool primary, int x, int y)
     {
         if (!_isDrawing)
         {

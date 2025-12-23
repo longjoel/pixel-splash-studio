@@ -3,6 +3,7 @@ using System.Collections.Generic;
 public class PixelSplashCanvas : ICanvasOperations
 {
     public Dictionary<(int, int), PixelSplashCanvasChunk> Chunks { get; } = new Dictionary<(int, int), PixelSplashCanvasChunk>();
+    public SelectionLayer Selection { get; } = new SelectionLayer();
 
     private static int FloorDiv(int value, int divisor)
     {
@@ -24,6 +25,37 @@ public class PixelSplashCanvas : ICanvasOperations
     public void ClearCanvas()
     {
        Chunks.Clear();
+    }
+
+    public PixelSplashCanvasSnapshot CreateSnapshot()
+    {
+        var snapshot = new PixelSplashCanvasSnapshot();
+        foreach (var entry in Chunks)
+        {
+            snapshot.Chunks[entry.Key] = (byte[])entry.Value.Data.Clone();
+        }
+
+        return snapshot;
+    }
+
+    public void RestoreSnapshot(PixelSplashCanvasSnapshot snapshot)
+    {
+        Chunks.Clear();
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        foreach (var entry in snapshot.Chunks)
+        {
+            int chunkX = entry.Key.Item1;
+            int chunkY = entry.Key.Item2;
+            var chunk = new PixelSplashCanvasChunk(
+                chunkX * PixelSplashCanvasChunk.ChunkWidth,
+                chunkY * PixelSplashCanvasChunk.ChunkHeight);
+            chunk.Data = (byte[])entry.Value.Clone();
+            Chunks[(chunkX, chunkY)] = chunk;
+        }
     }
 
     public void DrawCircle(int x, int y, int radius, byte colorIndex)
@@ -69,6 +101,11 @@ public class PixelSplashCanvas : ICanvasOperations
 
     public void DrawPixel(int x, int y, byte colorIndex)
     {
+        if (Selection.HasSelection && !Selection.IsSelected(x, y))
+        {
+            return;
+        }
+
         int chunkX = FloorDiv(x, PixelSplashCanvasChunk.ChunkWidth);
         int chunkY = FloorDiv(y, PixelSplashCanvasChunk.ChunkHeight);
         int chunkPixelX = PositiveMod(x, PixelSplashCanvasChunk.ChunkWidth);
@@ -80,6 +117,21 @@ public class PixelSplashCanvas : ICanvasOperations
         }
 
         Chunks[(chunkX, chunkY)].Data[chunkPixelY * PixelSplashCanvasChunk.ChunkWidth + chunkPixelX] = colorIndex;
+    }
+
+    public byte GetPixel(int x, int y)
+    {
+        int chunkX = FloorDiv(x, PixelSplashCanvasChunk.ChunkWidth);
+        int chunkY = FloorDiv(y, PixelSplashCanvasChunk.ChunkHeight);
+        int chunkPixelX = PositiveMod(x, PixelSplashCanvasChunk.ChunkWidth);
+        int chunkPixelY = PositiveMod(y, PixelSplashCanvasChunk.ChunkHeight);
+
+        if (!Chunks.TryGetValue((chunkX, chunkY), out PixelSplashCanvasChunk chunk))
+        {
+            return 0;
+        }
+
+        return chunk.Data[chunkPixelY * PixelSplashCanvasChunk.ChunkWidth + chunkPixelX];
     }
 
     public void DrawRectangle(int x, int y, int width, int height, byte colorIndex)

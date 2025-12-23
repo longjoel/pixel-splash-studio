@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Text.Json;
 using Gtk;
 using UI = Gtk.Builder.ObjectAttribute;
 
 namespace pixel_splash_studio
 {
-    class MainWindow : Window
+    class MainWindow : Gtk.Window
     {
         [UI] private Box _viewportTab1 = null;
         [UI] private Box _viewportTab2 = null;
@@ -14,10 +16,21 @@ namespace pixel_splash_studio
         [UI] private MenuItem _toolPen = null;
         [UI] private MenuItem _toolLine = null;
         [UI] private MenuItem _toolRectangle = null;
+        [UI] private MenuItem _toolSelection = null;
+        [UI] private MenuItem _toolFloodFill = null;
+        [UI] private MenuItem _toolSelectionOval = null;
         [UI] private MenuItem _toolOval = null;
         [UI] private MenuItem _menuOptions = null;
+        [UI] private MenuItem _editUndo = null;
+        [UI] private MenuItem _editRedo = null;
+        [UI] private MenuItem _fileNew = null;
+        [UI] private MenuItem _fileOpen = null;
+        [UI] private MenuItem _fileSave = null;
+        [UI] private MenuItem _fileSaveAs = null;
         [UI] private CheckMenuItem _optionRectangleFill = null;
         [UI] private CheckMenuItem _optionTransparentOverwrite = null;
+        [UI] private MenuItem _optionClearSelection = null;
+        [UI] private SeparatorMenuItem _optionSeparator = null;
         [UI] private CheckMenuItem _viewPaletteToggle = null;
         [UI] private MenuItem _viewNewViewport = null;
 
@@ -30,19 +43,28 @@ namespace pixel_splash_studio
         private readonly PenTool _penTool;
         private readonly LineTool _lineTool;
         private readonly RectangleTool _rectangleTool;
+        private readonly SelectionRectangleTool _selectionTool;
+        private readonly SelectionOvalTool _selectionOvalTool;
+        private readonly FloodFillTool _floodFillTool;
         private readonly OvalTool _ovalTool;
         private readonly FloatingPaletteWidget _paletteWindow;
         private readonly ViewportTool _viewportTool;
         private readonly List<CanvasViewportWidget> _viewports = new List<CanvasViewportWidget>();
-        private readonly Dictionary<Window, CanvasViewportWidget> _detachedViewports = new Dictionary<Window, CanvasViewportWidget>();
+        private readonly Dictionary<Gtk.Window, CanvasViewportWidget> _detachedViewports = new Dictionary<Gtk.Window, CanvasViewportWidget>();
         private ToolMode _activeToolMode = ToolMode.GrabZoom;
         private bool _suppressOptionEvents;
+        private readonly Stack<PixelSplashCanvasSnapshot> _undoStack = new Stack<PixelSplashCanvasSnapshot>();
+        private readonly Stack<PixelSplashCanvasSnapshot> _redoStack = new Stack<PixelSplashCanvasSnapshot>();
+        private PixelSplashCanvasSnapshot _pendingSnapshot;
+        private readonly AccelGroup _accelGroup = new AccelGroup();
+        private string _currentFilePath;
 
         public MainWindow() : this(new Builder("MainWindow.glade")) { }
 
         private MainWindow(Builder builder) : base(builder.GetRawOwnedObject("MainWindow"))
         {
             builder.Autoconnect(this);
+            AddAccelGroup(_accelGroup);
 
             _canvas = new PixelSplashCanvas();
             _palette = new PixelSplashPalette();
@@ -61,6 +83,9 @@ namespace pixel_splash_studio
             _penTool = new PenTool(_viewA.Viewport, _canvas, _palette);
             _lineTool = new LineTool(_canvas, _palette);
             _rectangleTool = new RectangleTool(_canvas, _palette);
+            _selectionTool = new SelectionRectangleTool(_canvas);
+            _selectionOvalTool = new SelectionOvalTool(_canvas);
+            _floodFillTool = new FloodFillTool(_canvas, _palette);
             _ovalTool = new OvalTool(_canvas, _palette);
             _viewportTool = new ViewportTool(_canvas, _palette);
 
@@ -86,13 +111,37 @@ namespace pixel_splash_studio
             _toolPen.Activated += ToolPen_Activated;
             _toolLine.Activated += ToolLine_Activated;
             _toolRectangle.Activated += ToolRectangle_Activated;
+            _toolSelection.Activated += ToolSelection_Activated;
+            _toolFloodFill.Activated += ToolFloodFill_Activated;
+            _toolSelectionOval.Activated += ToolSelectionOval_Activated;
             _toolOval.Activated += ToolOval_Activated;
             _viewNewViewport.Activated += ToolNewViewport_Activated;
+            _editUndo.Activated += EditUndo_Activated;
+            _editRedo.Activated += EditRedo_Activated;
+            _fileNew.Activated += FileNew_Activated;
+            _fileOpen.Activated += FileOpen_Activated;
+            _fileSave.Activated += FileSave_Activated;
+            _fileSaveAs.Activated += FileSaveAs_Activated;
             _viewPaletteToggle.Toggled += ViewPaletteToggle_Toggled;
             _optionRectangleFill.Toggled += OptionRectangleFill_Toggled;
             _optionTransparentOverwrite.Toggled += OptionTransparentOverwrite_Toggled;
+            _optionClearSelection.Activated += OptionClearSelection_Activated;
+
+            _editUndo.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.z, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
+            _editRedo.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.y, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
+            _fileNew.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.n, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
+            _fileOpen.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.o, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
+            _fileSave.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.s, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
+            _fileSaveAs.AddAccelerator(
+                "activate",
+                _accelGroup,
+                (uint)Gdk.Key.s,
+                Gdk.ModifierType.ControlMask | Gdk.ModifierType.ShiftMask,
+                AccelFlags.Visible);
 
             UpdateOptionsMenu();
+            UpdateEditMenu();
+            UpdateWindowTitle();
 
             DeleteEvent += Window_DeleteEvent;
         }
@@ -146,6 +195,27 @@ namespace pixel_splash_studio
             UpdateOptionsMenu();
         }
 
+        private void ToolSelection_Activated(object sender, EventArgs e)
+        {
+            _activeToolMode = ToolMode.Selection;
+            ApplyToolModeToAllViews();
+            UpdateOptionsMenu();
+        }
+
+        private void ToolFloodFill_Activated(object sender, EventArgs e)
+        {
+            _activeToolMode = ToolMode.FloodFill;
+            ApplyToolModeToAllViews();
+            UpdateOptionsMenu();
+        }
+
+        private void ToolSelectionOval_Activated(object sender, EventArgs e)
+        {
+            _activeToolMode = ToolMode.SelectionOval;
+            ApplyToolModeToAllViews();
+            UpdateOptionsMenu();
+        }
+
         private void ToolOval_Activated(object sender, EventArgs e)
         {
             _activeToolMode = ToolMode.Oval;
@@ -156,6 +226,89 @@ namespace pixel_splash_studio
         private void ToolNewViewport_Activated(object sender, EventArgs e)
         {
             _viewportTool.OpenViewportWindow(this);
+        }
+
+        private void FileNew_Activated(object sender, EventArgs e)
+        {
+            _canvas.ClearCanvas();
+            _undoStack.Clear();
+            _redoStack.Clear();
+            _pendingSnapshot = null;
+            _currentFilePath = null;
+            UpdateEditMenu();
+            UpdateWindowTitle();
+            RedrawAllViewports();
+        }
+
+        private void FileSave_Activated(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(_currentFilePath))
+            {
+                FileSaveAs_Activated(sender, e);
+                return;
+            }
+
+            SaveCanvasToFile(_currentFilePath);
+        }
+
+        private void FileOpen_Activated(object sender, EventArgs e)
+        {
+            FileChooserDialog dialog = new FileChooserDialog(
+                "Open Canvas",
+                this,
+                FileChooserAction.Open,
+                "Cancel",
+                ResponseType.Cancel,
+                "Open",
+                ResponseType.Accept);
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Accept)
+                {
+                    LoadCanvasFromFile(dialog.Filename);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Open failed: {ex.Message}");
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
+        }
+
+        private void FileSaveAs_Activated(object sender, EventArgs e)
+        {
+            FileChooserDialog dialog = new FileChooserDialog(
+                "Save Canvas",
+                this,
+                FileChooserAction.Save,
+                "Cancel",
+                ResponseType.Cancel,
+                "Save",
+                ResponseType.Accept);
+            dialog.DoOverwriteConfirmation = true;
+            dialog.CurrentName = "canvas.pss";
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Accept)
+                {
+                    _currentFilePath = dialog.Filename;
+                    SaveCanvasToFile(_currentFilePath);
+                    UpdateWindowTitle();
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Save failed: {ex.Message}");
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
         }
 
         private void ViewPaletteToggle_Toggled(object sender, EventArgs e)
@@ -225,6 +378,15 @@ namespace pixel_splash_studio
                 case ToolMode.Rectangle:
                     view.SetActiveTool(_rectangleTool);
                     break;
+                case ToolMode.Selection:
+                    view.SetActiveTool(_selectionTool);
+                    break;
+                case ToolMode.FloodFill:
+                    view.SetActiveTool(_floodFillTool);
+                    break;
+                case ToolMode.SelectionOval:
+                    view.SetActiveTool(_selectionOvalTool);
+                    break;
                 case ToolMode.Oval:
                     view.SetActiveTool(_ovalTool);
                     break;
@@ -251,6 +413,9 @@ namespace pixel_splash_studio
             Pen,
             Line,
             Rectangle,
+            Selection,
+            FloodFill,
+            SelectionOval,
             Oval
         }
 
@@ -263,6 +428,11 @@ namespace pixel_splash_studio
 
             viewport.DetachRequested += Viewport_DetachRequested;
             viewport.ReattachRequested += Viewport_ReattachRequested;
+            viewport.ToolUseStarted += Viewport_ToolUseStarted;
+            viewport.ToolUseCompleted += Viewport_ToolUseCompleted;
+            viewport.RectangleFillToggled += Viewport_RectangleFillToggled;
+            viewport.TransparentOverwriteToggled += Viewport_TransparentOverwriteToggled;
+            viewport.ClearSelectionRequested += Viewport_ClearSelectionRequested;
         }
 
         private void DetachViewportHandlers(CanvasViewportWidget viewport)
@@ -274,6 +444,11 @@ namespace pixel_splash_studio
 
             viewport.DetachRequested -= Viewport_DetachRequested;
             viewport.ReattachRequested -= Viewport_ReattachRequested;
+            viewport.ToolUseStarted -= Viewport_ToolUseStarted;
+            viewport.ToolUseCompleted -= Viewport_ToolUseCompleted;
+            viewport.RectangleFillToggled -= Viewport_RectangleFillToggled;
+            viewport.TransparentOverwriteToggled -= Viewport_TransparentOverwriteToggled;
+            viewport.ClearSelectionRequested -= Viewport_ClearSelectionRequested;
         }
 
         private void Viewport_DetachRequested(CanvasViewportWidget viewport)
@@ -283,7 +458,7 @@ namespace pixel_splash_studio
                 return;
             }
 
-            if (viewport.Parent is Window)
+            if (viewport.Parent is Gtk.Window)
             {
                 return;
             }
@@ -311,7 +486,7 @@ namespace pixel_splash_studio
                 }
             }
 
-            Window window = new Window("Viewport");
+            Gtk.Window window = new Gtk.Window("Viewport");
             window.SetDefaultSize(640, 480);
             window.TransientFor = this;
             window.Add(viewport);
@@ -322,7 +497,7 @@ namespace pixel_splash_studio
 
         private void DetachedWindow_DeleteEvent(object sender, DeleteEventArgs args)
         {
-            if (sender is Window window && _detachedViewports.TryGetValue(window, out CanvasViewportWidget viewport))
+            if (sender is Gtk.Window window && _detachedViewports.TryGetValue(window, out CanvasViewportWidget viewport))
             {
                 _detachedViewports.Remove(window);
                 _viewports.Remove(viewport);
@@ -339,7 +514,7 @@ namespace pixel_splash_studio
                 return;
             }
 
-            if (!(viewport.Parent is Window window))
+            if (!(viewport.Parent is Gtk.Window window))
             {
                 return;
             }
@@ -356,15 +531,88 @@ namespace pixel_splash_studio
             container.ShowAll();
         }
 
+        private void Viewport_ToolUseStarted(CanvasViewportWidget viewport)
+        {
+            _pendingSnapshot = _canvas.CreateSnapshot();
+        }
+
+        private void Viewport_ToolUseCompleted(CanvasViewportWidget viewport)
+        {
+            if (_pendingSnapshot == null)
+            {
+                return;
+            }
+
+            _undoStack.Push(_pendingSnapshot);
+            _pendingSnapshot = null;
+            _redoStack.Clear();
+            UpdateEditMenu();
+        }
+
+        private void EditUndo_Activated(object sender, EventArgs e)
+        {
+            if (_undoStack.Count == 0)
+            {
+                return;
+            }
+
+            _redoStack.Push(_canvas.CreateSnapshot());
+            _canvas.RestoreSnapshot(_undoStack.Pop());
+            RedrawAllViewports();
+            UpdateEditMenu();
+        }
+
+        private void EditRedo_Activated(object sender, EventArgs e)
+        {
+            if (_redoStack.Count == 0)
+            {
+                return;
+            }
+
+            _undoStack.Push(_canvas.CreateSnapshot());
+            _canvas.RestoreSnapshot(_redoStack.Pop());
+            RedrawAllViewports();
+            UpdateEditMenu();
+        }
+
+        private void RedrawAllViewports()
+        {
+            for (int i = 0; i < _viewports.Count; i++)
+            {
+                _viewports[i].QueueDraw();
+            }
+        }
+
+        private void UpdateEditMenu()
+        {
+            if (_editUndo != null)
+            {
+                _editUndo.Sensitive = _undoStack.Count > 0;
+            }
+
+            if (_editRedo != null)
+            {
+                _editRedo.Sensitive = _redoStack.Count > 0;
+            }
+        }
+
         private void UpdateOptionsMenu()
         {
-            if (_menuOptions == null || _rectangleTool == null || _ovalTool == null)
+            if (_menuOptions == null || _rectangleTool == null || _ovalTool == null || _optionClearSelection == null || _optionSeparator == null)
             {
                 return;
             }
 
             bool isShape = _activeToolMode == ToolMode.Rectangle || _activeToolMode == ToolMode.Oval;
-            _menuOptions.Sensitive = isShape;
+            bool isSelectionTool = _activeToolMode == ToolMode.Selection;
+            bool hasSelection = _canvas.Selection.HasSelection;
+            _menuOptions.Sensitive = isShape || isSelectionTool || hasSelection;
+
+            _optionRectangleFill.Visible = isShape;
+            _optionTransparentOverwrite.Visible = isShape;
+            _optionSeparator.Visible = isSelectionTool || hasSelection;
+            _optionClearSelection.Visible = isSelectionTool || hasSelection;
+            _optionClearSelection.Sensitive = hasSelection;
 
             _suppressOptionEvents = true;
             if (_activeToolMode == ToolMode.Oval)
@@ -378,6 +626,13 @@ namespace pixel_splash_studio
                 _optionTransparentOverwrite.Active = _rectangleTool.OverwriteTransparent;
             }
             _suppressOptionEvents = false;
+        }
+
+        private void ClearSelection()
+        {
+            _canvas.Selection.Clear();
+            UpdateOptionsMenu();
+            RedrawAllViewports();
         }
 
         private void OptionRectangleFill_Toggled(object sender, EventArgs e)
@@ -400,6 +655,151 @@ namespace pixel_splash_studio
 
             _rectangleTool.OverwriteTransparent = _optionTransparentOverwrite.Active;
             _ovalTool.OverwriteTransparent = _optionTransparentOverwrite.Active;
+        }
+
+        private void OptionClearSelection_Activated(object sender, EventArgs e)
+        {
+            ClearSelection();
+        }
+
+        private void Viewport_RectangleFillToggled(CanvasViewportWidget viewport, bool isFilled)
+        {
+            if (_rectangleTool == null || _ovalTool == null)
+            {
+                return;
+            }
+
+            _suppressOptionEvents = true;
+            _optionRectangleFill.Active = isFilled;
+            _suppressOptionEvents = false;
+
+            _rectangleTool.Fill = isFilled;
+            _ovalTool.Fill = isFilled;
+        }
+
+        private void Viewport_TransparentOverwriteToggled(CanvasViewportWidget viewport, bool isEnabled)
+        {
+            if (_rectangleTool == null || _ovalTool == null)
+            {
+                return;
+            }
+
+            _suppressOptionEvents = true;
+            _optionTransparentOverwrite.Active = isEnabled;
+            _suppressOptionEvents = false;
+
+            _rectangleTool.OverwriteTransparent = isEnabled;
+            _ovalTool.OverwriteTransparent = isEnabled;
+        }
+
+        private void Viewport_ClearSelectionRequested(CanvasViewportWidget viewport)
+        {
+            ClearSelection();
+        }
+
+        private void UpdateWindowTitle()
+        {
+            string title = "Pixel Splash Studio";
+            if (!string.IsNullOrWhiteSpace(_currentFilePath))
+            {
+                title += $" - {System.IO.Path.GetFileName(_currentFilePath)}";
+            }
+
+            Title = title;
+        }
+
+        private void SaveCanvasToFile(string path)
+        {
+            try
+            {
+                CanvasFileData data = new CanvasFileData();
+                foreach (var entry in _canvas.Chunks)
+                {
+                    data.Chunks.Add(new CanvasChunkData
+                    {
+                        ChunkX = entry.Key.Item1,
+                        ChunkY = entry.Key.Item2,
+                        Data = (byte[])entry.Value.Data.Clone()
+                    });
+                }
+
+                string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
+                {
+                    WriteIndented = true
+                });
+                File.WriteAllText(path, json);
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Save failed: {ex.Message}");
+            }
+        }
+
+        private void LoadCanvasFromFile(string path)
+        {
+            try
+            {
+                string json = File.ReadAllText(path);
+                CanvasFileData data = JsonSerializer.Deserialize<CanvasFileData>(json);
+                _canvas.ClearCanvas();
+
+                if (data?.Chunks != null)
+                {
+                    foreach (CanvasChunkData chunkData in data.Chunks)
+                    {
+                        int chunkX = chunkData.ChunkX;
+                        int chunkY = chunkData.ChunkY;
+                        var chunk = new PixelSplashCanvasChunk(
+                            chunkX * PixelSplashCanvasChunk.ChunkWidth,
+                            chunkY * PixelSplashCanvasChunk.ChunkHeight);
+                        chunk.Data = chunkData.Data ?? new byte[PixelSplashCanvasChunk.ChunkWidth * PixelSplashCanvasChunk.ChunkHeight];
+                        _canvas.Chunks[(chunkX, chunkY)] = chunk;
+                    }
+                }
+
+                _undoStack.Clear();
+                _redoStack.Clear();
+                _pendingSnapshot = null;
+                _currentFilePath = path;
+                UpdateEditMenu();
+                UpdateWindowTitle();
+                RedrawAllViewports();
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Open failed: {ex.Message}");
+            }
+        }
+
+        private void ShowError(string message)
+        {
+            MessageDialog dialog = new MessageDialog(
+                this,
+                DialogFlags.Modal,
+                MessageType.Error,
+                ButtonsType.Ok,
+                message);
+            try
+            {
+                dialog.Run();
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
+        }
+
+
+        private class CanvasFileData
+        {
+            public List<CanvasChunkData> Chunks { get; set; } = new List<CanvasChunkData>();
+        }
+
+        private class CanvasChunkData
+        {
+            public int ChunkX { get; set; }
+            public int ChunkY { get; set; }
+            public byte[] Data { get; set; }
         }
     }
 }

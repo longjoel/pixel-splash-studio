@@ -80,7 +80,7 @@ public class RectangleTool : ITool
         _palette = palette;
     }
 
-    public void BeginUseTool(int x, int y)
+    public void BeginUseTool(bool primary, int x, int y)
     {
         _isDrawing = true;
         _startX = x;
@@ -90,7 +90,7 @@ public class RectangleTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public void EndUseTool()
+    public void EndUseTool(bool primary, int endX, int endY)
     {
         if (!_isDrawing)
         {

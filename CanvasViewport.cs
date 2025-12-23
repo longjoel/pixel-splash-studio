@@ -32,6 +32,8 @@ public class CanvasViewport
         _settings = settings ?? new CanvasViewportSettings();
     }
 
+    public SelectionLayer Selection => _canvas?.Selection;
+
     public void SetPixelSize(int pixelSize)
     {
         _pixelSize = pixelSize;
@@ -180,6 +182,30 @@ public class CanvasViewport
             }
         }
 
+        if (_canvas.Selection.HasSelection)
+        {
+            context.Save();
+            context.SetSourceRGBA(0.85, 0.85, 0.85, 0.5);
+
+            for (int worldY = startY; worldY <= endY; worldY++)
+            {
+                double destY = (worldY - startY) * _pixelSize;
+                for (int worldX = startX; worldX <= endX; worldX++)
+                {
+                    if (_canvas.Selection.IsSelected(worldX, worldY))
+                    {
+                        continue;
+                    }
+
+                    double destX = (worldX - startX) * _pixelSize;
+                    context.Rectangle(destX, destY, _pixelSize, _pixelSize);
+                }
+            }
+
+            context.Fill();
+            context.Restore();
+        }
+
         context.Save();
         SetSourceColor(context, _settings.GridR, _settings.GridG, _settings.GridB, _settings.GridA);
         context.LineWidth = 1.0;
@@ -243,5 +269,65 @@ public class CanvasViewport
 
         context.Stroke();
         context.Restore();
+
+        if (_canvas.Selection.HasSelection)
+        {
+            DrawSelectionMarchingAnts(context, startX, startY, endX, endY);
+        }
+    }
+
+    private void DrawSelectionMarchingAnts(Context context, int startX, int startY, int endX, int endY)
+    {
+        context.Save();
+        context.LineWidth = 1.0;
+        double dashOffset = GetMarchingAntsOffset();
+
+        context.SetSourceRGBA(0, 0, 0, 1);
+        context.SetDash(new double[] { 4, 4 }, dashOffset);
+        BuildSelectionBoundaryPath(context, startX, startY, endX, endY);
+        context.Stroke();
+
+        context.SetSourceRGBA(1, 1, 1, 1);
+        context.SetDash(new double[] { 4, 4 }, dashOffset + 4);
+        BuildSelectionBoundaryPath(context, startX, startY, endX, endY);
+        context.Stroke();
+
+        context.Restore();
+    }
+
+    private void BuildSelectionBoundaryPath(Context context, int startX, int startY, int endX, int endY)
+    {
+        for (int worldY = startY; worldY <= endY; worldY++)
+        {
+            double yStart = ((worldY - startY) * _pixelSize) + 0.5;
+            double yEnd = ((worldY + 1 - startY) * _pixelSize) + 0.5;
+            for (int worldX = startX; worldX <= endX; worldX++)
+            {
+                bool selected = _canvas.Selection.IsSelected(worldX, worldY);
+                bool rightSelected = _canvas.Selection.IsSelected(worldX + 1, worldY);
+                if (selected != rightSelected)
+                {
+                    double xPos = ((worldX + 1 - startX) * _pixelSize) + 0.5;
+                    context.MoveTo(xPos, yStart);
+                    context.LineTo(xPos, yEnd);
+                }
+
+                bool downSelected = _canvas.Selection.IsSelected(worldX, worldY + 1);
+                if (selected != downSelected)
+                {
+                    double xStart = ((worldX - startX) * _pixelSize) + 0.5;
+                    double xEnd = ((worldX + 1 - startX) * _pixelSize) + 0.5;
+                    double yPos = ((worldY + 1 - startY) * _pixelSize) + 0.5;
+                    context.MoveTo(xStart, yPos);
+                    context.LineTo(xEnd, yPos);
+                }
+            }
+        }
+    }
+
+    private static double GetMarchingAntsOffset()
+    {
+        double ms = DateTime.UtcNow.TimeOfDay.TotalMilliseconds;
+        return (ms / 100.0) % 8.0;
     }
 }

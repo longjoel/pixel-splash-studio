@@ -9,9 +9,15 @@ public class CanvasViewportWidget : DrawingArea
     private CanvasViewport _viewport;
     private ToolManager _toolManager;
     private ITool _activeTool;
+    private bool _historyPending;
 
     public event Action<CanvasViewportWidget> DetachRequested;
     public event Action<CanvasViewportWidget> ReattachRequested;
+    public event Action<CanvasViewportWidget> ToolUseStarted;
+    public event Action<CanvasViewportWidget> ToolUseCompleted;
+    public event Action<CanvasViewportWidget, bool> RectangleFillToggled;
+    public event Action<CanvasViewportWidget, bool> TransparentOverwriteToggled;
+    public event Action<CanvasViewportWidget> ClearSelectionRequested;
 
     public CanvasViewport Viewport => _viewport;
 
@@ -80,27 +86,41 @@ public class CanvasViewportWidget : DrawingArea
 
     private void CanvasViewportWidget_ButtonPressEvent(object o, ButtonPressEventArgs args)
     {
-        if (args.Event.Button == 3)
+        if (args.Event.Button == 3 && (args.Event.State & ModifierType.ControlMask) != 0)
         {
             ShowDetachMenu(args.Event);
             return;
         }
 
-        if (_toolManager == null || args.Event.Button != 1)
+        if (_toolManager == null || (args.Event.Button != 1 && args.Event.Button != 3))
         {
             return;
         }
 
+        if (ShouldRecordHistory())
+        {
+            _historyPending = true;
+            ToolUseStarted?.Invoke(this);
+        }
+
         GrabFocus();
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
-        _toolManager.BeginUseTool(toolX, toolY);
+        bool primary = args.Event.Button == 1;
+        _toolManager.BeginUseTool(primary, toolX, toolY);
     }
 
     private void CanvasViewportWidget_ButtonReleaseEvent(object o, ButtonReleaseEventArgs args)
     {
-        if (args.Event.Button == 1)
+        if (args.Event.Button == 1 || args.Event.Button == 3)
         {
-            _toolManager?.EndUseTool();
+            GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
+            bool primary = args.Event.Button == 1;
+            _toolManager?.EndUseTool(primary, toolX, toolY);
+            if (_historyPending)
+            {
+                _historyPending = false;
+                ToolUseCompleted?.Invoke(this);
+            }
         }
     }
 
@@ -298,6 +318,74 @@ public class CanvasViewportWidget : DrawingArea
                 }
             }
         }
+        else if (_activeTool is SelectionRectangleTool selectionTool && selectionTool.HasPreview)
+        {
+            selectionTool.GetPreviewRect(out int startX, out int startY, out int endX, out int endY, out bool isAdd);
+
+            int minX = Math.Min(startX, endX);
+            int maxX = Math.Max(startX, endX);
+            int minY = Math.Min(startY, endY);
+            int maxY = Math.Max(startY, endY);
+
+            WorldToScreen(minX, minY, out double screenX, out double screenY);
+            double width = (maxX - minX + 1) * _viewport.PixelSize;
+            double height = (maxY - minY + 1) * _viewport.PixelSize;
+
+            double dashOffset = GetMarchingAntsOffset();
+            context.LineWidth = 1.0;
+
+            context.SetSourceRGBA(0, 0, 0, 1);
+            context.SetDash(new double[] { 4, 4 }, dashOffset);
+            context.Rectangle(screenX + 0.5, screenY + 0.5, width, height);
+            context.Stroke();
+
+            context.SetSourceRGBA(1, 1, 1, 1);
+            context.SetDash(new double[] { 4, 4 }, dashOffset + 4);
+            context.Rectangle(screenX + 0.5, screenY + 0.5, width, height);
+            context.Stroke();
+        }
+        else if (_activeTool is SelectionOvalTool selectionOvalTool && selectionOvalTool.HasPreview)
+        {
+            selectionOvalTool.GetPreviewRect(out int startX, out int startY, out int endX, out int endY, out bool isAdd);
+
+            int minX = Math.Min(startX, endX);
+            int maxX = Math.Max(startX, endX);
+            int minY = Math.Min(startY, endY);
+            int maxY = Math.Max(startY, endY);
+
+            WorldToScreen(minX, minY, out double screenX, out double screenY);
+            double width = (maxX - minX + 1) * _viewport.PixelSize;
+            double height = (maxY - minY + 1) * _viewport.PixelSize;
+
+            double dashOffset = GetMarchingAntsOffset();
+            context.LineWidth = 1.0;
+
+            context.Save();
+            context.Translate(screenX + (width / 2.0), screenY + (height / 2.0));
+            context.Scale(width / 2.0, height / 2.0);
+
+            context.SetSourceRGBA(0, 0, 0, 1);
+            context.SetDash(new double[] { 4.0 / Math.Max(1.0, width / 2.0), 4.0 / Math.Max(1.0, width / 2.0) }, dashOffset);
+            context.NewPath();
+            context.Arc(0, 0, 1, 0, Math.PI * 2.0);
+            context.Stroke();
+
+            context.SetSourceRGBA(1, 1, 1, 1);
+            context.SetDash(new double[] { 4.0 / Math.Max(1.0, width / 2.0), 4.0 / Math.Max(1.0, width / 2.0) }, dashOffset + 4);
+            context.NewPath();
+            context.Arc(0, 0, 1, 0, Math.PI * 2.0);
+            context.Stroke();
+            context.Restore();
+        }
+    }
+
+    private bool ShouldRecordHistory()
+    {
+        return _toolManager?.ActiveTool is PenTool ||
+               _toolManager?.ActiveTool is LineTool ||
+               _toolManager?.ActiveTool is RectangleTool ||
+               _toolManager?.ActiveTool is OvalTool ||
+               _toolManager?.ActiveTool is FloodFillTool;
     }
 
     private void HandleToolPreviewChanged()
@@ -331,6 +419,12 @@ public class CanvasViewportWidget : DrawingArea
         return (nx + ny) <= 1.0;
     }
 
+    private static double GetMarchingAntsOffset()
+    {
+        double ms = DateTime.UtcNow.TimeOfDay.TotalMilliseconds;
+        return (ms / 100.0) % 8.0;
+    }
+
     private void ShowDetachMenu(EventButton evt)
     {
         Menu menu = new Menu();
@@ -346,8 +440,45 @@ public class CanvasViewportWidget : DrawingArea
             detachItem.Activated += (sender, args) => DetachRequested?.Invoke(this);
             menu.Append(detachItem);
         }
+
+        if (_activeTool is RectangleTool rectangleTool)
+        {
+            menu.Append(new SeparatorMenuItem());
+            AppendShapeOptions(menu, rectangleTool.Fill, rectangleTool.OverwriteTransparent);
+        }
+        else if (_activeTool is OvalTool ovalTool)
+        {
+            menu.Append(new SeparatorMenuItem());
+            AppendShapeOptions(menu, ovalTool.Fill, ovalTool.OverwriteTransparent);
+        }
+        else if (_activeTool is SelectionRectangleTool || _activeTool is SelectionOvalTool || (_viewport?.Selection?.HasSelection ?? false))
+        {
+            menu.Append(new SeparatorMenuItem());
+            MenuItem clearSelection = new MenuItem("Clear Selection");
+            clearSelection.Activated += (_, __) => ClearSelectionRequested?.Invoke(this);
+            menu.Append(clearSelection);
+        }
+
         menu.ShowAll();
         menu.PopupAtPointer(evt);
+    }
+
+    private void AppendShapeOptions(Menu menu, bool isFilled, bool overwriteTransparent)
+    {
+        CheckMenuItem fillItem = new CheckMenuItem("Fill Shape")
+        {
+            Active = isFilled
+        };
+        fillItem.Toggled += (_, __) => RectangleFillToggled?.Invoke(this, fillItem.Active);
+
+        CheckMenuItem overwriteItem = new CheckMenuItem("Overwrite Transparent Pixels")
+        {
+            Active = overwriteTransparent
+        };
+        overwriteItem.Toggled += (_, __) => TransparentOverwriteToggled?.Invoke(this, overwriteItem.Active);
+
+        menu.Append(fillItem);
+        menu.Append(overwriteItem);
     }
 
     private void GetToolCoordinates(int screenX, int screenY, out int toolX, out int toolY)

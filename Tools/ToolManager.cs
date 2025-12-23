@@ -14,9 +14,9 @@ public class ToolManager
         _activeTool = tool;
     }
 
-    public void BeginUseTool(int x, int y)
+    public void BeginUseTool(bool primary, int x, int y)
     {
-        _activeTool?.BeginUseTool(x, y);
+        _activeTool?.BeginUseTool(primary, x, y);
     }
 
     public void UseTool(int x, int y)
@@ -24,9 +24,9 @@ public class ToolManager
         _activeTool?.UseTool(x, y);
     }
 
-    public void EndUseTool()
+    public void EndUseTool(bool primary, int x, int y)
     {
-        _activeTool?.EndUseTool();
+        _activeTool?.EndUseTool(primary, x, y);
     }
 
     public void ZoomAt(int screenX, int screenY, int deltaPixelSize, int viewWidth, int viewHeight)
