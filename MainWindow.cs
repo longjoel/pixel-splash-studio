@@ -129,12 +129,17 @@ namespace pixel_splash_studio
             AttachViewportHandlers(_viewB);
 
             SeedCanvas(_canvas);
+            ThemeHelper.ApplyWindowBackground(this);
 
             _paletteWindow = new FloatingPaletteWidget(_palette)
             {
                 TransientFor = this
             };
-            _paletteWindow.Show();
+            ThemeHelper.ApplyWindowBackground(_paletteWindow);
+            if (IsWidgetAlive(_paletteWindow))
+            {
+                _paletteWindow.Show();
+            }
             _paletteWindow.DeleteEvent += PaletteWindow_DeleteEvent;
 
             _toolbarPanel = new ToolsPanelWidget();
@@ -143,6 +148,7 @@ namespace pixel_splash_studio
                 TransientFor = this
             };
             _toolbarWindow.SetDefaultSize(220, 520);
+            ThemeHelper.ApplyWindowBackground(_toolbarWindow);
             _toolbarWindow.DeleteEvent += ToolbarWindow_DeleteEvent;
 
             // Wire up MESSAGE UP: Toolbar events notify changes
@@ -170,18 +176,20 @@ namespace pixel_splash_studio
             _toolbarPanel.SelectionExportRequested += () => ExportSelection_Activated(this, EventArgs.Empty);
             _toolbarPanel.PaletteToggleRequested += () =>
             {
-                if (_paletteWindow != null)
+                if (!IsWidgetAlive(_paletteWindow))
                 {
-                    if (_paletteWindow.Visible)
-                    {
-                        _paletteWindow.Hide();
-                        _viewPaletteToggle.Active = false;
-                    }
-                    else
-                    {
-                        _paletteWindow.Show();
-                        _viewPaletteToggle.Active = true;
-                    }
+                    return;
+                }
+
+                if (_paletteWindow.Visible)
+                {
+                    _paletteWindow.Hide();
+                    _viewPaletteToggle.Active = false;
+                }
+                else
+                {
+                    _paletteWindow.Show();
+                    _viewPaletteToggle.Active = true;
                 }
             };
 
@@ -550,7 +558,7 @@ namespace pixel_splash_studio
 
         private void ViewPaletteToggle_Toggled(object sender, EventArgs e)
         {
-            if (_paletteWindow == null)
+            if (!IsWidgetAlive(_paletteWindow))
             {
                 return;
             }
@@ -589,7 +597,10 @@ namespace pixel_splash_studio
                 _viewPaletteToggle.Active = false;
             }
 
-            _paletteWindow.Hide();
+            if (IsWidgetAlive(_paletteWindow))
+            {
+                _paletteWindow.Hide();
+            }
             e.RetVal = true;
         }
 
@@ -600,7 +611,10 @@ namespace pixel_splash_studio
                 _viewToolbarToggle.Active = true;
             }
 
-            _toolbarWindow.Hide();
+            if (IsWidgetAlive(_toolbarWindow))
+            {
+                _toolbarWindow.Hide();
+            }
             e.RetVal = true;
         }
 
@@ -615,11 +629,23 @@ namespace pixel_splash_studio
             _toolbarPanel.ShowAll();
             _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
             _dockToolsHost.Visible = true;
-            _toolbarWindow.Hide();
+            if (IsWidgetAlive(_toolbarWindow))
+            {
+                _toolbarWindow.Hide();
+            }
         }
 
         private void UndockToolbar()
         {
+            if (!IsWidgetAlive(_toolbarWindow))
+            {
+                if (_viewToolbarToggle != null && !_viewToolbarToggle.Active)
+                {
+                    _viewToolbarToggle.Active = true;
+                }
+                return;
+            }
+
             if (_toolbarPanel.Parent is Container parent)
             {
                 parent.Remove(_toolbarPanel);
@@ -629,6 +655,11 @@ namespace pixel_splash_studio
             _toolbarWindow.ShowAll();
             _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
             _dockToolsHost.Visible = false;
+        }
+
+        private static bool IsWidgetAlive(Widget widget)
+        {
+            return widget != null && widget.Handle != IntPtr.Zero;
         }
 
         private void HandleViewportCreated(CanvasViewportWidget viewport)
@@ -802,6 +833,7 @@ namespace pixel_splash_studio
             Gtk.Window window = new Gtk.Window("Viewport");
             window.SetDefaultSize(640, 480);
             window.TransientFor = this;
+            ThemeHelper.ApplyWindowBackground(window);
             window.Add(viewport);
             _detachedViewports[window] = viewport;
             window.DeleteEvent += DetachedWindow_DeleteEvent;

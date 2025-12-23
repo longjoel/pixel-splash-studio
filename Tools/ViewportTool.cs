@@ -19,16 +19,17 @@ public class ViewportTool
         _settings = settings;
     }
 
-    public void OpenViewportWindow(Window parent = null)
-    {
-        Window window = new Window("Viewport");
-        window.SetDefaultSize(640, 480);
-        if (parent != null)
+        public void OpenViewportWindow(Window parent = null)
         {
-            window.TransientFor = parent;
-        }
+            Window window = new Window("Viewport");
+            window.SetDefaultSize(640, 480);
+            if (parent != null)
+            {
+                window.TransientFor = parent;
+            }
+            pixel_splash_studio.ThemeHelper.ApplyWindowBackground(window);
 
-        CanvasViewportWidget viewport = new CanvasViewportWidget(_canvas, _palette, _settings);
+            CanvasViewportWidget viewport = new CanvasViewportWidget(_canvas, _palette, _settings);
         window.Add(viewport);
         _windows[window] = viewport;
         ViewportCreated?.Invoke(viewport);

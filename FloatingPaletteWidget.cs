@@ -29,6 +29,7 @@ namespace pixel_splash_studio
         private FloatingPaletteWidget(Builder builder, PixelSplashPalette palette) : base(builder.GetRawOwnedObject("FloatingPaletteWindow"))
         {
             builder.Autoconnect(this);
+            ThemeHelper.ApplyWindowBackground(this);
             _palette = palette;
             _pages = new[] { _palettePage0, _palettePage1, _palettePage2, _palettePage3 };
 

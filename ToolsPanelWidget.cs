@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Gtk;
 using UI = Gtk.Builder.ObjectAttribute;
 
@@ -67,6 +68,7 @@ namespace pixel_splash_studio
         public event System.Action<int> StampScaleChanged;
         public event System.Action<SelectionSnapMode> StampSnapModeChanged;
 
+        private readonly Dictionary<ToolId, ToggleButton> _toolButtons;
         private ToolId _activeTool = ToolId.GrabZoom;
         private bool _suppressToggle;
         private bool _suppressOptionEvents;
@@ -78,6 +80,23 @@ namespace pixel_splash_studio
         private ToolsPanelWidget(Builder builder) : base(builder.GetRawOwnedObject("ToolsPanelWidget"))
         {
             builder.Autoconnect(this);
+            _toolButtons = new Dictionary<ToolId, ToggleButton>
+            {
+                { ToolId.GrabZoom, _toolGrabZoom },
+                { ToolId.Pen, _toolPen },
+                { ToolId.Line, _toolLine },
+                { ToolId.Rectangle, _toolRectangle },
+                { ToolId.Oval, _toolOval },
+                { ToolId.Selection, _toolSelection },
+                { ToolId.SelectionWand, _toolSelectionWand },
+                { ToolId.SelectionOval, _toolSelectionOval },
+                { ToolId.FloodFill, _toolFloodFill },
+                { ToolId.Stamp, _toolStamp }
+            };
+            foreach (var button in _toolButtons.Values)
+            {
+                button?.StyleContext.AddClass("tool-button");
+            }
 
             // Color swatch button wiring
             _colorSwatchButton.Clicked += (_, __) => PaletteToggleRequested?.Invoke();
@@ -132,16 +151,10 @@ namespace pixel_splash_studio
 
         public void SetActiveTool(ToolId tool)
         {
-            if (_activeTool == tool)
-            {
-                EnsureActive(tool);
-                UpdateOptionsVisibility(tool);
-                return;
-            }
-
             _activeTool = tool;
             EnsureActive(tool);
             UpdateOptionsVisibility(tool);
+            UpdateActiveToolHighlight();
         }
 
         public void SetRectangleOptions(bool fill, bool overwriteTransparent)
@@ -254,6 +267,31 @@ namespace pixel_splash_studio
             _selectionOptions.Visible = showSelection;
             _stampOptions.Visible = showStamp;
             _toolOptionsBox.Visible = showRectangle || showSelection || showStamp;
+        }
+
+        private void UpdateActiveToolHighlight()
+        {
+            if (_toolButtons == null)
+            {
+                return;
+            }
+
+            foreach (var pair in _toolButtons)
+            {
+                if (pair.Value == null)
+                {
+                    continue;
+                }
+
+                if (pair.Key == _activeTool)
+                {
+                    pair.Value.StyleContext.AddClass("tool-button-active");
+                }
+                else
+                {
+                    pair.Value.StyleContext.RemoveClass("tool-button-active");
+                }
+            }
         }
 
         private void HandleOptionToggle(System.Action handler)
