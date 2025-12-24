@@ -80,6 +80,11 @@ public class SelectionWandTool : ITool
     {
     }
 
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
+    {
+        // No preview for this tool
+    }
+
     private static void EnqueueNeighbor(int x, int y, Queue<(int x, int y)> queue, HashSet<(int, int)> visited)
     {
         if (visited.Add((x, y)))

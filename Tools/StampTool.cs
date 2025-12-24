@@ -21,8 +21,6 @@ public class StampTool : ITool
 
     public event Action PreviewChanged;
 
-    public bool HasPreview => _hasPreview;
-
     public bool OverwriteDestination
     {
         get { return _overwriteDestination; }
@@ -194,15 +192,106 @@ public class StampTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public bool TryGetPreviewPixels(out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels)
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
     {
-        pixels = null;
-        if (!_hasPreview)
+        if (!_hasPreview || viewport?.Palette == null)
         {
-            return false;
+            return;
         }
 
-        return TryGetTransformedPixels(_previewX, _previewY, out pixels);
+        if (!TryGetTransformedPixels(_previewX, _previewY, out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels))
+        {
+            return;
+        }
+
+        var previewPixels = new System.Collections.Generic.HashSet<(int, int)>();
+        for (int i = 0; i < pixels.Count; i++)
+        {
+            (int worldX, int worldY, byte colorIndex) = pixels[i];
+            if (viewport.Selection?.HasSelection == true && !viewport.Selection.IsSelected(worldX, worldY))
+            {
+                continue;
+            }
+            int paletteIndex = colorIndex;
+            if (paletteIndex < 0 || paletteIndex >= viewport.Palette.Palette.Count)
+            {
+                continue;
+            }
+
+            Tuple<byte, byte, byte, byte> color = viewport.Palette.Palette[paletteIndex];
+            double alpha = (color.Item4 / 255.0) * 0.4;
+            context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
+            DrawPreviewPixel(context, viewport, worldX, worldY);
+            previewPixels.Add((worldX, worldY));
+        }
+
+        if (previewPixels.Count == 0)
+        {
+            return;
+        }
+
+        double dashOffset = CanvasViewport.GetMarchingAntsOffset();
+        context.LineWidth = 1.0;
+
+        context.SetSourceRGBA(0, 0, 0, 1);
+        context.SetDash(new double[] { 4, 4 }, dashOffset);
+        DrawStampOutline(context, viewport, previewPixels);
+        context.Stroke();
+
+        context.SetSourceRGBA(1, 1, 1, 1);
+        context.SetDash(new double[] { 4, 4 }, dashOffset + 4);
+        DrawStampOutline(context, viewport, previewPixels);
+        context.Stroke();
+    }
+
+    private void DrawPreviewPixel(Cairo.Context context, CanvasViewport viewport, int x, int y)
+    {
+        viewport.WorldToScreen(x, y, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+        context.Rectangle(screenX, screenY, viewport.PixelSize, viewport.PixelSize);
+        context.Fill();
+    }
+
+    private void DrawStampOutline(Cairo.Context context, CanvasViewport viewport, System.Collections.Generic.HashSet<(int, int)> pixels)
+    {
+        foreach ((int x, int y) in pixels)
+        {
+            bool top = !pixels.Contains((x, y - 1));
+            bool right = !pixels.Contains((x + 1, y));
+            bool bottom = !pixels.Contains((x, y + 1));
+            bool left = !pixels.Contains((x - 1, y));
+
+            if (!(top || right || bottom || left))
+            {
+                continue;
+            }
+
+            viewport.WorldToScreen(x, y, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+            double x0 = screenX + 0.5;
+            double y0 = screenY + 0.5;
+            double x1 = screenX + viewport.PixelSize + 0.5;
+            double y1 = screenY + viewport.PixelSize + 0.5;
+
+            if (top)
+            {
+                context.MoveTo(x0, y0);
+                context.LineTo(x1, y0);
+            }
+            if (right)
+            {
+                context.MoveTo(x1, y0);
+                context.LineTo(x1, y1);
+            }
+            if (bottom)
+            {
+                context.MoveTo(x0, y1);
+                context.LineTo(x1, y1);
+            }
+            if (left)
+            {
+                context.MoveTo(x0, y0);
+                context.LineTo(x0, y1);
+            }
+        }
     }
 
     public bool CanWriteTo(int x, int y)

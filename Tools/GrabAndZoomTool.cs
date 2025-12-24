@@ -126,4 +126,9 @@ public class GrabAndZoomTool : ITool
         _viewWidth = viewWidth;
         _viewHeight = viewHeight;
     }
+
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
+    {
+        // No preview for this tool
+    }
 }

@@ -44,36 +44,6 @@ public class OvalTool : ITool
         }
     }
 
-    public bool HasPreview => _isDrawing;
-
-    public Tuple<byte, byte, byte, byte> OutlinePreviewColor
-    {
-        get
-        {
-            int index = _palette.PrimaryIndex;
-            if (index < 0 || index >= _palette.Palette.Count)
-            {
-                return new Tuple<byte, byte, byte, byte>(0, 0, 0, 255);
-            }
-
-            return _palette.Palette[index];
-        }
-    }
-
-    public Tuple<byte, byte, byte, byte> FillPreviewColor
-    {
-        get
-        {
-            int index = _palette.SecondaryIndex;
-            if (index < 0 || index >= _palette.Palette.Count)
-            {
-                return new Tuple<byte, byte, byte, byte>(0, 0, 0, 255);
-            }
-
-            return _palette.Palette[index];
-        }
-    }
-
     public OvalTool(PixelSplashCanvas canvas, PixelSplashPalette palette)
     {
         _canvas = canvas;
@@ -157,13 +127,70 @@ public class OvalTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public void GetPreviewRect(out int startX, out int startY, out int endX, out int endY, out bool fill)
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
     {
-        startX = _startX;
-        startY = _startY;
-        endX = _currentX;
-        endY = _currentY;
-        fill = _fill;
+        if (!_isDrawing)
+        {
+            return;
+        }
+
+        int minX = Math.Min(_startX, _currentX);
+        int maxX = Math.Max(_startX, _currentX);
+        int minY = Math.Min(_startY, _currentY);
+        int maxY = Math.Max(_startY, _currentY);
+
+        GetEllipseMetrics(minX, maxX, minY, maxY, out double centerX, out double centerY, out double rx, out double ry);
+
+        if (_fill)
+        {
+            if (TryGetSecondaryColorIndex(out byte colorIndex, out byte alpha))
+            {
+                var color = _palette.Palette[colorIndex];
+                double a = (color.Item4 / 255.0) * 0.4;
+                context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, a);
+
+                for (int y = minY; y <= maxY; y++)
+                {
+                    for (int x = minX; x <= maxX; x++)
+                    {
+                        if (IsInsideEllipse(x, y, centerX, centerY, rx, ry))
+                        {
+                            viewport.WorldToScreen(x, y, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+                            context.Rectangle(screenX, screenY, viewport.PixelSize, viewport.PixelSize);
+                            context.Fill();
+                        }
+                    }
+                }
+            }
+        }
+
+        if (TryGetPrimaryColorIndex(out byte outlineColorIndex, out byte outlineAlpha))
+        {
+            var color = _palette.Palette[outlineColorIndex];
+            double a = (color.Item4 / 255.0) * 0.4;
+            context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, a);
+
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!IsInsideEllipse(x, y, centerX, centerY, rx, ry))
+                    {
+                        continue;
+                    }
+
+                    if (!IsInsideEllipse(x + 1, y, centerX, centerY, rx, ry) ||
+                        !IsInsideEllipse(x - 1, y, centerX, centerY, rx, ry) ||
+                        !IsInsideEllipse(x, y + 1, centerX, centerY, rx, ry) ||
+                        !IsInsideEllipse(x, y - 1, centerX, centerY, rx, ry))
+                    {
+                        viewport.WorldToScreen(x, y, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+                        context.Rectangle(screenX, screenY, viewport.PixelSize, viewport.PixelSize);
+                        context.Fill();
+                    }
+                }
+            }
+        }
     }
 
     private static void GetEllipseMetrics(int minX, int maxX, int minY, int maxY, out double centerX, out double centerY, out double rx, out double ry)

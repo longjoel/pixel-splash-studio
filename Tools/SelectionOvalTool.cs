@@ -12,7 +12,6 @@ public class SelectionOvalTool : ITool
 
     public event Action PreviewChanged;
 
-    public bool HasPreview => _isSelecting;
     public SelectionMode Mode { get; set; } = SelectionMode.Add;
     public SelectionSnapMode SnapMode { get; set; } = SelectionSnapMode.Pixel;
     public int TileSize { get; set; } = 8;
@@ -81,10 +80,39 @@ public class SelectionOvalTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public void GetPreviewRect(out int startX, out int startY, out int endX, out int endY, out bool isAdd)
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
     {
-        GetSnappedRect(out startX, out startY, out endX, out endY);
-        isAdd = _isAdd;
+        if (!_isSelecting)
+        {
+            return;
+        }
+
+        GetSnappedRect(out int minX, out int minY, out int maxX, out int maxY);
+
+        GetEllipseMetrics(minX, maxX, minY, maxY, out double centerX, out double centerY, out double rx, out double ry);
+
+        double alpha = _isAdd ? 0.4 : 0.45;
+        if (_isAdd)
+        {
+            context.SetSourceRGBA(0.9, 0.9, 0.9, alpha);
+        }
+        else
+        {
+            context.SetSourceRGBA(0.9, 0.6, 0.6, alpha);
+        }
+
+        for (int y = minY; y <= maxY; y++)
+        {
+            for (int x = minX; x <= maxX; x++)
+            {
+                if (IsInsideEllipse(x, y, centerX, centerY, rx, ry))
+                {
+                    viewport.WorldToScreen(x, y, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+                    context.Rectangle(screenX, screenY, viewport.PixelSize, viewport.PixelSize);
+                    context.Fill();
+                }
+            }
+        }
     }
 
     private void GetSnappedRect(out int startX, out int startY, out int endX, out int endY)
@@ -133,5 +161,24 @@ public class SelectionOvalTool : ITool
         }
 
         return value + (tileSize - mod);
+    }
+    
+    private static void GetEllipseMetrics(int minX, int maxX, int minY, int maxY, out double centerX, out double centerY, out double rx, out double ry)
+    {
+        double width = maxX - minX + 1;
+        double height = maxY - minY + 1;
+        rx = width / 2.0;
+        ry = height / 2.0;
+        centerX = minX + rx;
+        centerY = minY + ry;
+    }
+
+    private static bool IsInsideEllipse(int x, int y, double centerX, double centerY, double rx, double ry)
+    {
+        double dx = (x + 0.5) - centerX;
+        double dy = (y + 0.5) - centerY;
+        double nx = (dx * dx) / (rx * rx);
+        double ny = (dy * dy) / (ry * ry);
+        return (nx + ny) <= 1.0;
     }
 }

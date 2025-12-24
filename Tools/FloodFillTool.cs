@@ -112,6 +112,11 @@ public class FloodFillTool : ITool
     {
     }
 
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
+    {
+        // No preview for this tool
+    }
+
     private byte FindNearestPaletteIndex(Tuple<byte, byte, byte, byte> startColor, Tuple<byte, byte, byte, byte> endColor, double t)
     {
         double clamped = Math.Min(1.0, Math.Max(0.0, t));

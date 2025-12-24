@@ -331,9 +331,45 @@ public class CanvasViewport
         }
     }
 
-    private static double GetMarchingAntsOffset()
+    public static double GetMarchingAntsOffset()
     {
         double ms = DateTime.UtcNow.TimeOfDay.TotalMilliseconds;
         return (ms / 100.0) % 8.0;
+    }
+
+    public void WorldToScreen(int worldX, int worldY, double viewWidth, double viewHeight, out double screenX, out double screenY)
+    {
+        screenX = 0;
+        screenY = 0;
+
+        if (PixelSize <= 0 || viewWidth <= 0 || viewHeight <= 0)
+        {
+            return;
+        }
+
+        GetViewportBounds(viewWidth, viewHeight, out int startX, out int startY, out _, out _);
+        screenX = (worldX - startX) * PixelSize;
+        screenY = (worldY - startY) * PixelSize;
+    }
+
+    public void GetViewportBounds(double viewWidth, double viewHeight, out int startX, out int startY, out int endX, out int endY)
+    {
+        startX = 0;
+        startY = 0;
+        endX = 0;
+        endY = 0;
+
+        if (PixelSize <= 0 || viewWidth <= 0 || viewHeight <= 0)
+        {
+            return;
+        }
+        
+        int viewportPixelWidth = (int)Math.Ceiling(viewWidth / PixelSize);
+        int viewportPixelHeight = (int)Math.Ceiling(viewHeight / PixelSize);
+
+        startX = CameraPixelX - (viewportPixelWidth / 2);
+        startY = CameraPixelY - (viewportPixelHeight / 2);
+        endX = startX + viewportPixelWidth - 1;
+        endY = startY + viewportPixelHeight - 1;
     }
 }

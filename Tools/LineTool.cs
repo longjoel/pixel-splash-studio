@@ -12,22 +12,6 @@ public class LineTool : ITool
 
     public event System.Action PreviewChanged;
 
-    public bool HasPreview => _isDrawing;
-
-    public Tuple<byte, byte, byte, byte> PreviewColor
-    {
-        get
-        {
-            int index = _palette.PrimaryIndex;
-            if (index < 0 || index >= _palette.Palette.Count)
-            {
-                return new Tuple<byte, byte, byte, byte>(0, 0, 0, 255);
-            }
-
-            return _palette.Palette[index];
-        }
-    }
-
     public LineTool(PixelSplashCanvas canvas, PixelSplashPalette palette)
     {
         _canvas = canvas;
@@ -71,11 +55,28 @@ public class LineTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public void GetPreviewLine(out int startX, out int startY, out int endX, out int endY)
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
     {
-        startX = _startX;
-        startY = _startY;
-        endX = _currentX;
-        endY = _currentY;
+        if (!_isDrawing)
+        {
+            return;
+        }
+
+        int index = _palette.PrimaryIndex;
+        if (index < 0 || index >= _palette.Palette.Count)
+        {
+            return;
+        }
+
+        var color = _palette.Palette[index];
+        double alpha = (color.Item4 / 255.0) * 0.4;
+        context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
+
+        foreach ((int px, int py) in LineRasterizer.Rasterize(_startX, _startY, _currentX, _currentY))
+        {
+            viewport.WorldToScreen(px, py, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+            context.Rectangle(screenX, screenY, viewport.PixelSize, viewport.PixelSize);
+            context.Fill();
+        }
     }
 }

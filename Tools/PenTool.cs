@@ -9,21 +9,6 @@ public class PenTool : ITool
     private List<(int,int)> _points = new List<(int, int)>();
 
     public event Action PreviewChanged;
-    public IReadOnlyList<(int, int)> PreviewPoints => _points;
-
-    public Tuple<byte, byte, byte, byte> PreviewColor
-    {
-        get
-        {
-            int index = _palette.PrimaryIndex;
-            if (index < 0 || index >= _palette.Palette.Count)
-            {
-                return new Tuple<byte, byte, byte, byte>(0, 0, 0, 255);
-            }
-
-            return _palette.Palette[index];
-        }
-    }
 
     public PenTool(CanvasViewport viewport, PixelSplashCanvas canvas, PixelSplashPalette palette)
     {
@@ -59,5 +44,42 @@ public class PenTool : ITool
     {
         _points.Add((x, y));
         PreviewChanged?.Invoke();
+    }
+
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
+    {
+        if (_points.Count > 0)
+        {
+            int index = _palette.PrimaryIndex;
+            if (index < 0 || index >= _palette.Palette.Count)
+            {
+                return;
+            }
+
+            var color = _palette.Palette[index];
+            double alpha = (color.Item4 / 255.0) * 0.4;
+            context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
+
+            if (_points.Count == 1)
+            {
+                viewport.WorldToScreen(_points[0].Item1, _points[0].Item2, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+                context.Rectangle(screenX, screenY, viewport.PixelSize, viewport.PixelSize);
+                context.Fill();
+            }
+            else
+            {
+                for (int i = 1; i < _points.Count; i++)
+                {
+                    (int startX, int startY) = _points[i - 1];
+                    (int endX, int endY) = _points[i];
+                    foreach ((int px, int py) in LineRasterizer.Rasterize(startX, startY, endX, endY))
+                    {
+                        viewport.WorldToScreen(px, py, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+                        context.Rectangle(screenX, screenY, viewport.PixelSize, viewport.PixelSize);
+                        context.Fill();
+                    }
+                }
+            }
+        }
     }
 }

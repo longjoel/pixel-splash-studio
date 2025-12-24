@@ -12,7 +12,6 @@ public class SelectionRectangleTool : ITool
 
     public event Action PreviewChanged;
 
-    public bool HasPreview => _isSelecting;
     public SelectionMode Mode { get; set; } = SelectionMode.Add;
     public SelectionSnapMode SnapMode { get; set; } = SelectionSnapMode.Pixel;
     public int TileSize { get; set; } = 8;
@@ -81,10 +80,31 @@ public class SelectionRectangleTool : ITool
         PreviewChanged?.Invoke();
     }
 
-    public void GetPreviewRect(out int startX, out int startY, out int endX, out int endY, out bool isAdd)
+    public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
     {
-        GetSnappedRect(out startX, out startY, out endX, out endY);
-        isAdd = _isAdd;
+        if (!_isSelecting)
+        {
+            return;
+        }
+
+        GetSnappedRect(out int minX, out int minY, out int maxX, out int maxY);
+
+        viewport.WorldToScreen(minX, minY, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+        double width = (maxX - minX + 1) * viewport.PixelSize;
+        double height = (maxY - minY + 1) * viewport.PixelSize;
+
+        double dashOffset = CanvasViewport.GetMarchingAntsOffset();
+        context.LineWidth = 1.0;
+
+        context.SetSourceRGBA(0, 0, 0, 1);
+        context.SetDash(new double[] { 4, 4 }, dashOffset);
+        context.Rectangle(screenX + 0.5, screenY + 0.5, width, height);
+        context.Stroke();
+
+        context.SetSourceRGBA(1, 1, 1, 1);
+        context.SetDash(new double[] { 4, 4 }, dashOffset + 4);
+        context.Rectangle(screenX + 0.5, screenY + 0.5, width, height);
+        context.Stroke();
     }
 
     private void GetSnappedRect(out int startX, out int startY, out int endX, out int endY)
