@@ -27,6 +27,52 @@ public class PixelSplashPalette
         }
     }
 
+    public void SetPaletteColors(List<Tuple<byte, byte, byte, byte>> colors)
+    {
+        Palette = NormalizePalette(colors);
+        if (Palette.Count == 0)
+        {
+            PrimaryIndex = 0;
+            SecondaryIndex = 0;
+            return;
+        }
+
+        if (PrimaryIndex < 0 || PrimaryIndex >= Palette.Count)
+        {
+            PrimaryIndex = Math.Min(1, Palette.Count - 1);
+        }
+        if (SecondaryIndex < 0 || SecondaryIndex >= Palette.Count)
+        {
+            SecondaryIndex = 0;
+        }
+    }
+
+    public static List<Tuple<byte, byte, byte, byte>> NormalizePalette(List<Tuple<byte, byte, byte, byte>> colors, int targetSize = 256)
+    {
+        List<Tuple<byte, byte, byte, byte>> normalized = new List<Tuple<byte, byte, byte, byte>>();
+        if (colors != null)
+        {
+            normalized.AddRange(colors);
+        }
+
+        if (normalized.Count == 0)
+        {
+            normalized.Add(new Tuple<byte, byte, byte, byte>(0, 0, 0, 0));
+        }
+
+        if (normalized.Count > targetSize)
+        {
+            normalized.RemoveRange(targetSize, normalized.Count - targetSize);
+        }
+
+        while (normalized.Count < targetSize)
+        {
+            normalized.Add(new Tuple<byte, byte, byte, byte>(0, 0, 0, 0));
+        }
+
+        return normalized;
+    }
+
     private readonly Tuple<byte, byte, byte, byte>[] NesNtscColors = new[]
     {
             new Tuple<byte,byte,byte,byte>(0,0,0,0),

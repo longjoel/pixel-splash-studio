@@ -57,6 +57,7 @@ namespace pixel_splash_studio
         private readonly FloodFillTool _floodFillTool;
         private readonly StampTool _stampTool;
         private readonly OvalTool _ovalTool;
+        private readonly PalettePanelWidget _palettePanel;
         private readonly FloatingPaletteWidget _paletteWindow;
         private readonly ToolsPanelWidget _toolbarPanel;
         private readonly Gtk.Window _toolbarWindow;
@@ -67,6 +68,8 @@ namespace pixel_splash_studio
         private readonly List<CanvasViewportWidget> _viewports = new List<CanvasViewportWidget>();
         private readonly Dictionary<Gtk.Window, CanvasViewportWidget> _detachedViewports = new Dictionary<Gtk.Window, CanvasViewportWidget>();
         private bool _suppressOptionEvents;
+        private PaletteLibraryData _paletteLibrary;
+        private bool _suppressPaletteSelection;
         private readonly Stack<PixelSplashCanvasSnapshot> _undoStack = new Stack<PixelSplashCanvasSnapshot>();
         private readonly Stack<PixelSplashCanvasSnapshot> _redoStack = new Stack<PixelSplashCanvasSnapshot>();
         private PixelSplashCanvasSnapshot _pendingSnapshot;
@@ -131,15 +134,11 @@ namespace pixel_splash_studio
             SeedCanvas(_canvas);
             ThemeHelper.ApplyWindowBackground(this);
 
-            _paletteWindow = new FloatingPaletteWidget(_palette)
+            _palettePanel = new PalettePanelWidget(_palette);
+            _paletteWindow = new FloatingPaletteWidget(_palettePanel)
             {
                 TransientFor = this
             };
-            ThemeHelper.ApplyWindowBackground(_paletteWindow);
-            if (IsWidgetAlive(_paletteWindow))
-            {
-                _paletteWindow.Show();
-            }
             _paletteWindow.DeleteEvent += PaletteWindow_DeleteEvent;
 
             _toolbarPanel = new ToolsPanelWidget();
@@ -176,22 +175,20 @@ namespace pixel_splash_studio
             _toolbarPanel.SelectionExportRequested += () => ExportSelection_Activated(this, EventArgs.Empty);
             _toolbarPanel.PaletteToggleRequested += () =>
             {
-                if (!IsWidgetAlive(_paletteWindow))
+                if (_viewPaletteToggle == null)
                 {
                     return;
                 }
 
-                if (_paletteWindow.Visible)
-                {
-                    _paletteWindow.Hide();
-                    _viewPaletteToggle.Active = false;
-                }
-                else
-                {
-                    _paletteWindow.Show();
-                    _viewPaletteToggle.Active = true;
-                }
+                _viewPaletteToggle.Active = !_viewPaletteToggle.Active;
             };
+
+            _palettePanel.PaletteSelected += HandlePaletteSelected;
+            _palettePanel.PaletteNewRequested += HandlePaletteNewRequested;
+            _palettePanel.PaletteSaveRequested += HandlePaletteSaveRequested;
+            _palettePanel.PaletteImportRequested += HandlePaletteImportRequested;
+            _palettePanel.PaletteExportRequested += HandlePaletteExportRequested;
+            _palettePanel.PaletteEdited += HandlePaletteEdited;
 
             // Wire up CALL DOWN: AppState changes call methods on UI components
             _appState.ActiveToolChanged += (tool) => ApplyToolModeToAllViewsAndToolbar(tool);
@@ -303,6 +300,19 @@ namespace pixel_splash_studio
             {
                 DockToolbar();
             }
+            if (_viewPaletteToggle != null)
+            {
+                if (_viewPaletteToggle.Active)
+                {
+                    DockPalette();
+                }
+                else
+                {
+                    UndockPalette();
+                }
+            }
+
+            InitializePaletteLibrary();
 
             _viewportTool.ViewportCreated += HandleViewportCreated;
             _viewportTool.ViewportClosed += HandleViewportClosed;
@@ -558,18 +568,18 @@ namespace pixel_splash_studio
 
         private void ViewPaletteToggle_Toggled(object sender, EventArgs e)
         {
-            if (!IsWidgetAlive(_paletteWindow))
+            if (_palettePanel == null || _dockToolsHost == null || _paletteWindow == null)
             {
                 return;
             }
 
             if (_viewPaletteToggle.Active)
             {
-                _paletteWindow.Show();
+                DockPalette();
             }
             else
             {
-                _paletteWindow.Hide();
+                UndockPalette();
             }
         }
 
@@ -594,7 +604,7 @@ namespace pixel_splash_studio
         {
             if (_viewPaletteToggle != null)
             {
-                _viewPaletteToggle.Active = false;
+                _viewPaletteToggle.Active = true;
             }
 
             if (IsWidgetAlive(_paletteWindow))
@@ -628,7 +638,7 @@ namespace pixel_splash_studio
             _dockToolsHost.PackStart(_toolbarPanel, false, false, 0);
             _toolbarPanel.ShowAll();
             _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
-            _dockToolsHost.Visible = true;
+            UpdateDockHostVisibility();
             if (IsWidgetAlive(_toolbarWindow))
             {
                 _toolbarWindow.Hide();
@@ -654,7 +664,388 @@ namespace pixel_splash_studio
             _toolbarWindow.Add(_toolbarPanel);
             _toolbarWindow.ShowAll();
             _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
-            _dockToolsHost.Visible = false;
+            UpdateDockHostVisibility();
+        }
+
+        private void DockPalette()
+        {
+            if (_palettePanel.Parent is Container parent)
+            {
+                parent.Remove(_palettePanel);
+            }
+
+            _palettePanel.SetDockedMode(true);
+            _palettePanel.SetSizeRequest(-1, 260);
+            _dockToolsHost.PackEnd(_palettePanel, false, false, 0);
+            _palettePanel.ShowAll();
+            UpdateDockHostVisibility();
+            if (IsWidgetAlive(_paletteWindow))
+            {
+                _paletteWindow.Hide();
+            }
+        }
+
+        private void UndockPalette()
+        {
+            if (!IsWidgetAlive(_paletteWindow))
+            {
+                if (_viewPaletteToggle != null && !_viewPaletteToggle.Active)
+                {
+                    _viewPaletteToggle.Active = true;
+                }
+                return;
+            }
+
+            if (_palettePanel.Parent is Container parent)
+            {
+                parent.Remove(_palettePanel);
+            }
+
+            _palettePanel.SetDockedMode(false);
+            _palettePanel.SetSizeRequest(-1, -1);
+            _paletteWindow.Add(_palettePanel);
+            _paletteWindow.ShowAll();
+            UpdateDockHostVisibility();
+        }
+
+        private void UpdateDockHostVisibility()
+        {
+            if (_dockToolsHost == null)
+            {
+                return;
+            }
+
+            bool hasDockedTools = _toolbarPanel?.Parent == _dockToolsHost;
+            bool hasDockedPalette = _palettePanel?.Parent == _dockToolsHost;
+            _dockToolsHost.Visible = hasDockedTools || hasDockedPalette;
+        }
+
+        private void InitializePaletteLibrary()
+        {
+            _paletteLibrary = PaletteStorage.LoadLibrary(_palette);
+            ApplyPaletteFromLibrary(_paletteLibrary.SelectedName);
+            UpdatePaletteSelector();
+        }
+
+        private void UpdatePaletteSelector()
+        {
+            if (_palettePanel == null || _paletteLibrary == null)
+            {
+                return;
+            }
+
+            List<string> names = new List<string>();
+            foreach (PaletteEntryData entry in _paletteLibrary.Palettes)
+            {
+                if (!string.IsNullOrWhiteSpace(entry?.Name))
+                {
+                    names.Add(entry.Name);
+                }
+            }
+
+            _suppressPaletteSelection = true;
+            _palettePanel.SetPaletteOptions(names, _paletteLibrary.SelectedName);
+            _suppressPaletteSelection = false;
+        }
+
+        private void ApplyPaletteFromLibrary(string name)
+        {
+            if (_paletteLibrary == null)
+            {
+                return;
+            }
+
+            PaletteEntryData entry = FindPaletteByName(name);
+            if (entry == null)
+            {
+                return;
+            }
+
+            _palette.SetPaletteColors(PaletteStorage.ToTupleColors(entry.Colors));
+            _palettePanel.RefreshPalette();
+            AppState.Current?.NotifyPaletteColorsChanged();
+            RedrawAllViewports();
+        }
+
+        private void ApplyPaletteFromFile(CanvasFileData data, string path)
+        {
+            if (_paletteLibrary == null || data?.PaletteColors == null || data.PaletteColors.Count == 0)
+            {
+                return;
+            }
+
+            string baseName = !string.IsNullOrWhiteSpace(data.PaletteName)
+                ? data.PaletteName
+                : System.IO.Path.GetFileNameWithoutExtension(path);
+            PaletteEntryData entry = new PaletteEntryData
+            {
+                Name = EnsureUniquePaletteName(baseName),
+                Colors = PaletteStorage.NormalizeColors(data.PaletteColors)
+            };
+            _paletteLibrary.Palettes.Add(entry);
+            _paletteLibrary.SelectedName = entry.Name;
+            PaletteStorage.SaveLibrary(_paletteLibrary);
+            UpdatePaletteSelector();
+            ApplyPaletteFromLibrary(entry.Name);
+        }
+
+        private PaletteEntryData FindPaletteByName(string name)
+        {
+            if (_paletteLibrary?.Palettes == null || string.IsNullOrWhiteSpace(name))
+            {
+                return null;
+            }
+
+            foreach (PaletteEntryData entry in _paletteLibrary.Palettes)
+            {
+                if (entry != null && entry.Name == name)
+                {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
+
+        private string EnsureUniquePaletteName(string baseName)
+        {
+            string name = string.IsNullOrWhiteSpace(baseName) ? "Palette" : baseName.Trim();
+            if (_paletteLibrary == null || _paletteLibrary.Palettes == null)
+            {
+                return name;
+            }
+
+            HashSet<string> existing = new HashSet<string>();
+            foreach (PaletteEntryData entry in _paletteLibrary.Palettes)
+            {
+                if (!string.IsNullOrWhiteSpace(entry?.Name))
+                {
+                    existing.Add(entry.Name);
+                }
+            }
+
+            if (!existing.Contains(name))
+            {
+                return name;
+            }
+
+            int suffix = 2;
+            string candidate = $"{name} ({suffix})";
+            while (existing.Contains(candidate))
+            {
+                suffix++;
+                candidate = $"{name} ({suffix})";
+            }
+
+            return candidate;
+        }
+
+        private void HandlePaletteSelected(string name)
+        {
+            if (_suppressPaletteSelection || _paletteLibrary == null)
+            {
+                return;
+            }
+
+            ApplyPaletteFromLibrary(name);
+            _paletteLibrary.SelectedName = name;
+            PaletteStorage.SaveLibrary(_paletteLibrary);
+        }
+
+        private void HandlePaletteNewRequested()
+        {
+            string name = PromptForPaletteName("New Palette", "New Palette");
+            if (string.IsNullOrWhiteSpace(name) || _paletteLibrary == null)
+            {
+                return;
+            }
+
+            PaletteEntryData entry = new PaletteEntryData
+            {
+                Name = EnsureUniquePaletteName(name),
+                Colors = PaletteStorage.NormalizeColors(PaletteStorage.ToColorData(_palette.Palette))
+            };
+            _paletteLibrary.Palettes.Add(entry);
+            _paletteLibrary.SelectedName = entry.Name;
+            PaletteStorage.SaveLibrary(_paletteLibrary);
+            UpdatePaletteSelector();
+            ApplyPaletteFromLibrary(entry.Name);
+        }
+
+        private void HandlePaletteSaveRequested()
+        {
+            if (_paletteLibrary == null)
+            {
+                return;
+            }
+
+            PaletteEntryData entry = FindPaletteByName(_paletteLibrary.SelectedName);
+            if (entry == null)
+            {
+                string name = PromptForPaletteName("Save Palette", "New Palette");
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    return;
+                }
+
+                entry = new PaletteEntryData
+                {
+                    Name = EnsureUniquePaletteName(name)
+                };
+                _paletteLibrary.Palettes.Add(entry);
+                _paletteLibrary.SelectedName = entry.Name;
+            }
+
+            entry.Colors = PaletteStorage.NormalizeColors(PaletteStorage.ToColorData(_palette.Palette));
+            PaletteStorage.SaveLibrary(_paletteLibrary);
+            UpdatePaletteSelector();
+        }
+
+        private void HandlePaletteImportRequested()
+        {
+            FileChooserDialog dialog = new FileChooserDialog(
+                "Import Palette",
+                this,
+                FileChooserAction.Open,
+                "Cancel", ResponseType.Cancel,
+                "Import", ResponseType.Accept);
+
+            FileFilter allFilter = new FileFilter { Name = "Palette files" };
+            allFilter.AddPattern("*.pspal");
+            allFilter.AddPattern("*.gpl");
+            allFilter.AddPattern("*.pal");
+            dialog.AddFilter(allFilter);
+            FileFilter pspalFilter = new FileFilter { Name = "Pixel Splash Palette (*.pspal)" };
+            pspalFilter.AddPattern("*.pspal");
+            dialog.AddFilter(pspalFilter);
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Accept)
+                {
+                    PaletteFileData fileData = PaletteStorage.LoadPaletteFile(dialog.Filename);
+                    string name = string.IsNullOrWhiteSpace(fileData.Name)
+                        ? System.IO.Path.GetFileNameWithoutExtension(dialog.Filename)
+                        : fileData.Name;
+                    PaletteEntryData entry = new PaletteEntryData
+                    {
+                        Name = EnsureUniquePaletteName(name),
+                        Colors = PaletteStorage.NormalizeColors(fileData.Colors)
+                    };
+                    _paletteLibrary.Palettes.Add(entry);
+                    _paletteLibrary.SelectedName = entry.Name;
+                    PaletteStorage.SaveLibrary(_paletteLibrary);
+                    UpdatePaletteSelector();
+                    ApplyPaletteFromLibrary(entry.Name);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Import failed: {ex.Message}");
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
+        }
+
+        private void HandlePaletteExportRequested()
+        {
+            if (_paletteLibrary == null)
+            {
+                return;
+            }
+
+            FileChooserDialog dialog = new FileChooserDialog(
+                "Export Palette",
+                this,
+                FileChooserAction.Save,
+                "Cancel", ResponseType.Cancel,
+                "Export", ResponseType.Accept);
+            dialog.DoOverwriteConfirmation = true;
+            FileFilter filter = new FileFilter { Name = "Pixel Splash Palette (*.pspal)" };
+            filter.AddPattern("*.pspal");
+            dialog.AddFilter(filter);
+
+            if (!string.IsNullOrWhiteSpace(_paletteLibrary.SelectedName))
+            {
+                dialog.CurrentName = $"{_paletteLibrary.SelectedName}.pspal";
+            }
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Accept)
+                {
+                    string filename = dialog.Filename;
+                    if (!filename.EndsWith(".pspal", StringComparison.OrdinalIgnoreCase))
+                    {
+                        filename += ".pspal";
+                    }
+                    PaletteFileData data = new PaletteFileData
+                    {
+                        Name = _paletteLibrary.SelectedName,
+                        Colors = PaletteStorage.NormalizeColors(PaletteStorage.ToColorData(_palette.Palette))
+                    };
+                    PaletteStorage.SavePaletteFile(filename, data);
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Export failed: {ex.Message}");
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
+        }
+
+        private void HandlePaletteEdited()
+        {
+            if (_paletteLibrary == null)
+            {
+                return;
+            }
+
+            PaletteEntryData entry = FindPaletteByName(_paletteLibrary.SelectedName);
+            if (entry == null)
+            {
+                return;
+            }
+
+            entry.Colors = PaletteStorage.NormalizeColors(PaletteStorage.ToColorData(_palette.Palette));
+            PaletteStorage.SaveLibrary(_paletteLibrary);
+            RedrawAllViewports();
+        }
+
+        private string PromptForPaletteName(string title, string defaultName)
+        {
+            Dialog dialog = new Dialog(title, this, DialogFlags.Modal);
+            dialog.AddButton("Cancel", ResponseType.Cancel);
+            dialog.AddButton("OK", ResponseType.Ok);
+
+            Entry entry = new Entry
+            {
+                Text = defaultName ?? string.Empty,
+                ActivatesDefault = true
+            };
+            dialog.DefaultResponse = ResponseType.Ok;
+            dialog.ContentArea.PackStart(new Label("Palette name:"), false, false, 6);
+            dialog.ContentArea.PackStart(entry, false, false, 6);
+            dialog.ContentArea.ShowAll();
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Ok)
+                {
+                    return entry.Text?.Trim();
+                }
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
+
+            return null;
         }
 
         private static bool IsWidgetAlive(Widget widget)
@@ -1292,6 +1683,8 @@ namespace pixel_splash_studio
                         Data = (byte[])entry.Value.Data.Clone()
                     });
                 }
+                data.PaletteName = _paletteLibrary?.SelectedName;
+                data.PaletteColors = PaletteStorage.NormalizeColors(PaletteStorage.ToColorData(_palette.Palette));
 
                 string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
                 {
@@ -1378,6 +1771,7 @@ namespace pixel_splash_studio
                 _currentFilePath = path;
                 UpdateEditMenu();
                 UpdateWindowTitle();
+                ApplyPaletteFromFile(data, path);
                 RedrawAllViewports();
             }
             catch (Exception ex)
@@ -1408,6 +1802,8 @@ namespace pixel_splash_studio
         private class CanvasFileData
         {
             public List<CanvasChunkData> Chunks { get; set; } = new List<CanvasChunkData>();
+            public string PaletteName { get; set; }
+            public List<PaletteColorData> PaletteColors { get; set; } = new List<PaletteColorData>();
         }
 
         private class CanvasChunkData

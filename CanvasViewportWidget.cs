@@ -219,18 +219,22 @@ public class CanvasViewportWidget : DrawingArea
     private void ConfigureInput()
     {
         CanFocus = true;
-        AddEvents((int)(EventMask.ButtonPressMask | EventMask.ButtonReleaseMask | EventMask.PointerMotionMask | EventMask.ScrollMask | EventMask.EnterNotifyMask | EventMask.LeaveNotifyMask));
+        AddEvents((int)(EventMask.ButtonPressMask | EventMask.ButtonReleaseMask | EventMask.PointerMotionMask | EventMask.ScrollMask | EventMask.EnterNotifyMask | EventMask.LeaveNotifyMask | EventMask.KeyPressMask));
         ButtonPressEvent += CanvasViewportWidget_ButtonPressEvent;
         ButtonReleaseEvent += CanvasViewportWidget_ButtonReleaseEvent;
         MotionNotifyEvent += CanvasViewportWidget_MotionNotifyEvent;
         ScrollEvent += CanvasViewportWidget_ScrollEvent;
         EnterNotifyEvent += CanvasViewportWidget_EnterNotifyEvent;
         LeaveNotifyEvent += CanvasViewportWidget_LeaveNotifyEvent;
+        KeyPressEvent += CanvasViewportWidget_KeyPressEvent;
     }
 
     private void CanvasViewportWidget_ButtonPressEvent(object o, ButtonPressEventArgs args)
     {
-        if (args.Event.Button == 3 && (args.Event.State & ModifierType.ControlMask) != 0)
+        bool hasSelection = _viewport?.Selection?.HasSelection ?? false;
+        bool ctrlDown = (args.Event.State & ModifierType.ControlMask) != 0;
+
+        if (args.Event.Button == 3)
         {
             ShowDetachMenu(args.Event);
             return;
@@ -245,10 +249,12 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
-        if (_toolManager == null || (args.Event.Button != 1 && args.Event.Button != 3))
+        if (_toolManager == null || args.Event.Button != 1)
         {
             return;
         }
+
+        bool primary = !(hasSelection && ctrlDown);
 
         if (ShouldRecordHistory())
         {
@@ -260,7 +266,6 @@ public class CanvasViewportWidget : DrawingArea
         UpdateGrabToolViewSize();
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
         UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
-        bool primary = args.Event.Button == 1;
         _toolManager.BeginUseTool(primary, toolX, toolY);
     }
 
@@ -272,11 +277,14 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
-        if (args.Event.Button == 1 || args.Event.Button == 3)
+        bool hasSelection = _viewport?.Selection?.HasSelection ?? false;
+        bool ctrlDown = (args.Event.State & ModifierType.ControlMask) != 0;
+
+        if (args.Event.Button == 1)
         {
             GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
             UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
-            bool primary = args.Event.Button == 1;
+            bool primary = !(hasSelection && ctrlDown);
             _toolManager?.EndUseTool(primary, toolX, toolY);
             if (_historyPending)
             {
@@ -318,6 +326,23 @@ public class CanvasViewportWidget : DrawingArea
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
         _toolManager.UseTool(toolX, toolY);
         QueueDraw();
+    }
+
+    private void CanvasViewportWidget_KeyPressEvent(object o, KeyPressEventArgs args)
+    {
+        if ((args.Event.State & ModifierType.ControlMask) == 0)
+        {
+            return;
+        }
+
+        if (args.Event.Key == Gdk.Key.c || args.Event.Key == Gdk.Key.C)
+        {
+            if (_viewport?.Selection?.HasSelection ?? false)
+            {
+                SelectionCopyRequested?.Invoke(this);
+                args.RetVal = true;
+            }
+        }
     }
 
     private void CanvasViewportWidget_EnterNotifyEvent(object o, EnterNotifyEventArgs args)
@@ -437,6 +462,15 @@ public class CanvasViewportWidget : DrawingArea
             menu.Append(detachItem);
         }
 
+        bool hasSelection = _viewport?.Selection?.HasSelection ?? false;
+        if (hasSelection)
+        {
+            menu.Append(new SeparatorMenuItem());
+            MenuItem clearSelection = new MenuItem("Clear Selection");
+            clearSelection.Activated += (_, __) => ClearSelectionRequested?.Invoke(this);
+            menu.Append(clearSelection);
+        }
+
         bool addedOptions = false;
         if (_activeTool is RectangleTool rectangleTool)
         {
@@ -473,18 +507,6 @@ public class CanvasViewportWidget : DrawingArea
             menu.Append(new SeparatorMenuItem());
             AppendSelectionOptions(menu, selectionOvalTool.Mode, selectionOvalTool.SnapMode);
             addedOptions = true;
-        }
-
-        if (_viewport?.Selection?.HasSelection ?? false)
-        {
-            if (!addedOptions)
-            {
-                menu.Append(new SeparatorMenuItem());
-            }
-
-            MenuItem clearSelection = new MenuItem("Clear Selection");
-            clearSelection.Activated += (_, __) => ClearSelectionRequested?.Invoke(this);
-            menu.Append(clearSelection);
         }
 
         menu.ShowAll();

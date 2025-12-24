@@ -135,10 +135,10 @@
                     </child>
                     <child>
                       <object class="GtkCheckMenuItem" id="_viewPaletteToggle">
-                        <property name="label" translatable="yes">Palette Window</property>
+                        <property name="label" translatable="yes">Dock Palette</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="active">True</property>
+                        <property name="active">False</property>
                       </object>
                     </child>
                   </object>
