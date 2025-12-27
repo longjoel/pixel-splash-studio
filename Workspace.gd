@@ -53,7 +53,6 @@ var toolDownMousePositions :=[Vector2(0,0)]
 var toolIsActivated:=false	
 var _temporary_grab_tool: Enums.ToolEnum = Enums.ToolEnum.Grab
 var _using_temporary_grab := false
-var _temporary_zoom_tool: Enums.ToolEnum = Enums.ToolEnum.Zoom
 
 # each tile is going to have an offset paired to an 8x8 array of tile data.
 var tiles: Dictionary[Vector2i, PackedByteArray]
