@@ -1,0 +1,196 @@
+[gd_scene load_steps=2 format=3 uid="uid://ca0rwh3w5uq7q"]
+
+[ext_resource type="PackedScene" uid="uid://k3cpscnla6r0" path="res://Workspace.tscn" id="1_pq8q7"]
+
+[node name="Control" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Workspace" parent="." instance=ExtResource("1_pq8q7")]
+position = Vector2(578, 325)
+
+[node name="MenuBar" type="MenuBar" parent="."]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
+
+[node name="File" type="PopupMenu" parent="MenuBar"]
+item_count = 7
+item_0/text = "New"
+item_0/id = 0
+item_1/text = "Save"
+item_1/id = 1
+item_2/text = "Save As"
+item_2/id = 2
+item_3/text = "Open"
+item_3/id = 3
+item_4/id = 4
+item_4/separator = true
+item_5/text = "Preferences"
+item_5/id = 4
+item_6/text = "Exit"
+item_6/id = 5
+
+[node name="Edit" type="PopupMenu" parent="MenuBar"]
+item_count = 8
+item_0/text = "Copy Selection"
+item_0/id = 0
+item_1/text = "Paste (Switch to stamp)"
+item_1/checkable = 1
+item_1/id = 1
+item_2/id = 4
+item_2/separator = true
+item_3/text = "Undo"
+item_3/id = 2
+item_4/text = "Redo"
+item_4/id = 3
+item_5/text = "Clear selection"
+item_5/id = 5
+item_6/text = "Delete pixels"
+item_6/id = 6
+item_7/text = "Delete Reference"
+item_7/id = 7
+
+[node name="View" type="PopupMenu" parent="MenuBar"]
+item_count = 6
+item_0/text = "Tile Grid"
+item_0/checkable = 1
+item_0/id = 0
+item_1/text = "Pixel Grid"
+item_1/checkable = 1
+item_1/id = 0
+item_2/text = "Tools"
+item_2/checkable = 1
+item_2/id = 0
+item_3/text = "Tool Options"
+item_3/checkable = 1
+item_3/id = 1
+item_4/text = "Palette"
+item_4/checkable = 1
+item_4/id = 2
+item_5/text = "Mini-map"
+item_5/checkable = 1
+item_5/id = 3
+
+[node name="Tool" type="PopupMenu" parent="MenuBar"]
+item_count = 16
+item_0/text = "Grab"
+item_0/id = 0
+item_1/text = "Zoom"
+item_1/id = 1
+item_2/id = 2
+item_2/separator = true
+item_3/text = "Pen"
+item_3/id = 2
+item_4/text = "Rectangle"
+item_4/id = 3
+item_5/text = "Oval"
+item_5/id = 4
+item_6/id = 5
+item_6/separator = true
+item_7/text = "Magic Wand"
+item_7/id = 6
+item_8/text = "Rectangle Select"
+item_8/id = 7
+item_9/text = "Oval Select"
+item_9/id = 8
+item_10/id = 10
+item_10/separator = true
+item_11/text = "Clone Stamp"
+item_11/id = 11
+item_12/id = 12
+item_12/separator = true
+item_13/text = "Reference Picker"
+item_13/id = 13
+item_14/text = "Insert Text"
+item_14/id = 14
+item_15/text = "Insert Image"
+item_15/id = 15
+
+[node name="Options" type="PopupMenu" parent="MenuBar"]
+item_count = 11
+item_0/text = "Paste Transparent"
+item_0/checkable = 1
+item_0/id = 2
+item_1/text = "1x scale"
+item_1/checkable = 2
+item_1/id = 4
+item_2/text = "2x Scale"
+item_2/checkable = 2
+item_2/id = 5
+item_3/text = "4x Scale"
+item_3/checkable = 2
+item_3/id = 6
+item_4/text = "Transform"
+item_4/id = 7
+item_4/separator = true
+item_5/text = "0°"
+item_5/checkable = 2
+item_5/id = 8
+item_6/text = "90°"
+item_6/checkable = 2
+item_6/id = 9
+item_7/text = "180°"
+item_7/checkable = 2
+item_7/id = 10
+item_8/text = "270°"
+item_8/checkable = 2
+item_8/id = 11
+item_9/text = "Flip X"
+item_9/id = 9
+item_10/text = "Flip Y"
+item_10/id = 10
+
+[node name="Help" type="PopupMenu" parent="MenuBar"]
+item_count = 3
+item_0/text = "Docs"
+item_0/id = 0
+item_1/text = "Github"
+item_1/id = 1
+item_2/text = "itch.io"
+item_2/id = 2
+
+[node name="ToolContainer" type="PanelContainer" parent="."]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 1
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 32.0
+offset_bottom = 64.0
+grow_horizontal = 2
+
+[node name="HFlowContainer2" type="HFlowContainer" parent="ToolContainer"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+
+[node name="Button" type="Button" parent="ToolContainer/HFlowContainer2"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+text = "Tools"
+
+[node name="HFlowContainer" type="HFlowContainer" parent="ToolContainer/HFlowContainer2"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+
+[node name="Button" type="Button" parent="ToolContainer/HFlowContainer2/HFlowContainer"]
+custom_minimum_size = Vector2(0, 64)
+layout_mode = 2
+text = "asdf"
+
+[node name="MinimapContainer" type="PanelContainer" parent="."]
+layout_mode = 1
+anchors_preset = 3
+anchor_left = 1.0
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -134.0
+offset_top = -133.0
+offset_right = -6.0
+offset_bottom = -5.0
+grow_horizontal = 0
+grow_vertical = 0

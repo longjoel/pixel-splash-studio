@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://k3cpscnla6r0"]
+
+[ext_resource type="Script" uid="uid://ej6352g482ym" path="res://splashy-pixel-workspace.gd" id="1_1g3j5"]
+
+[node name="Workspace" type="Node2D"]
+script = ExtResource("1_1g3j5")
