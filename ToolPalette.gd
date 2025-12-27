@@ -40,6 +40,11 @@ func _create_tool_button(tool: Enums.ToolEnum, data: Dictionary) -> BaseButton:
 	var icon: Texture2D = data.get("icon")
 	if icon:
 		button.icon = icon
+		button.text = ""
+		button.custom_minimum_size = Vector2(40, 40)
+		button.expand_icon = true
+		button.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		button.vertical_icon_alignment = VERTICAL_ALIGNMENT_CENTER
 	button.pressed.connect(_on_button_pressed.bind(tool, button))
 	if tool == tool_manager.get_active_tool():
 		button.button_pressed = true
@@ -52,4 +57,7 @@ func _on_button_pressed(tool: Enums.ToolEnum, button: Button) -> void:
 
 func _on_tool_changed(tool: Enums.ToolEnum) -> void:
 	if _buttons.has(tool):
-		(_buttons[tool] as Button).button_pressed = true
+		var button := _buttons[tool] as Button
+		if button.button_pressed:
+			return
+		button.button_pressed = true

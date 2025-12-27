@@ -3,8 +3,21 @@ class_name Tools
 
 signal tool_changed(tool: Enums.ToolEnum)
 
-const MIN_PIXEL_SCALE := 1
-const MAX_PIXEL_SCALE := 256
+const MIN_PIXEL_SCALE := 1.0
+const MAX_PIXEL_SCALE := 256.0
+
+const TOOL_ICONS := {
+	Enums.ToolEnum.Grab: preload("res://icons/tool_grab.svg"),
+	Enums.ToolEnum.Zoom: preload("res://icons/tool_zoom.svg"),
+	Enums.ToolEnum.Pen: preload("res://icons/tool_pen.svg"),
+	Enums.ToolEnum.Rectangle: preload("res://icons/tool_rectangle.svg"),
+	Enums.ToolEnum.Oval: preload("res://icons/tool_oval.svg"),
+	Enums.ToolEnum.MagicWand: preload("res://icons/tool_magic_wand.svg"),
+	Enums.ToolEnum.RectangleSelect: preload("res://icons/tool_rect_select.svg"),
+	Enums.ToolEnum.OvalSelect: preload("res://icons/tool_oval_select.svg"),
+	Enums.ToolEnum.CloneStamp: preload("res://icons/tool_clone_stamp.svg"),
+	Enums.ToolEnum.ReferencePicker: preload("res://icons/tool_reference.svg")
+}
 
 var _tool: Enums.ToolEnum = Enums.ToolEnum.Grab
 var _tools: Dictionary = {}
@@ -26,19 +39,21 @@ func _ready() -> void:
 
 func set_workspace(workspace: Node2D) -> void:
 	_workspace = workspace
+	if _workspace:
+		_workspace.queue_redraw()
 
 func _register_default_tools() -> void:
 	_tools = {
-		Enums.ToolEnum.Grab: _create_tool("Grab", "Pan around the canvas"),
-		Enums.ToolEnum.Zoom: _create_tool("Zoom", "Zoom in/out around the cursor"),
-		Enums.ToolEnum.Pen: _create_tool("Pen", "Draw pixels with the primary color"),
-		Enums.ToolEnum.Rectangle: _create_tool("Rectangle", "Draw rectangles (filled or outline)"),
-		Enums.ToolEnum.Oval: _create_tool("Oval", "Draw ellipses within a bounding box"),
-		Enums.ToolEnum.MagicWand: _create_tool("Magic Wand", "Select adjacent pixels of the same color"),
-		Enums.ToolEnum.RectangleSelect: _create_tool("Rectangle Select", "Select pixels using a rectangular marquee"),
-		Enums.ToolEnum.OvalSelect: _create_tool("Oval Select", "Select pixels using an ellipse marquee"),
-		Enums.ToolEnum.CloneStamp: _create_tool("Clone Stamp", "Clone pixels from the selection buffer"),
-		Enums.ToolEnum.ReferencePicker: _create_tool("Reference Picker", "Place/transform reference imagery")
+		Enums.ToolEnum.Grab: _create_tool("Grab", "Pan around the canvas", TOOL_ICONS[Enums.ToolEnum.Grab]),
+		Enums.ToolEnum.Zoom: _create_tool("Zoom", "Zoom in/out around the cursor", TOOL_ICONS[Enums.ToolEnum.Zoom]),
+		Enums.ToolEnum.Pen: _create_tool("Pen", "Draw pixels with the primary color", TOOL_ICONS[Enums.ToolEnum.Pen]),
+		Enums.ToolEnum.Rectangle: _create_tool("Rectangle", "Draw rectangles (filled or outline)", TOOL_ICONS[Enums.ToolEnum.Rectangle]),
+		Enums.ToolEnum.Oval: _create_tool("Oval", "Draw ellipses within a bounding box", TOOL_ICONS[Enums.ToolEnum.Oval]),
+		Enums.ToolEnum.MagicWand: _create_tool("Magic Wand", "Select adjacent pixels of the same color", TOOL_ICONS[Enums.ToolEnum.MagicWand]),
+		Enums.ToolEnum.RectangleSelect: _create_tool("Rectangle Select", "Select pixels using a rectangular marquee", TOOL_ICONS[Enums.ToolEnum.RectangleSelect]),
+		Enums.ToolEnum.OvalSelect: _create_tool("Oval Select", "Select pixels using an ellipse marquee", TOOL_ICONS[Enums.ToolEnum.OvalSelect]),
+		Enums.ToolEnum.CloneStamp: _create_tool("Clone Stamp", "Clone pixels from the selection buffer", TOOL_ICONS[Enums.ToolEnum.CloneStamp]),
+		Enums.ToolEnum.ReferencePicker: _create_tool("Reference Picker", "Place/transform reference imagery", TOOL_ICONS[Enums.ToolEnum.ReferencePicker])
 	}
 
 func _create_tool(
@@ -73,6 +88,7 @@ func set_tool(tool: Enums.ToolEnum) -> void:
 
 func get_active_tool() -> Enums.ToolEnum:
 	return _tool
+
 
 func on_begin(event: InputEvent) -> void:
 	match _tool:
@@ -164,6 +180,7 @@ func _grab_move(event: InputEvent) -> void:
 	var scale :float= max(1.0, float(_workspace.PixelScale))
 	var delta :Vector2= motion.relative / scale
 	_workspace.Camera -= delta
+	_workspace.queue_redraw()
 
 func _grab_end(event: InputEvent) -> void:
 	if !_grab_active or !_is_grab_button(event):
@@ -178,16 +195,18 @@ func _zoom_begin(event: InputEvent) -> void:
 	var factor := 1.0
 	match button.button_index:
 		MOUSE_BUTTON_LEFT:
-			factor = 1.25
+			factor = 1.5
 		MOUSE_BUTTON_RIGHT:
-			factor = 0.8
+			factor = 0.7
 		MOUSE_BUTTON_WHEEL_UP:
-			factor = 1.1
+			factor = 1.2
 		MOUSE_BUTTON_WHEEL_DOWN:
-			factor = 0.9
+			factor = 0.8
 		_:
 			return
-	_apply_zoom(factor, button.position)
+	var focus := Vector2(_workspace.Cursor) - Vector2(_workspace.Camera)
+	focus *= max(1.0, float(_workspace.PixelScale))
+	_apply_zoom(factor, focus)
 
 # Pen tool --------------------------------------------------------
 func _pen_begin(event: InputEvent) -> void:
@@ -212,6 +231,7 @@ func _pen_move(event: InputEvent) -> void:
 		_pen_path.append(pos)
 		_workspace.toolDownMousePositions = _pen_path.duplicate()
 		_workspace.Cursor = Vector2i(_floor_to_int(pos.x), _floor_to_int(pos.y))
+		_workspace.queue_redraw()
 
 func _pen_end(event: InputEvent) -> void:
 	if !_pen_active or !_is_left_button(event):
@@ -219,6 +239,7 @@ func _pen_end(event: InputEvent) -> void:
 	_pen_active = false
 	if _workspace != null:
 		_workspace.toolIsActivated = false
+		_workspace.queue_redraw()
 
 # Rectangle tool --------------------------------------------------
 func _rectangle_begin(event: InputEvent) -> void:
@@ -247,6 +268,8 @@ func _magic_wand_begin(event: InputEvent) -> void:
 	var canvas_pos := _screen_to_canvas((event as InputEventMouseButton).position)
 	_workspace.Cursor = Vector2i(_floor_to_int(canvas_pos.x), _floor_to_int(canvas_pos.y))
 	_workspace.toolDownMousePositions = [canvas_pos]
+	_workspace.toolIsActivated = true
+	_workspace.queue_redraw()
 
 # Rectangle select ------------------------------------------------
 func _rectangle_select_begin(event: InputEvent) -> void:
@@ -277,6 +300,8 @@ func _clone_stamp_begin(event: InputEvent) -> void:
 	_shape_anchor = canvas_pos
 	_workspace.toolIsActivated = true
 	_workspace.toolDownMousePositions = [canvas_pos]
+	_workspace.Cursor = Vector2i(_floor_to_int(canvas_pos.x), _floor_to_int(canvas_pos.y))
+	_workspace.queue_redraw()
 
 func _clone_stamp_move(event: InputEvent) -> void:
 	if !_workspace or !_clone_active:
@@ -286,19 +311,25 @@ func _clone_stamp_move(event: InputEvent) -> void:
 		return
 	var canvas_pos := _screen_to_canvas(motion.position)
 	_workspace.toolDownMousePositions = [_shape_anchor, canvas_pos]
+	_workspace.Cursor = Vector2i(_floor_to_int(canvas_pos.x), _floor_to_int(canvas_pos.y))
+	_workspace.queue_redraw()
 
 func _clone_stamp_end(event: InputEvent) -> void:
 	if _workspace == null or !_clone_active or !_is_left_button(event):
 		return
 	_clone_active = false
 	_workspace.toolIsActivated = false
+	_workspace.queue_redraw()
 
 # Reference picker ------------------------------------------------
 func _reference_picker_begin(event: InputEvent) -> void:
 	if !_workspace or !_is_left_button(event):
 		return
 	_workspace.toolIsActivated = true
+	var canvas_pos := _screen_to_canvas((event as InputEventMouseButton).position)
+	_workspace.Cursor = Vector2i(_floor_to_int(canvas_pos.x), _floor_to_int(canvas_pos.y))
 	_grab_begin(event)
+	_workspace.queue_redraw()
 
 func _reference_picker_move(event: InputEvent) -> void:
 	if !_workspace:
@@ -310,6 +341,7 @@ func _reference_picker_end(event: InputEvent) -> void:
 		return
 	_grab_end(event)
 	_workspace.toolIsActivated = false
+	_workspace.queue_redraw()
 
 # Shared helpers --------------------------------------------------
 func _begin_shape_tool(tool: Enums.ToolEnum, event: InputEvent) -> void:
@@ -322,6 +354,8 @@ func _begin_shape_tool(tool: Enums.ToolEnum, event: InputEvent) -> void:
 	_shape_preview = [canvas_pos]
 	_workspace.toolIsActivated = true
 	_workspace.toolDownMousePositions = _shape_preview.duplicate()
+	_workspace.Cursor = Vector2i(_floor_to_int(canvas_pos.x), _floor_to_int(canvas_pos.y))
+	_workspace.queue_redraw()
 
 func _move_shape_tool(tool: Enums.ToolEnum, event: InputEvent) -> void:
 	if !_workspace or !_shape_active or _shape_tool != tool:
@@ -332,22 +366,32 @@ func _move_shape_tool(tool: Enums.ToolEnum, event: InputEvent) -> void:
 	var canvas_pos := _screen_to_canvas(motion.position)
 	_shape_preview = [_shape_anchor, canvas_pos]
 	_workspace.toolDownMousePositions = _shape_preview.duplicate()
+	_workspace.Cursor = Vector2i(_floor_to_int(canvas_pos.x), _floor_to_int(canvas_pos.y))
+	_workspace.queue_redraw()
 
 func _end_shape_tool(tool: Enums.ToolEnum, event: InputEvent) -> void:
 	if !_workspace or !_shape_active or _shape_tool != tool or !_is_left_button(event):
 		return
 	_shape_active = false
 	_workspace.toolIsActivated = false
+	_workspace.queue_redraw()
 
 func _apply_zoom(factor: float, focus_position: Vector2) -> void:
 	if _workspace == null:
 		return
-	var new_scale :float= clamp(int(round(_workspace.PixelScale * factor)), MIN_PIXEL_SCALE, MAX_PIXEL_SCALE)
-	if new_scale == _workspace.PixelScale:
+	var new_scale :float= clamp(_workspace.PixelScale * factor, MIN_PIXEL_SCALE, MAX_PIXEL_SCALE)
+	if absf(new_scale - _workspace.PixelScale) < 0.001:
 		return
+	var center_canvas := _screen_to_canvas(focus_position)
+	var focus_global_before := center_canvas
 	_workspace.PixelScale = new_scale
-	var canvas_pos := _screen_to_canvas(focus_position)
-	_workspace.Cursor = Vector2i(_floor_to_int(canvas_pos.x), _floor_to_int(canvas_pos.y))
+	var focus_global_after := _screen_to_canvas(focus_position)
+	var delta := focus_global_after - focus_global_before
+	_workspace.Camera -= delta
+	var cursor_canvas := Vector2(_workspace.Cursor)
+	cursor_canvas += delta
+	_workspace.Cursor = Vector2i(_floor_to_int(cursor_canvas.x), _floor_to_int(cursor_canvas.y))
+	_workspace.queue_redraw()
 
 func _is_left_button(event: InputEvent) -> bool:
 	return event is InputEventMouseButton and (event as InputEventMouseButton).button_index == MOUSE_BUTTON_LEFT

@@ -1,9 +1,0 @@
-63f7b34db8d8cdea90c76aacccf841ec
-::res://::1766849813
-enums.gd::GDScript::5145999400036093333::1766843613::0::1::::<>Node<><>0<>0<><>::
-icon.svg::CompressedTexture2D::1593356007274231184::1766809282::1766842799::1::::<><><>0<>0<>3620739c42ea9c9dac3a1520be900d99<>res://.godot/imported/icon.svg-218a8f2b3041327d8a5756f3a245f83b.ctex::
-root.tscn::PackedScene::4825522699539083856::1766843794::0::1::::<><><>0<>0<><>::uid://k3cpscnla6r0::::res://Workspace.tscn<>uid://cibuj0amu3c8r::::res://tools.gd<>uid://d4fkps28q7lp::::res://ToolPalette.gd
-ToolPalette.gd::GDScript::270755745612965365::1766843749::0::1::::<>HFlowContainer<><>0<>0<><>::
-tools.gd::GDScript::5337648219901803675::1766844164::0::1::::Tools<>Node<><>0<>0<><>::
-Workspace.gd::GDScript::301268621066683904::1766847462::0::1::::<>Node2D<><>0<>0<><>::
-Workspace.tscn::PackedScene::759840183503412007::1766843292::0::1::::<><><>0<>0<><>::uid://ej6352g482ym::::res://Workspace.gd
