@@ -1,6 +1,8 @@
-[gd_scene load_steps=2 format=3 uid="uid://ca0rwh3w5uq7q"]
+[gd_scene load_steps=4 format=3 uid="uid://ca0rwh3w5uq7q"]
 
 [ext_resource type="PackedScene" uid="uid://k3cpscnla6r0" path="res://Workspace.tscn" id="1_pq8q7"]
+[ext_resource type="Script" uid="uid://cibuj0amu3c8r" path="res://tools.gd" id="2_dr7s1"]
+[ext_resource type="Script" uid="uid://d4fkps28q7lp" path="res://ToolPalette.gd" id="3_1o6ls"]
 
 [node name="Control" type="Control"]
 layout_mode = 3
@@ -10,8 +12,11 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
+[node name="ToolManager" type="Node" parent="."]
+script = ExtResource("2_dr7s1")
+
 [node name="Workspace" parent="." instance=ExtResource("1_pq8q7")]
-position = Vector2(578, 325)
+tool_manager_path = NodePath("../ToolManager")
 
 [node name="MenuBar" type="MenuBar" parent="."]
 layout_mode = 0
@@ -157,29 +162,21 @@ item_2/id = 2
 [node name="ToolContainer" type="PanelContainer" parent="."]
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 1
-anchors_preset = 10
+anchors_preset = -1
+anchor_left = -0.010000001
 anchor_right = 1.0
+anchor_bottom = 0.148
+offset_left = 11.52
 offset_top = 32.0
-offset_bottom = 64.0
+offset_bottom = -31.904
 grow_horizontal = 2
 
-[node name="HFlowContainer2" type="HFlowContainer" parent="ToolContainer"]
+[node name="HFlowContainer" type="HFlowContainer" parent="ToolContainer"]
+clip_contents = true
 custom_minimum_size = Vector2(0, 64)
 layout_mode = 2
-
-[node name="Button" type="Button" parent="ToolContainer/HFlowContainer2"]
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-text = "Tools"
-
-[node name="HFlowContainer" type="HFlowContainer" parent="ToolContainer/HFlowContainer2"]
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-
-[node name="Button" type="Button" parent="ToolContainer/HFlowContainer2/HFlowContainer"]
-custom_minimum_size = Vector2(0, 64)
-layout_mode = 2
-text = "asdf"
+script = ExtResource("3_1o6ls")
+tool_manager_path = NodePath("../../ToolManager")
 
 [node name="MinimapContainer" type="PanelContainer" parent="."]
 layout_mode = 1

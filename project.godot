@@ -18,3 +18,10 @@ config/icon="res://icon.svg"
 [autoload]
 
 Enums="*res://enums.gd"
+
+[input]
+
+tool_grab={
+"deadzone": 0.5,
+"events": [{"type":"InputEventKey","pressed":false,"keycode":0,"physical_keycode":71,"unicode":0,"echo":false}]
+}
