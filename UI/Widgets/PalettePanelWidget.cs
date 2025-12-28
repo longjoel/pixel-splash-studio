@@ -162,7 +162,7 @@ namespace PixelSplashStudio
 
         public void SetDockedMode(bool docked)
         {
-            _paletteTabs.SetSizeRequest(-1, docked ? 180 : -1);
+            _paletteTabs.SetSizeRequest(-1, docked ? 220 : -1);
         }
 
         private void PaletteArea_Drawn(object sender, DrawnArgs args)

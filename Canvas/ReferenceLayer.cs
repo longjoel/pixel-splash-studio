@@ -128,12 +128,12 @@ namespace PixelSplashStudio
         }
     }
 
-    public abstract class ReferenceObject
-    {
-        public double X { get; set; }
-        public double Y { get; set; }
-        public double Width { get; set; } = 1.0;
-        public double Height { get; set; } = 1.0;
+public abstract class ReferenceObject
+{
+    public double X { get; set; }
+    public double Y { get; set; }
+    public double Width { get; set; } = 0.0;
+    public double Height { get; set; } = 0.0;
         public double Opacity { get; set; } = 1.0;
 
         public virtual bool Contains(double worldX, double worldY)
@@ -148,8 +148,11 @@ namespace PixelSplashStudio
         public abstract void Draw(Context context, CanvasViewport viewport, double screenX, double screenY, double screenWidth, double screenHeight);
     }
 
-    public class ReferenceTextObject : ReferenceObject
-    {
+public class ReferenceTextObject : ReferenceObject
+{
+    private const double LetterWidth = 2.0;
+    private const double LetterHeight = 8.0;
+
         public string Text { get; set; }
         public string FontFamily { get; set; }
         public double FontSize { get; set; }
@@ -166,25 +169,20 @@ namespace PixelSplashStudio
             Measure();
         }
 
-        public void Measure()
+    public void Measure()
+    {
+        int length = string.IsNullOrEmpty(Text) ? 1 : Text.Length;
+        NaturalWidth = Math.Max(1.0, length * LetterWidth);
+        NaturalHeight = LetterHeight;
+        NaturalXBearing = 0;
+        NaturalYBearing = 0;
+
+        if (Width <= 0 || Height <= 0)
         {
-            using (var surface = new ImageSurface(Format.Argb32, 1, 1))
-            using (var ctx = new Context(surface))
-            {
-                ctx.SelectFontFace(FontFamily, FontSlant.Normal, FontWeight.Normal);
-                ctx.SetFontSize(FontSize);
-                TextExtents extents = ctx.TextExtents(Text ?? string.Empty);
-                NaturalWidth = Math.Max(1.0, extents.Width);
-                NaturalHeight = Math.Max(1.0, extents.Height);
-                NaturalXBearing = extents.XBearing;
-                NaturalYBearing = extents.YBearing;
-                if (Width <= 0 || Height <= 0)
-                {
-                    Width = NaturalWidth;
-                    Height = NaturalHeight;
-                }
-            }
+            Width = NaturalWidth;
+            Height = NaturalHeight;
         }
+    }
 
         public override void Draw(Context context, CanvasViewport viewport, double screenX, double screenY, double screenWidth, double screenHeight)
         {
@@ -198,19 +196,21 @@ namespace PixelSplashStudio
                 return;
             }
 
-            double scaleX = screenWidth / (NaturalWidth * viewport.PixelSize);
-            double scaleY = screenHeight / (NaturalHeight * viewport.PixelSize);
-
-            context.Save();
-            context.Translate(screenX, screenY);
-            context.Scale(scaleX, scaleY);
-            context.SelectFontFace(FontFamily, FontSlant.Normal, FontWeight.Normal);
-            context.SetFontSize(FontSize * viewport.PixelSize);
-            context.SetSourceRGBA(1, 1, 1, Math.Max(0, Math.Min(1, Opacity)));
-            context.MoveTo(-NaturalXBearing * viewport.PixelSize, -NaturalYBearing * viewport.PixelSize);
-            context.ShowText(Text);
-            context.Restore();
-        }
+        context.Save();
+        context.Translate(screenX, screenY);
+        context.SelectFontFace(FontFamily, FontSlant.Normal, FontWeight.Normal);
+        context.SetFontSize(FontSize * viewport.PixelSize);
+        TextExtents extents = context.TextExtents(Text ?? string.Empty);
+        double baseWidth = Math.Max(1.0, extents.Width);
+        double baseHeight = Math.Max(1.0, extents.Height);
+        double scaleX = screenWidth / baseWidth;
+        double scaleY = screenHeight / baseHeight;
+        context.Scale(scaleX, scaleY);
+        context.SetSourceRGBA(1, 1, 1, Math.Max(0, Math.Min(1, Opacity)));
+        context.MoveTo(-extents.XBearing, -extents.YBearing);
+        context.ShowText(Text);
+        context.Restore();
+    }
     }
 
     public class ReferenceImageObject : ReferenceObject

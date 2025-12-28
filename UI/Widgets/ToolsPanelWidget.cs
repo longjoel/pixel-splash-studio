@@ -72,7 +72,7 @@ namespace PixelSplashStudio
         public event System.Action StampRequested;
         public event System.Action EraseRequested;
         public event System.Action ReferenceRequested;
-        public event System.Action PaletteToggleRequested;
+        public event System.Action PaletteSwapRequested;
         public event System.Action<bool> RectangleFillToggled;
         public event System.Action<bool> TransparentOverwriteToggled;
         public event System.Action<bool> FillSecondaryToggled;
@@ -127,7 +127,7 @@ namespace PixelSplashStudio
             }
 
             // Color swatch button wiring
-            _colorSwatchButton.Clicked += (_, __) => PaletteToggleRequested?.Invoke();
+            _colorSwatchButton.Clicked += (_, __) => PaletteSwapRequested?.Invoke();
 
             // Setup color swatch drawing areas
             _primaryColorSwatch.Drawn += OnPrimaryColorDraw;

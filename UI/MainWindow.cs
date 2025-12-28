@@ -100,6 +100,7 @@ namespace PixelSplashStudio
         private readonly FloatingPaletteWidget _paletteWindow;
         private readonly ToolsPanelWidget _toolbarPanel;
         private readonly Gtk.Window _toolbarWindow;
+        private readonly Separator _dockPaletteToolsSeparator;
         private readonly ViewportTool _viewportTool;
         private readonly CanvasViewportSettings _viewportSettings;
         private readonly AppConfig _config;
@@ -192,6 +193,10 @@ namespace PixelSplashStudio
             {
                 TransientFor = this
             };
+            _dockPaletteToolsSeparator = new Separator(Orientation.Horizontal)
+            {
+                Visible = false
+            };
             _toolbarWindow.SetDefaultSize(220, 520);
             ThemeHelper.ApplyWindowBackground(_toolbarWindow);
             _toolbarWindow.DeleteEvent += ToolbarWindow_DeleteEvent;
@@ -226,15 +231,7 @@ namespace PixelSplashStudio
             _toolbarPanel.EraseShapeChanged += _appState.SetEraseShape;
             _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
             _toolbarPanel.SelectionExportRequested += () => ExportSelection_Activated(this, EventArgs.Empty);
-            _toolbarPanel.PaletteToggleRequested += () =>
-            {
-                if (_viewPaletteToggle == null)
-                {
-                    return;
-                }
-
-                _viewPaletteToggle.Active = !_viewPaletteToggle.Active;
-            };
+            _toolbarPanel.PaletteSwapRequested += HandlePaletteSwapRequested;
 
             _palettePanel.PaletteSelected += HandlePaletteSelected;
             _palettePanel.PaletteNewRequested += HandlePaletteNewRequested;
@@ -798,6 +795,7 @@ namespace PixelSplashStudio
             _dockToolsHost.PackStart(_toolbarPanel, false, false, 0);
             _toolbarPanel.ShowAll();
             _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
+            UpdateDockOrder();
             UpdateDockHostVisibility();
             if (IsWidgetAlive(_toolbarWindow))
             {
@@ -824,6 +822,7 @@ namespace PixelSplashStudio
             _toolbarWindow.Add(_toolbarPanel);
             _toolbarWindow.ShowAll();
             _toolbarPanel.EnsureOptionVisibility();  // Re-apply visibility after ShowAll()
+            UpdateDockOrder();
             UpdateDockHostVisibility();
         }
 
@@ -835,9 +834,10 @@ namespace PixelSplashStudio
             }
 
             _palettePanel.SetDockedMode(true);
-            _palettePanel.SetSizeRequest(-1, 260);
-            _dockToolsHost.PackEnd(_palettePanel, false, false, 0);
+            _palettePanel.SetSizeRequest(-1, 300);
+            _dockToolsHost.PackStart(_palettePanel, false, false, 0);
             _palettePanel.ShowAll();
+            UpdateDockOrder();
             UpdateDockHostVisibility();
             if (IsWidgetAlive(_paletteWindow))
             {
@@ -865,7 +865,49 @@ namespace PixelSplashStudio
             _palettePanel.SetSizeRequest(-1, -1);
             _paletteWindow.Add(_palettePanel);
             _paletteWindow.ShowAll();
+            UpdateDockOrder();
             UpdateDockHostVisibility();
+        }
+
+        private void UpdateDockOrder()
+        {
+            if (_dockToolsHost == null)
+            {
+                return;
+            }
+
+            bool hasPalette = _palettePanel?.Parent == _dockToolsHost;
+            bool hasToolbar = _toolbarPanel?.Parent == _dockToolsHost;
+
+            if (_dockPaletteToolsSeparator != null && _dockPaletteToolsSeparator.Parent != _dockToolsHost)
+            {
+                _dockToolsHost.PackStart(_dockPaletteToolsSeparator, false, false, 0);
+            }
+
+            if (hasPalette && hasToolbar)
+            {
+                _dockPaletteToolsSeparator.Visible = true;
+                _dockPaletteToolsSeparator.ShowAll();
+                _dockToolsHost.ReorderChild(_palettePanel, 0);
+                _dockToolsHost.ReorderChild(_dockPaletteToolsSeparator, 1);
+                _dockToolsHost.ReorderChild(_toolbarPanel, 2);
+                return;
+            }
+
+            if (_dockPaletteToolsSeparator != null)
+            {
+                _dockPaletteToolsSeparator.Visible = false;
+            }
+
+            if (hasPalette)
+            {
+                _dockToolsHost.ReorderChild(_palettePanel, 0);
+            }
+
+            if (hasToolbar)
+            {
+                _dockToolsHost.ReorderChild(_toolbarPanel, hasPalette ? 1 : 0);
+            }
         }
 
         private void UpdateDockHostVisibility()
@@ -924,6 +966,20 @@ namespace PixelSplashStudio
             PaletteEntryData entry = _paletteLibraryService.AddPalette(baseName, data.PaletteColors);
             UpdatePaletteSelector();
             ApplyPaletteFromLibrary(entry.Name);
+        }
+
+        private void HandlePaletteSwapRequested()
+        {
+            if (_palette == null)
+            {
+                return;
+            }
+
+            int primary = _palette.PrimaryIndex;
+            _palette.PrimaryIndex = _palette.SecondaryIndex;
+            _palette.SecondaryIndex = primary;
+            _palettePanel?.RefreshPalette();
+            _appState.NotifyPaletteColorsChanged();
         }
 
         private void HandlePaletteSelected(string name)

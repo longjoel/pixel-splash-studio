@@ -849,7 +849,7 @@ namespace PixelSplashStudio
 
         private void GetToolCoordinates(int screenX, int screenY, out int toolX, out int toolY)
         {
-            if (_toolManager?.ActiveTool is GrabAndZoomTool)
+            if (_toolManager?.ActiveTool is GrabAndZoomTool || _toolManager?.ActiveTool is ReferenceTransformTool)
             {
                 toolX = screenX;
                 toolY = screenY;
@@ -920,6 +920,10 @@ namespace PixelSplashStudio
             if (_activeTool is GrabAndZoomTool grabTool && AllocatedWidth > 0 && AllocatedHeight > 0)
             {
                 grabTool.SetViewSize(AllocatedWidth, AllocatedHeight);
+            }
+            else if (_activeTool is ReferenceTransformTool referenceTool && AllocatedWidth > 0 && AllocatedHeight > 0)
+            {
+                referenceTool.SetViewSize(AllocatedWidth, AllocatedHeight);
             }
         }
 

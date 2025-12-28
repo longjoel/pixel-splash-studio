@@ -18,6 +18,8 @@ namespace PixelSplashStudio
         private double _startY;
         private double _startWidth;
         private double _startHeight;
+        private int _viewWidth;
+        private int _viewHeight;
 
         public event Action PreviewChanged;
 
@@ -37,8 +39,7 @@ namespace PixelSplashStudio
                 return;
             }
 
-            double worldX = x;
-            double worldY = y;
+            GetWorldCoordinates(x, y, out double worldX, out double worldY);
             ReferenceObject selected = _references.Selected;
             ReferenceHandle handle = ReferenceHandle.None;
             if (selected != null)
@@ -91,8 +92,7 @@ namespace PixelSplashStudio
                 return;
             }
 
-            double worldX = x;
-            double worldY = y;
+            GetWorldCoordinates(x, y, out double worldX, out double worldY);
             double deltaX = worldX - _startWorldX;
             double deltaY = worldY - _startWorldY;
             ReferenceObject selected = _references.Selected;
@@ -316,7 +316,28 @@ namespace PixelSplashStudio
                 return MinSizeWorld;
             }
 
-            return Math.Max(1.5, HandleSizePixels / _viewport.PixelSize);
+            return HandleSizePixels / _viewport.PixelSize;
+        }
+
+        public void SetViewSize(int viewWidth, int viewHeight)
+        {
+            _viewWidth = viewWidth;
+            _viewHeight = viewHeight;
+        }
+
+        private void GetWorldCoordinates(int screenX, int screenY, out double worldX, out double worldY)
+        {
+            worldX = screenX;
+            worldY = screenY;
+
+            if (_viewport == null || _viewport.PixelSize <= 0 || _viewWidth <= 0 || _viewHeight <= 0)
+            {
+                return;
+            }
+
+            _viewport.GetViewportBounds(_viewWidth, _viewHeight, out int startX, out int startY, out _, out _);
+            worldX = startX + (screenX / (double)_viewport.PixelSize);
+            worldY = startY + (screenY / (double)_viewport.PixelSize);
         }
 
         private double SnapValue(double value)
