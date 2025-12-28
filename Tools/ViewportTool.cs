@@ -2,22 +2,20 @@ using System;
 using System.Collections.Generic;
 using Gtk;
 
-public class ViewportTool
+namespace PixelSplashStudio
 {
-    private readonly PixelSplashCanvas _canvas;
-    private readonly PixelSplashPalette _palette;
-    private readonly CanvasViewportSettings _settings;
-    private readonly Dictionary<Window, CanvasViewportWidget> _windows = new Dictionary<Window, CanvasViewportWidget>();
-
-    public event Action<CanvasViewportWidget> ViewportCreated;
-    public event Action<CanvasViewportWidget> ViewportClosed;
-
-    public ViewportTool(PixelSplashCanvas canvas, PixelSplashPalette palette, CanvasViewportSettings settings)
+    public class ViewportTool
     {
-        _canvas = canvas;
-        _palette = palette;
-        _settings = settings;
-    }
+        private readonly ViewportFactory _viewportFactory;
+        private readonly Dictionary<Window, ViewportContext> _windows = new Dictionary<Window, ViewportContext>();
+
+        public event Action<ViewportContext> ViewportCreated;
+        public event Action<ViewportContext> ViewportClosed;
+
+        public ViewportTool(ViewportFactory viewportFactory)
+        {
+            _viewportFactory = viewportFactory ?? throw new ArgumentNullException(nameof(viewportFactory));
+        }
 
         public void OpenViewportWindow(Window parent = null)
         {
@@ -27,20 +25,21 @@ public class ViewportTool
             {
                 window.TransientFor = parent;
             }
-            pixel_splash_studio.ThemeHelper.ApplyWindowBackground(window);
+            ThemeHelper.ApplyWindowBackground(window);
 
-            CanvasViewportWidget viewport = new CanvasViewportWidget(_canvas, _palette, _settings);
-        window.Add(viewport);
-        _windows[window] = viewport;
-        ViewportCreated?.Invoke(viewport);
+            ViewportContext context = _viewportFactory.CreateViewport();
+            window.Add(context.Widget);
+            _windows[window] = context;
+            ViewportCreated?.Invoke(context);
 
-        window.DeleteEvent += (sender, args) =>
-        {
-            ViewportClosed?.Invoke(viewport);
-            _windows.Remove(window);
-            window.Destroy();
-        };
+            window.DeleteEvent += (sender, args) =>
+            {
+                ViewportClosed?.Invoke(context);
+                _windows.Remove(window);
+                window.Destroy();
+            };
 
-        window.ShowAll();
+            window.ShowAll();
+        }
     }
 }
