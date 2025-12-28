@@ -570,42 +570,35 @@ public class CanvasViewportWidget : DrawingArea
             menu.Append(eraseSelection);
         }
 
-        bool addedOptions = false;
         if (_activeTool is RectangleTool rectangleTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendShapeOptions(menu, rectangleTool.Fill, rectangleTool.OverwriteTransparent, rectangleTool.FillUsesSecondary);
-            addedOptions = true;
         }
         else if (_activeTool is OvalTool ovalTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendShapeOptions(menu, ovalTool.Fill, ovalTool.OverwriteTransparent, ovalTool.FillUsesSecondary);
-            addedOptions = true;
         }
         else if (_activeTool is StampTool stampTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendStampOptions(menu, stampTool);
-            addedOptions = true;
         }
         else if (_activeTool is SelectionRectangleTool selectionTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendSelectionOptions(menu, selectionTool.Mode, selectionTool.SnapMode);
-            addedOptions = true;
         }
         else if (_activeTool is SelectionWandTool selectionWandTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendSelectionOptions(menu, selectionWandTool.Mode, selectionWandTool.SnapMode);
-            addedOptions = true;
         }
         else if (_activeTool is SelectionOvalTool selectionOvalTool)
         {
             menu.Append(new SeparatorMenuItem());
             AppendSelectionOptions(menu, selectionOvalTool.Mode, selectionOvalTool.SnapMode);
-            addedOptions = true;
         }
 
         menu.ShowAll();

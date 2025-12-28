@@ -148,6 +148,7 @@ namespace pixel_splash_studio
                 PixelGridMinSize = _config.PixelGridMinSize,
                 TileGridSize = _config.TileGridSize
             };
+            UpdateBackgroundFromPalette();
             _viewA = new CanvasViewportWidget(_canvas, _palette, _viewportSettings);
             _viewB = new CanvasViewportWidget(_canvas, _palette, _viewportSettings);
 
@@ -188,7 +189,6 @@ namespace pixel_splash_studio
             AttachViewportHandlers(_viewA);
             AttachViewportHandlers(_viewB);
 
-            SeedCanvas(_canvas);
             ThemeHelper.ApplyWindowBackground(this);
 
             _palettePanel = new PalettePanelWidget(_palette);
@@ -401,7 +401,12 @@ namespace pixel_splash_studio
                 _toolbarPanel.SetEraseOptions(_eraseTool.Size, shape);
                 UpdateOptionsMenu(_appState.ActiveTool);
             };
-            _appState.PaletteColorsChanged += () => _toolbarPanel.UpdateColorSwatches();
+            _appState.PaletteColorsChanged += () =>
+            {
+                UpdateBackgroundFromPalette();
+                _toolbarPanel.UpdateColorSwatches();
+                RedrawAllViewports();
+            };
             _canvas.References.Changed += HandleReferenceLayerChanged;
 
             // Initialize: Trigger initial state sync by setting the default active tool
@@ -521,6 +526,20 @@ namespace pixel_splash_studio
             palette.Palette.Add(new Tuple<byte, byte, byte, byte>(220, 20, 60, 255));
             palette.Palette.Add(new Tuple<byte, byte, byte, byte>(30, 144, 255, 255));
             palette.Palette.Add(new Tuple<byte, byte, byte, byte>(60, 179, 113, 255));
+        }
+
+        private void UpdateBackgroundFromPalette()
+        {
+            if (_palette?.Palette == null || _palette.Palette.Count == 0 || _viewportSettings == null)
+            {
+                return;
+            }
+
+            var background = _palette.Palette[0];
+            _viewportSettings.BackgroundR = background.Item1;
+            _viewportSettings.BackgroundG = background.Item2;
+            _viewportSettings.BackgroundB = background.Item3;
+            _viewportSettings.BackgroundA = background.Item4;
         }
 
         private static void SeedCanvas(PixelSplashCanvas canvas)

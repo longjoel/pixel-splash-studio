@@ -96,6 +96,59 @@ public class CanvasViewport
         context.SetSourceRGBA(red / 255.0, green / 255.0, blue / 255.0, alpha / 255.0);
     }
 
+    private void GetPixelColor(int x, int y, out byte r, out byte g, out byte b, out byte a)
+    {
+        r = _settings.BackgroundR;
+        g = _settings.BackgroundG;
+        b = _settings.BackgroundB;
+        a = _settings.BackgroundA;
+
+        if (_canvas == null)
+        {
+            return;
+        }
+
+        byte index = _canvas.GetPixel(x, y);
+        var palette = _palette?.Palette;
+        if (palette == null || index >= palette.Count)
+        {
+            return;
+        }
+
+        var color = palette[index];
+        r = color.Item1;
+        g = color.Item2;
+        b = color.Item3;
+        a = color.Item4;
+    }
+
+    private void GetBoundarySampleColorVertical(int worldX, int worldY, out byte r, out byte g, out byte b)
+    {
+        GetPixelColor(worldX - 1, worldY, out byte rLeft, out byte gLeft, out byte bLeft, out _);
+        GetPixelColor(worldX, worldY, out byte rRight, out byte gRight, out byte bRight, out _);
+        r = (byte)((rLeft + rRight) / 2);
+        g = (byte)((gLeft + gRight) / 2);
+        b = (byte)((bLeft + bRight) / 2);
+    }
+
+    private void GetBoundarySampleColorHorizontal(int worldX, int worldY, out byte r, out byte g, out byte b)
+    {
+        GetPixelColor(worldX, worldY - 1, out byte rTop, out byte gTop, out byte bTop, out _);
+        GetPixelColor(worldX, worldY, out byte rBottom, out byte gBottom, out byte bBottom, out _);
+        r = (byte)((rTop + rBottom) / 2);
+        g = (byte)((gTop + gBottom) / 2);
+        b = (byte)((bTop + bBottom) / 2);
+    }
+
+    private static void SetGridColorFromAverage(Context context, double avgR, double avgG, double avgB, double alpha, double contrastStrength)
+    {
+        double luminance = (0.2126 * avgR + 0.7152 * avgG + 0.0722 * avgB) / 255.0;
+        double targetR = luminance > 0.5 ? avgR * (1.0 - contrastStrength) : avgR + (255.0 - avgR) * contrastStrength;
+        double targetG = luminance > 0.5 ? avgG * (1.0 - contrastStrength) : avgG + (255.0 - avgG) * contrastStrength;
+        double targetB = luminance > 0.5 ? avgB * (1.0 - contrastStrength) : avgB + (255.0 - avgB) * contrastStrength;
+        context.SetSourceRGBA(targetR / 255.0, targetG / 255.0, targetB / 255.0, alpha);
+    }
+
     public void RenderViewport(Cairo.Context context)
     {
         if (context == null)
@@ -211,7 +264,6 @@ public class CanvasViewport
         }
 
         context.Save();
-        SetSourceColor(context, _settings.GridR, _settings.GridG, _settings.GridB, _settings.GridA);
         context.LineWidth = 1.0;
 
         double viewportWidth = x2 - x1;
@@ -221,62 +273,183 @@ public class CanvasViewport
         bool showPixelGrid = _pixelSize >= pixelGridMinSize;
         if (showPixelGrid)
         {
+            const double pixelGridAlpha = 0.25;
+            const double pixelGridContrast = 0.35;
+            int sampleCount = Math.Max(1, Math.Min(12, viewportPixelHeight));
+            int sampleStep = Math.Max(1, viewportPixelHeight / sampleCount);
+
             for (int x = 0; x <= viewportPixelWidth; x++)
             {
-                double xPos = (x * _pixelSize) + 0.5;
-                context.MoveTo(xPos, 0);
-                context.LineTo(xPos, viewportHeight);
+                int worldX = startX + x;
+                double sumR = 0;
+                double sumG = 0;
+                double sumB = 0;
+                int samples = 0;
+                for (int worldY = startY; worldY <= endY; worldY += sampleStep)
+                {
+                    GetBoundarySampleColorVertical(worldX, worldY, out byte r, out byte g, out byte b);
+                    sumR += r;
+                    sumG += g;
+                    sumB += b;
+                    samples++;
+                }
+
+                if (samples > 0)
+                {
+                    SetGridColorFromAverage(context, sumR / samples, sumG / samples, sumB / samples, pixelGridAlpha, pixelGridContrast);
+                    double xPos = (x * _pixelSize) + 0.5;
+                    context.MoveTo(xPos, 0);
+                    context.LineTo(xPos, viewportHeight);
+                    context.Stroke();
+                }
             }
 
             for (int y = 0; y <= viewportPixelHeight; y++)
             {
-                double yPos = (y * _pixelSize) + 0.5;
-                context.MoveTo(0, yPos);
-                context.LineTo(viewportWidth, yPos);
-            }
+                int worldY = startY + y;
+                double sumR = 0;
+                double sumG = 0;
+                double sumB = 0;
+                int samples = 0;
+                for (int worldX = startX; worldX <= endX; worldX += sampleStep)
+                {
+                    GetBoundarySampleColorHorizontal(worldX, worldY, out byte r, out byte g, out byte b);
+                    sumR += r;
+                    sumG += g;
+                    sumB += b;
+                    samples++;
+                }
 
-            context.Stroke();
+                if (samples > 0)
+                {
+                    SetGridColorFromAverage(context, sumR / samples, sumG / samples, sumB / samples, pixelGridAlpha, pixelGridContrast);
+                    double yPos = (y * _pixelSize) + 0.5;
+                    context.MoveTo(0, yPos);
+                    context.LineTo(viewportWidth, yPos);
+                    context.Stroke();
+                }
+            }
         }
 
         int subGridSize = Math.Max(1, _settings.TileGridSize);
-        SetSourceColorScaled(context, _settings.GridR, _settings.GridG, _settings.GridB, _settings.GridA, 0.75, 1.0);
-
-        int subGridStartX = NextMultiple(startX, subGridSize);
-        for (int worldX = subGridStartX; worldX <= endX; worldX += subGridSize)
+        if (subGridSize > 0)
         {
-            double xPos = ((worldX - startX) * _pixelSize) + 0.5;
-            context.MoveTo(xPos, 0);
-            context.LineTo(xPos, viewportHeight);
+            const double tileGridAlpha = 0.4;
+            const double tileGridContrast = 0.45;
+            int sampleCount = Math.Max(1, Math.Min(16, viewportPixelHeight));
+            int sampleStep = Math.Max(1, viewportPixelHeight / sampleCount);
+
+            int subGridStartX = NextMultiple(startX, subGridSize);
+            for (int worldX = subGridStartX; worldX <= endX; worldX += subGridSize)
+            {
+                double sumR = 0;
+                double sumG = 0;
+                double sumB = 0;
+                int samples = 0;
+                for (int worldY = startY; worldY <= endY; worldY += sampleStep)
+                {
+                    GetBoundarySampleColorVertical(worldX, worldY, out byte r, out byte g, out byte b);
+                    sumR += r;
+                    sumG += g;
+                    sumB += b;
+                    samples++;
+                }
+
+                if (samples > 0)
+                {
+                    SetGridColorFromAverage(context, sumR / samples, sumG / samples, sumB / samples, tileGridAlpha, tileGridContrast);
+                    double xPos = ((worldX - startX) * _pixelSize) + 0.5;
+                    context.MoveTo(xPos, 0);
+                    context.LineTo(xPos, viewportHeight);
+                    context.Stroke();
+                }
+            }
+
+            int subGridStartY = NextMultiple(startY, subGridSize);
+            for (int worldY = subGridStartY; worldY <= endY; worldY += subGridSize)
+            {
+                double sumR = 0;
+                double sumG = 0;
+                double sumB = 0;
+                int samples = 0;
+                for (int worldX = startX; worldX <= endX; worldX += sampleStep)
+                {
+                    GetBoundarySampleColorHorizontal(worldX, worldY, out byte r, out byte g, out byte b);
+                    sumR += r;
+                    sumG += g;
+                    sumB += b;
+                    samples++;
+                }
+
+                if (samples > 0)
+                {
+                    SetGridColorFromAverage(context, sumR / samples, sumG / samples, sumB / samples, tileGridAlpha, tileGridContrast);
+                    double yPos = ((worldY - startY) * _pixelSize) + 0.5;
+                    context.MoveTo(0, yPos);
+                    context.LineTo(viewportWidth, yPos);
+                    context.Stroke();
+                }
+            }
         }
 
-        int subGridStartY = NextMultiple(startY, subGridSize);
-        for (int worldY = subGridStartY; worldY <= endY; worldY += subGridSize)
-        {
-            double yPos = ((worldY - startY) * _pixelSize) + 0.5;
-            context.MoveTo(0, yPos);
-            context.LineTo(viewportWidth, yPos);
-        }
-
-        context.Stroke();
-
-        SetSourceColorScaled(context, _settings.GridR, _settings.GridG, _settings.GridB, _settings.GridA, 0.5, 1.0);
         context.LineWidth = 2.0;
+        const double axisAlpha = 0.55;
+        const double axisContrast = 0.55;
 
         if (startX <= 0 && endX >= 0)
         {
-            double xPos = ((0 - startX) * _pixelSize) + 0.5;
-            context.MoveTo(xPos, 0);
-            context.LineTo(xPos, viewportHeight);
+            double sumR = 0;
+            double sumG = 0;
+            double sumB = 0;
+            int samples = 0;
+            int sampleCount = Math.Max(1, Math.Min(16, viewportPixelHeight));
+            int sampleStep = Math.Max(1, viewportPixelHeight / sampleCount);
+            for (int worldY = startY; worldY <= endY; worldY += sampleStep)
+            {
+                GetBoundarySampleColorVertical(0, worldY, out byte r, out byte g, out byte b);
+                sumR += r;
+                sumG += g;
+                sumB += b;
+                samples++;
+            }
+
+            if (samples > 0)
+            {
+                SetGridColorFromAverage(context, sumR / samples, sumG / samples, sumB / samples, axisAlpha, axisContrast);
+                double xPos = ((0 - startX) * _pixelSize) + 0.5;
+                context.MoveTo(xPos, 0);
+                context.LineTo(xPos, viewportHeight);
+                context.Stroke();
+            }
         }
 
         if (startY <= 0 && endY >= 0)
         {
-            double yPos = ((0 - startY) * _pixelSize) + 0.5;
-            context.MoveTo(0, yPos);
-            context.LineTo(viewportWidth, yPos);
+            double sumR = 0;
+            double sumG = 0;
+            double sumB = 0;
+            int samples = 0;
+            int sampleCount = Math.Max(1, Math.Min(16, viewportPixelWidth));
+            int sampleStep = Math.Max(1, viewportPixelWidth / sampleCount);
+            for (int worldX = startX; worldX <= endX; worldX += sampleStep)
+            {
+                GetBoundarySampleColorHorizontal(worldX, 0, out byte r, out byte g, out byte b);
+                sumR += r;
+                sumG += g;
+                sumB += b;
+                samples++;
+            }
+
+            if (samples > 0)
+            {
+                SetGridColorFromAverage(context, sumR / samples, sumG / samples, sumB / samples, axisAlpha, axisContrast);
+                double yPos = ((0 - startY) * _pixelSize) + 0.5;
+                context.MoveTo(0, yPos);
+                context.LineTo(viewportWidth, yPos);
+                context.Stroke();
+            }
         }
 
-        context.Stroke();
         context.Restore();
 
         if (_canvas.Selection.HasSelection)

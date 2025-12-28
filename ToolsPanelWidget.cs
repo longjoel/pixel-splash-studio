@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Gtk;
 using UI = Gtk.Builder.ObjectAttribute;
 
@@ -102,6 +103,7 @@ namespace pixel_splash_studio
         private ToolsPanelWidget(Builder builder) : base(builder.GetRawOwnedObject("ToolsPanelWidget"))
         {
             builder.Autoconnect(this);
+            ApplyToolIcons();
             _toolButtons = new Dictionary<ToolId, ToggleButton>
             {
                 { ToolId.GrabZoom, _toolGrabZoom },
@@ -174,6 +176,68 @@ namespace pixel_splash_studio
             _optionEraseShapeRound.Toggled += (_, __) => HandleEraseShapeToggle();
 
             SetActiveTool(ToolId.GrabZoom);
+            LockOptionsBoxHeight();
+        }
+
+        private void ApplyToolIcons()
+        {
+            SetToolIcon(_toolGrabZoom, "grab_zoom", "Grab/Zoom");
+            SetToolIcon(_toolPen, "pen", "Pen");
+            SetToolIcon(_toolLine, "line", "Line");
+            SetToolIcon(_toolRectangle, "rectangle", "Rectangle");
+            SetToolIcon(_toolOval, "oval", "Oval");
+            SetToolIcon(_toolSelection, "selection_rect", "Selection Rectangle");
+            SetToolIcon(_toolSelectionWand, "selection_wand", "Magic Wand");
+            SetToolIcon(_toolSelectionOval, "selection_oval", "Selection Oval");
+            SetToolIcon(_toolFloodFill, "flood_fill", "Flood Fill");
+            SetToolIcon(_toolStamp, "stamp", "Stamp");
+            SetToolIcon(_toolErase, "erase", "Erase");
+            SetToolIcon(_toolReference, "reference", "Reference");
+        }
+
+        private static void SetToolIcon(ToggleButton button, string iconBase, string tooltip)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            bool useDark = UseDarkIcons(button);
+            string iconFile = useDark ? $"{iconBase}_dark.png" : $"{iconBase}.png";
+            string iconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "res", "icons", iconFile);
+            if (!File.Exists(iconPath))
+            {
+                iconPath = System.IO.Path.Combine("res", "icons", iconFile);
+            }
+
+            if (File.Exists(iconPath))
+            {
+                if (!string.IsNullOrWhiteSpace(tooltip))
+                {
+                    button.TooltipText = tooltip;
+                }
+                button.Label = null;
+                var image = new Image(iconPath);
+                if (button.Child != null)
+                {
+                    button.Remove(button.Child);
+                }
+                button.Add(image);
+                button.WidthRequest = 56;
+                button.ShowAll();
+            }
+        }
+
+        private static bool UseDarkIcons(Widget widget)
+        {
+            if (widget?.StyleContext == null)
+            {
+                return false;
+            }
+
+            var color = widget.StyleContext.GetColor(StateFlags.Normal);
+            double luminance = (0.2126 * color.Red) + (0.7152 * color.Green) + (0.0722 * color.Blue);
+            return luminance > 0.6;
         }
 
         /// <summary>
@@ -338,7 +402,46 @@ namespace pixel_splash_studio
             _stampOptions.Visible = showStamp;
             _referenceOptions.Visible = showReference;
             _eraseOptions.Visible = showErase;
-            _toolOptionsBox.Visible = showRectangle || showSelection || showStamp || showReference || showErase;
+            _toolOptionsBox.Visible = true;
+        }
+
+        private void LockOptionsBoxHeight()
+        {
+            if (_toolOptionsBox == null)
+            {
+                return;
+            }
+
+            int maxHeight = 0;
+            var optionBoxes = new[]
+            {
+                _rectangleOptions,
+                _selectionOptions,
+                _stampOptions,
+                _referenceOptions,
+                _eraseOptions
+            };
+
+            foreach (var box in optionBoxes)
+            {
+                if (box == null)
+                {
+                    continue;
+                }
+
+                bool wasVisible = box.Visible;
+                box.Visible = true;
+                box.ShowAll();
+                box.GetPreferredHeight(out _, out int naturalHeight);
+                maxHeight = Math.Max(maxHeight, naturalHeight);
+                box.Visible = wasVisible;
+            }
+
+            if (maxHeight > 0)
+            {
+                _toolOptionsBox.HeightRequest = maxHeight;
+                _toolOptionsBox.Visible = true;
+            }
         }
 
         private void UpdateActiveToolHighlight()

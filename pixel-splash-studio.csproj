@@ -16,4 +16,13 @@
     <PackageReference Include="GtkSharp" Version="3.24.24.*" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="res/icons/*.svg">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="res/icons/*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>

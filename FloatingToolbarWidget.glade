@@ -14,38 +14,63 @@
         <property name="margin">8</property>
         <property name="spacing">6</property>
         <child>
-          <object class="GtkToggleButton" id="_toolGrabZoom">
-            <property name="label" translatable="yes">Grab/Zoom</property>
+          <object class="GtkGrid" id="_toolGridPrimary">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolPen">
-            <property name="label" translatable="yes">Pen</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolLine">
-            <property name="label" translatable="yes">Line</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolRectangle">
-            <property name="label" translatable="yes">Rectangle</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolOval">
-            <property name="label" translatable="yes">Oval</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="row_spacing">6</property>
+            <property name="column_spacing">6</property>
+            <property name="column_homogeneous">True</property>
+            <property name="row_homogeneous">True</property>
+            <child>
+              <object class="GtkToggleButton" id="_toolGrabZoom">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolPen">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolLine">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolRectangle">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolOval">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">2</property>
+              </packing>
+            </child>
           </object>
         </child>
         <child>
@@ -55,38 +80,63 @@
           </object>
         </child>
         <child>
-          <object class="GtkToggleButton" id="_toolSelection">
-            <property name="label" translatable="yes">Selection</property>
+          <object class="GtkGrid" id="_toolGridSecondary">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolSelectionWand">
-            <property name="label" translatable="yes">Magic Wand</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolSelectionOval">
-            <property name="label" translatable="yes">Selection Oval</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolFloodFill">
-            <property name="label" translatable="yes">Flood Fill</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
-          </object>
-        </child>
-        <child>
-          <object class="GtkToggleButton" id="_toolStamp">
-            <property name="label" translatable="yes">Stamp</property>
-            <property name="visible">True</property>
-            <property name="can_focus">False</property>
+            <property name="row_spacing">6</property>
+            <property name="column_spacing">6</property>
+            <property name="column_homogeneous">True</property>
+            <property name="row_homogeneous">True</property>
+            <child>
+              <object class="GtkToggleButton" id="_toolSelection">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolSelectionWand">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolSelectionOval">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolFloodFill">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkToggleButton" id="_toolStamp">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">0</property>
+                <property name="top_attach">2</property>
+              </packing>
+            </child>
           </object>
         </child>
         <child>
