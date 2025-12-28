@@ -25,6 +25,8 @@ namespace pixel_splash_studio
         [UI] private MenuItem _toolSelectionOval = null;
         [UI] private MenuItem _toolStamp = null;
         [UI] private MenuItem _toolOval = null;
+        [UI] private MenuItem _toolReference = null;
+        [UI] private MenuItem _toolErase = null;
         [UI] private MenuItem _menuOptions = null;
         [UI] private MenuItem _editUndo = null;
         [UI] private MenuItem _editRedo = null;
@@ -35,9 +37,50 @@ namespace pixel_splash_studio
         [UI] private MenuItem _fileSaveAs = null;
         [UI] private CheckMenuItem _optionRectangleFill = null;
         [UI] private CheckMenuItem _optionTransparentOverwrite = null;
+        [UI] private CheckMenuItem _optionFillSecondary = null;
         [UI] private CheckMenuItem _optionStampOverwrite = null;
+        [UI] private MenuItem _optionSelectionCopy = null;
+        [UI] private MenuItem _optionSelectionExport = null;
+        [UI] private RadioMenuItem _optionSelectionAdd = null;
+        [UI] private RadioMenuItem _optionSelectionSubtract = null;
+        [UI] private RadioMenuItem _optionSelectionSnapPixel = null;
+        [UI] private RadioMenuItem _optionSelectionSnapTile = null;
+        [UI] private SeparatorMenuItem _optionSelectionSeparator = null;
+        [UI] private SeparatorMenuItem _optionSelectionSnapSeparator = null;
+        [UI] private SeparatorMenuItem _optionSelectionClearSeparator = null;
+        [UI] private SeparatorMenuItem _optionStampSeparator = null;
+        [UI] private SeparatorMenuItem _optionStampSnapSeparator = null;
+        [UI] private RadioMenuItem _optionStampSnapPixel = null;
+        [UI] private RadioMenuItem _optionStampSnapTile = null;
+        [UI] private SeparatorMenuItem _optionStampScaleSeparator = null;
+        [UI] private RadioMenuItem _optionStampScale1 = null;
+        [UI] private RadioMenuItem _optionStampScale2 = null;
+        [UI] private RadioMenuItem _optionStampScale4 = null;
+        [UI] private SeparatorMenuItem _optionStampRotateSeparator = null;
+        [UI] private RadioMenuItem _optionStampRotate0 = null;
+        [UI] private RadioMenuItem _optionStampRotate90 = null;
+        [UI] private RadioMenuItem _optionStampRotate180 = null;
+        [UI] private RadioMenuItem _optionStampRotate270 = null;
+        [UI] private SeparatorMenuItem _optionStampFlipSeparator = null;
+        [UI] private CheckMenuItem _optionStampFlipX = null;
+        [UI] private CheckMenuItem _optionStampFlipY = null;
+        [UI] private SeparatorMenuItem _optionEraseSeparator = null;
+        [UI] private RadioMenuItem _optionEraseSize4 = null;
+        [UI] private RadioMenuItem _optionEraseSize8 = null;
+        [UI] private RadioMenuItem _optionEraseSize16 = null;
+        [UI] private SeparatorMenuItem _optionEraseShapeSeparator = null;
+        [UI] private RadioMenuItem _optionEraseShapeSquare = null;
+        [UI] private RadioMenuItem _optionEraseShapeRound = null;
+        [UI] private SeparatorMenuItem _optionReferenceSeparator = null;
+        [UI] private RadioMenuItem _optionReferenceSnapFree = null;
+        [UI] private RadioMenuItem _optionReferenceSnapPixel = null;
+        [UI] private RadioMenuItem _optionReferenceSnapTile = null;
+        [UI] private SeparatorMenuItem _optionReferenceOpacitySeparator = null;
+        [UI] private MenuItem _optionReferenceOpacityItem = null;
+        [UI] private Scale _optionReferenceOpacity = null;
         [UI] private MenuItem _optionClearSelection = null;
-        [UI] private SeparatorMenuItem _optionSeparator = null;
+        [UI] private MenuItem _optionEraseSelection = null;
+        [UI] private SeparatorMenuItem _optionShapeSeparator = null;
         [UI] private CheckMenuItem _viewPaletteToggle = null;
         [UI] private CheckMenuItem _viewToolbarToggle = null;
         [UI] private MenuItem _viewNewViewport = null;
@@ -57,6 +100,9 @@ namespace pixel_splash_studio
         private readonly FloodFillTool _floodFillTool;
         private readonly StampTool _stampTool;
         private readonly OvalTool _ovalTool;
+        private readonly EraseTool _eraseTool;
+        private readonly ReferenceTransformTool _referenceToolA;
+        private readonly ReferenceTransformTool _referenceToolB;
         private readonly PalettePanelWidget _palettePanel;
         private readonly FloatingPaletteWidget _paletteWindow;
         private readonly ToolsPanelWidget _toolbarPanel;
@@ -124,6 +170,17 @@ namespace pixel_splash_studio
             _floodFillTool = new FloodFillTool(_canvas, _palette);
             _stampTool = new StampTool(_canvas, _palette, () => _clipboard);
             _ovalTool = new OvalTool(_canvas, _palette);
+            _eraseTool = new EraseTool(_canvas)
+            {
+                Size = _appState.EraseSize,
+                Shape = _appState.EraseShape
+            };
+            _referenceToolA = new ReferenceTransformTool(_viewA.Viewport, _canvas.References);
+            _referenceToolB = new ReferenceTransformTool(_viewB.Viewport, _canvas.References);
+            _referenceToolA.TileSize = _config.TileGridSize;
+            _referenceToolB.TileSize = _config.TileGridSize;
+            _referenceToolA.SnapMode = _appState.ReferenceSnapMode;
+            _referenceToolB.SnapMode = _appState.ReferenceSnapMode;
             _viewportTool = new ViewportTool(_canvas, _palette, _viewportSettings);
 
             _viewports.Add(_viewA);
@@ -161,8 +218,11 @@ namespace pixel_splash_studio
             _toolbarPanel.SelectionOvalRequested += () => _appState.SetActiveTool(ToolMode.SelectionOval);
             _toolbarPanel.FloodFillRequested += () => _appState.SetActiveTool(ToolMode.FloodFill);
             _toolbarPanel.StampRequested += () => _appState.SetActiveTool(ToolMode.Stamp);
+            _toolbarPanel.EraseRequested += () => _appState.SetActiveTool(ToolMode.Erase);
+            _toolbarPanel.ReferenceRequested += () => _appState.SetActiveTool(ToolMode.Reference);
             _toolbarPanel.RectangleFillToggled += _appState.SetRectangleFill;
             _toolbarPanel.TransparentOverwriteToggled += _appState.SetTransparentOverwrite;
+            _toolbarPanel.FillSecondaryToggled += _appState.SetShapeFillUseSecondary;
             _toolbarPanel.SelectionModeChanged += _appState.SetSelectionMode;
             _toolbarPanel.SelectionSnapModeChanged += _appState.SetSelectionSnapMode;
             _toolbarPanel.StampOverwriteToggled += _appState.SetStampOverwrite;
@@ -171,6 +231,10 @@ namespace pixel_splash_studio
             _toolbarPanel.StampFlipYToggled += _appState.SetStampFlipY;
             _toolbarPanel.StampScaleChanged += _appState.SetStampScale;
             _toolbarPanel.StampSnapModeChanged += _appState.SetStampSnapMode;
+            _toolbarPanel.ReferenceSnapModeChanged += _appState.SetReferenceSnapMode;
+            _toolbarPanel.ReferenceOpacityChanged += HandleReferenceOpacityChanged;
+            _toolbarPanel.EraseSizeChanged += _appState.SetEraseSize;
+            _toolbarPanel.EraseShapeChanged += _appState.SetEraseShape;
             _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
             _toolbarPanel.SelectionExportRequested += () => ExportSelection_Activated(this, EventArgs.Empty);
             _toolbarPanel.PaletteToggleRequested += () =>
@@ -200,7 +264,8 @@ namespace pixel_splash_studio
                 {
                     viewport.SetRectangleFill(enabled);
                 }
-                _toolbarPanel.SetRectangleOptions(enabled, _rectangleTool.OverwriteTransparent);
+                _toolbarPanel.SetRectangleOptions(enabled, _rectangleTool.OverwriteTransparent, _rectangleTool.FillUsesSecondary);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.TransparentOverwriteEnabledChanged += (enabled) =>
             {
@@ -210,7 +275,19 @@ namespace pixel_splash_studio
                 {
                     viewport.SetTransparentOverwrite(enabled);
                 }
-                _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, enabled);
+                _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, enabled, _rectangleTool.FillUsesSecondary);
+                UpdateOptionsMenu(_appState.ActiveTool);
+            };
+            _appState.ShapeFillUseSecondaryChanged += (enabled) =>
+            {
+                _rectangleTool.FillUsesSecondary = enabled;
+                _ovalTool.FillUsesSecondary = enabled;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetFillUsesSecondary(enabled);
+                }
+                _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, _rectangleTool.OverwriteTransparent, enabled);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.SelectionModeChanged += (mode) =>
             {
@@ -222,6 +299,7 @@ namespace pixel_splash_studio
                     viewport.SetSelectionMode(mode);
                 }
                 _toolbarPanel.SetSelectionMode(mode);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.SelectionSnapModeChanged += (mode) =>
             {
@@ -233,6 +311,7 @@ namespace pixel_splash_studio
                     viewport.SetSelectionSnapMode(mode);
                 }
                 _toolbarPanel.SetSelectionSnapMode(mode);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.StampOverwriteEnabledChanged += (enabled) =>
             {
@@ -242,6 +321,7 @@ namespace pixel_splash_studio
                     viewport.SetStampOverwrite(enabled);
                 }
                 _toolbarPanel.SetStampOverwrite(enabled);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.StampRotationChanged += (rotation) =>
             {
@@ -251,6 +331,7 @@ namespace pixel_splash_studio
                     viewport.SetStampRotation(rotation);
                 }
                 _toolbarPanel.SetStampTransform(rotation, _stampTool.FlipX, _stampTool.FlipY);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.StampFlipXChanged += (flipX) =>
             {
@@ -260,6 +341,7 @@ namespace pixel_splash_studio
                     viewport.SetStampFlip(flipX, _stampTool.FlipY);
                 }
                 _toolbarPanel.SetStampTransform(_stampTool.Rotation, flipX, _stampTool.FlipY);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.StampFlipYChanged += (flipY) =>
             {
@@ -269,6 +351,7 @@ namespace pixel_splash_studio
                     viewport.SetStampFlip(_stampTool.FlipX, flipY);
                 }
                 _toolbarPanel.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, flipY);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.StampScaleChanged += (scale) =>
             {
@@ -278,6 +361,7 @@ namespace pixel_splash_studio
                     viewport.SetStampScale(scale);
                 }
                 _toolbarPanel.SetStampScale(scale);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.StampSnapModeChanged += (mode) =>
             {
@@ -287,8 +371,38 @@ namespace pixel_splash_studio
                     viewport.SetStampSnapMode(mode);
                 }
                 _toolbarPanel.SetStampSnapMode(mode);
+                UpdateOptionsMenu(_appState.ActiveTool);
+            };
+            _appState.ReferenceSnapModeChanged += (mode) =>
+            {
+                _referenceToolA.SnapMode = mode;
+                _referenceToolB.SnapMode = mode;
+                _toolbarPanel.SetReferenceSnapMode(mode);
+                RedrawAllViewports();
+                UpdateOptionsMenu(_appState.ActiveTool);
+            };
+            _appState.EraseSizeChanged += (size) =>
+            {
+                _eraseTool.Size = size;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetEraseSize(size);
+                }
+                _toolbarPanel.SetEraseOptions(size, _eraseTool.Shape);
+                UpdateOptionsMenu(_appState.ActiveTool);
+            };
+            _appState.EraseShapeChanged += (shape) =>
+            {
+                _eraseTool.Shape = shape;
+                foreach (var viewport in _viewports)
+                {
+                    viewport.SetEraseShape(shape);
+                }
+                _toolbarPanel.SetEraseOptions(_eraseTool.Size, shape);
+                UpdateOptionsMenu(_appState.ActiveTool);
             };
             _appState.PaletteColorsChanged += () => _toolbarPanel.UpdateColorSwatches();
+            _canvas.References.Changed += HandleReferenceLayerChanged;
 
             // Initialize: Trigger initial state sync by setting the default active tool
             _appState.SetActiveTool(ToolMode.GrabZoom);
@@ -327,6 +441,8 @@ namespace pixel_splash_studio
             _toolSelectionOval.Activated += ToolSelectionOval_Activated;
             _toolStamp.Activated += ToolStamp_Activated;
             _toolOval.Activated += ToolOval_Activated;
+            _toolReference.Activated += ToolReference_Activated;
+            _toolErase.Activated += ToolErase_Activated;
             _viewNewViewport.Activated += ToolNewViewport_Activated;
             _editUndo.Activated += EditUndo_Activated;
             _editRedo.Activated += EditRedo_Activated;
@@ -339,8 +455,36 @@ namespace pixel_splash_studio
             _viewToolbarToggle.Toggled += ViewToolbarToggle_Toggled;
             _optionRectangleFill.Toggled += OptionRectangleFill_Toggled;
             _optionTransparentOverwrite.Toggled += OptionTransparentOverwrite_Toggled;
+            _optionFillSecondary.Toggled += OptionFillSecondary_Toggled;
             _optionStampOverwrite.Toggled += OptionStampOverwrite_Toggled;
+            _optionSelectionCopy.Activated += EditCopy_Activated;
+            _optionSelectionExport.Activated += ExportSelection_Activated;
+            _optionSelectionAdd.Toggled += OptionSelectionModeMenu_Toggled;
+            _optionSelectionSubtract.Toggled += OptionSelectionModeMenu_Toggled;
+            _optionSelectionSnapPixel.Toggled += OptionSelectionSnapMenu_Toggled;
+            _optionSelectionSnapTile.Toggled += OptionSelectionSnapMenu_Toggled;
+            _optionStampSnapPixel.Toggled += OptionStampSnapMenu_Toggled;
+            _optionStampSnapTile.Toggled += OptionStampSnapMenu_Toggled;
+            _optionStampScale1.Toggled += OptionStampScaleMenu_Toggled;
+            _optionStampScale2.Toggled += OptionStampScaleMenu_Toggled;
+            _optionStampScale4.Toggled += OptionStampScaleMenu_Toggled;
+            _optionStampRotate0.Toggled += OptionStampRotationMenu_Toggled;
+            _optionStampRotate90.Toggled += OptionStampRotationMenu_Toggled;
+            _optionStampRotate180.Toggled += OptionStampRotationMenu_Toggled;
+            _optionStampRotate270.Toggled += OptionStampRotationMenu_Toggled;
+            _optionStampFlipX.Toggled += OptionStampFlipXMenu_Toggled;
+            _optionStampFlipY.Toggled += OptionStampFlipYMenu_Toggled;
+            _optionEraseSize4.Toggled += OptionEraseSizeMenu_Toggled;
+            _optionEraseSize8.Toggled += OptionEraseSizeMenu_Toggled;
+            _optionEraseSize16.Toggled += OptionEraseSizeMenu_Toggled;
+            _optionEraseShapeSquare.Toggled += OptionEraseShapeMenu_Toggled;
+            _optionEraseShapeRound.Toggled += OptionEraseShapeMenu_Toggled;
+            _optionReferenceSnapFree.Toggled += OptionReferenceSnapMenu_Toggled;
+            _optionReferenceSnapPixel.Toggled += OptionReferenceSnapMenu_Toggled;
+            _optionReferenceSnapTile.Toggled += OptionReferenceSnapMenu_Toggled;
+            _optionReferenceOpacity.ValueChanged += OptionReferenceOpacityMenu_Changed;
             _optionClearSelection.Activated += OptionClearSelection_Activated;
+            _optionEraseSelection.Activated += OptionEraseSelection_Activated;
 
             _editUndo.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.z, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
             _editRedo.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.y, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
@@ -436,6 +580,16 @@ namespace pixel_splash_studio
             _appState.SetActiveTool(ToolMode.Oval);
         }
 
+        private void ToolReference_Activated(object sender, EventArgs e)
+        {
+            _appState.SetActiveTool(ToolMode.Reference);
+        }
+
+        private void ToolErase_Activated(object sender, EventArgs e)
+        {
+            _appState.SetActiveTool(ToolMode.Erase);
+        }
+
         private void ToolNewViewport_Activated(object sender, EventArgs e)
         {
             _viewportTool.OpenViewportWindow(this);
@@ -479,6 +633,12 @@ namespace pixel_splash_studio
                     break;
                 case ToolMode.Stamp:
                     _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Stamp);
+                    break;
+                case ToolMode.Erase:
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Erase);
+                    break;
+                case ToolMode.Reference:
+                    _toolbarPanel.SetActiveTool(ToolsPanelWidget.ToolId.Reference);
                     break;
             }
         }
@@ -1048,6 +1208,37 @@ namespace pixel_splash_studio
             return null;
         }
 
+        private string PromptForReferenceText(string title, string defaultText)
+        {
+            Dialog dialog = new Dialog(title, this, DialogFlags.Modal);
+            dialog.AddButton("Cancel", ResponseType.Cancel);
+            dialog.AddButton("OK", ResponseType.Ok);
+
+            Entry entry = new Entry
+            {
+                Text = defaultText ?? string.Empty,
+                ActivatesDefault = true
+            };
+            dialog.DefaultResponse = ResponseType.Ok;
+            dialog.ContentArea.PackStart(new Label("Reference text:"), false, false, 6);
+            dialog.ContentArea.PackStart(entry, false, false, 6);
+            dialog.ContentArea.ShowAll();
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Ok)
+                {
+                    return entry.Text?.Trim();
+                }
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
+
+            return null;
+        }
+
         private static bool IsWidgetAlive(Widget widget)
         {
             return widget != null && widget.Handle != IntPtr.Zero;
@@ -1115,6 +1306,28 @@ namespace pixel_splash_studio
                 case ToolMode.Oval:
                     view.SetActiveTool(_ovalTool);
                     break;
+                case ToolMode.Erase:
+                    view.SetActiveTool(_eraseTool);
+                    break;
+                case ToolMode.Reference:
+                    if (view == _viewA)
+                    {
+                        view.SetActiveTool(_referenceToolA);
+                    }
+                    else if (view == _viewB)
+                    {
+                        view.SetActiveTool(_referenceToolB);
+                    }
+                    else
+                    {
+                        var referenceTool = new ReferenceTransformTool(view.Viewport, _canvas.References)
+                        {
+                            TileSize = _config.TileGridSize,
+                            SnapMode = _appState.ReferenceSnapMode
+                        };
+                        view.SetActiveTool(referenceTool);
+                    }
+                    break;
                 default:
                     if (view == _viewA)
                     {
@@ -1145,6 +1358,7 @@ namespace pixel_splash_studio
             viewport.ToolUseCompleted += Viewport_ToolUseCompleted;
             viewport.RectangleFillToggled += Viewport_RectangleFillToggled;
             viewport.TransparentOverwriteToggled += Viewport_TransparentOverwriteToggled;
+            viewport.FillSecondaryToggled += Viewport_FillSecondaryToggled;
             viewport.StampOverwriteToggled += Viewport_StampOverwriteToggled;
             viewport.StampRotationChanged += Viewport_StampRotationChanged;
             viewport.StampFlipXToggled += Viewport_StampFlipXToggled;
@@ -1157,6 +1371,10 @@ namespace pixel_splash_studio
             viewport.SelectionSnapModeChanged += Viewport_SelectionSnapModeChanged;
             viewport.SelectionCopyRequested += Viewport_SelectionCopyRequested;
             viewport.SelectionExportRequested += Viewport_SelectionExportRequested;
+            viewport.SelectionEraseRequested += Viewport_SelectionEraseRequested;
+            viewport.ReferenceAddTextRequested += Viewport_ReferenceAddTextRequested;
+            viewport.ReferenceAddImageRequested += Viewport_ReferenceAddImageRequested;
+            viewport.ReferenceDeleteRequested += Viewport_ReferenceDeleteRequested;
         }
 
         private void DetachViewportHandlers(CanvasViewportWidget viewport)
@@ -1172,6 +1390,7 @@ namespace pixel_splash_studio
             viewport.ToolUseCompleted -= Viewport_ToolUseCompleted;
             viewport.RectangleFillToggled -= Viewport_RectangleFillToggled;
             viewport.TransparentOverwriteToggled -= Viewport_TransparentOverwriteToggled;
+            viewport.FillSecondaryToggled -= Viewport_FillSecondaryToggled;
             viewport.StampOverwriteToggled -= Viewport_StampOverwriteToggled;
             viewport.StampRotationChanged -= Viewport_StampRotationChanged;
             viewport.StampFlipXToggled -= Viewport_StampFlipXToggled;
@@ -1184,6 +1403,10 @@ namespace pixel_splash_studio
             viewport.SelectionSnapModeChanged -= Viewport_SelectionSnapModeChanged;
             viewport.SelectionCopyRequested -= Viewport_SelectionCopyRequested;
             viewport.SelectionExportRequested -= Viewport_SelectionExportRequested;
+            viewport.SelectionEraseRequested -= Viewport_SelectionEraseRequested;
+            viewport.ReferenceAddTextRequested -= Viewport_ReferenceAddTextRequested;
+            viewport.ReferenceAddImageRequested -= Viewport_ReferenceAddImageRequested;
+            viewport.ReferenceDeleteRequested -= Viewport_ReferenceDeleteRequested;
         }
 
         private void Viewport_DetachRequested(CanvasViewportWidget viewport)
@@ -1438,7 +1661,7 @@ namespace pixel_splash_studio
 
         private void UpdateOptionsMenu(ToolMode toolMode = ToolMode.GrabZoom)
         {
-            if (_menuOptions == null || _rectangleTool == null || _ovalTool == null || _optionClearSelection == null || _optionSeparator == null || _optionStampOverwrite == null)
+            if (_menuOptions == null || _rectangleTool == null || _ovalTool == null || _optionClearSelection == null || _optionStampOverwrite == null)
             {
                 return;
             }
@@ -1446,40 +1669,195 @@ namespace pixel_splash_studio
             bool isShape = toolMode == ToolMode.Rectangle || toolMode == ToolMode.Oval;
             bool isStamp = toolMode == ToolMode.Stamp;
             bool isSelectionTool = toolMode == ToolMode.Selection || toolMode == ToolMode.SelectionOval || toolMode == ToolMode.SelectionWand;
+            bool isReference = toolMode == ToolMode.Reference;
+            bool isErase = toolMode == ToolMode.Erase;
             bool hasSelection = _canvas.Selection.HasSelection;
-            _menuOptions.Sensitive = isShape || isStamp || isSelectionTool || hasSelection;
+            bool showSelectionClear = hasSelection;
+
+            _menuOptions.Sensitive = isShape || isStamp || isSelectionTool || isReference || isErase || hasSelection;
 
             _optionRectangleFill.Visible = isShape;
             _optionTransparentOverwrite.Visible = isShape;
+            _optionFillSecondary.Visible = isShape;
+            _optionShapeSeparator.Visible = isShape && (isSelectionTool || isStamp || isReference || showSelectionClear || isErase);
+
+            bool showSelectionTools = isSelectionTool;
+            bool showSelectionActions = hasSelection;
+            _optionSelectionCopy.Visible = showSelectionActions;
+            _optionSelectionExport.Visible = showSelectionActions;
+            _optionSelectionSeparator.Visible = showSelectionActions && showSelectionTools;
+            _optionSelectionAdd.Visible = showSelectionTools;
+            _optionSelectionSubtract.Visible = showSelectionTools;
+            _optionSelectionSnapSeparator.Visible = showSelectionTools;
+            _optionSelectionSnapPixel.Visible = showSelectionTools;
+            _optionSelectionSnapTile.Visible = showSelectionTools;
+            _optionSelectionClearSeparator.Visible = showSelectionActions;
+            _optionClearSelection.Visible = showSelectionActions;
+            _optionEraseSelection.Visible = showSelectionActions;
+            _optionSelectionCopy.Sensitive = hasSelection;
+            _optionSelectionExport.Sensitive = hasSelection;
+            _optionEraseSelection.Sensitive = hasSelection;
+
+            _optionStampSeparator.Visible = isStamp;
             _optionStampOverwrite.Visible = isStamp;
-            _optionSeparator.Visible = isSelectionTool || hasSelection;
-            _optionClearSelection.Visible = isSelectionTool || hasSelection;
-            _optionClearSelection.Sensitive = hasSelection;
+            _optionStampSnapSeparator.Visible = isStamp;
+            _optionStampSnapPixel.Visible = isStamp;
+            _optionStampSnapTile.Visible = isStamp;
+            _optionStampScaleSeparator.Visible = isStamp;
+            _optionStampScale1.Visible = isStamp;
+            _optionStampScale2.Visible = isStamp;
+            _optionStampScale4.Visible = isStamp;
+            _optionStampRotateSeparator.Visible = isStamp;
+            _optionStampRotate0.Visible = isStamp;
+            _optionStampRotate90.Visible = isStamp;
+            _optionStampRotate180.Visible = isStamp;
+            _optionStampRotate270.Visible = isStamp;
+            _optionStampFlipSeparator.Visible = isStamp;
+            _optionStampFlipX.Visible = isStamp;
+            _optionStampFlipY.Visible = isStamp;
+
+            _optionEraseSeparator.Visible = isErase;
+            _optionEraseSize4.Visible = isErase;
+            _optionEraseSize8.Visible = isErase;
+            _optionEraseSize16.Visible = isErase;
+            _optionEraseShapeSeparator.Visible = isErase;
+            _optionEraseShapeSquare.Visible = isErase;
+            _optionEraseShapeRound.Visible = isErase;
+
+            _optionReferenceSeparator.Visible = isReference;
+            _optionReferenceSnapFree.Visible = isReference;
+            _optionReferenceSnapPixel.Visible = isReference;
+            _optionReferenceSnapTile.Visible = isReference;
+            bool showReferenceOpacity = isReference && _canvas.References.Selected != null;
+            _optionReferenceOpacitySeparator.Visible = showReferenceOpacity;
+            _optionReferenceOpacityItem.Visible = showReferenceOpacity;
 
             _suppressOptionEvents = true;
             if (isStamp)
             {
                 _optionStampOverwrite.Active = _stampTool.OverwriteDestination;
+                _optionStampSnapPixel.Active = _stampTool.SnapMode == SelectionSnapMode.Pixel;
+                _optionStampSnapTile.Active = _stampTool.SnapMode == SelectionSnapMode.Tile;
+                _optionStampScale1.Active = _stampTool.Scale <= 1;
+                _optionStampScale2.Active = _stampTool.Scale == 2;
+                _optionStampScale4.Active = _stampTool.Scale == 4;
+                _optionStampRotate0.Active = _stampTool.Rotation == StampRotation.Deg0;
+                _optionStampRotate90.Active = _stampTool.Rotation == StampRotation.Deg90;
+                _optionStampRotate180.Active = _stampTool.Rotation == StampRotation.Deg180;
+                _optionStampRotate270.Active = _stampTool.Rotation == StampRotation.Deg270;
+                _optionStampFlipX.Active = _stampTool.FlipX;
+                _optionStampFlipY.Active = _stampTool.FlipY;
             }
             else if (toolMode == ToolMode.Oval)
             {
                 _optionRectangleFill.Active = _ovalTool.Fill;
                 _optionTransparentOverwrite.Active = _ovalTool.OverwriteTransparent;
+                _optionFillSecondary.Active = _ovalTool.FillUsesSecondary;
             }
             else
             {
                 _optionRectangleFill.Active = _rectangleTool.Fill;
                 _optionTransparentOverwrite.Active = _rectangleTool.OverwriteTransparent;
+                _optionFillSecondary.Active = _rectangleTool.FillUsesSecondary;
+            }
+
+            if (isSelectionTool)
+            {
+                _optionSelectionAdd.Active = _selectionTool.Mode == SelectionMode.Add;
+                _optionSelectionSubtract.Active = _selectionTool.Mode == SelectionMode.Subtract;
+                _optionSelectionSnapPixel.Active = _selectionTool.SnapMode == SelectionSnapMode.Pixel;
+                _optionSelectionSnapTile.Active = _selectionTool.SnapMode == SelectionSnapMode.Tile;
+            }
+
+            if (isReference)
+            {
+                _optionReferenceSnapFree.Active = _appState.ReferenceSnapMode == ReferenceSnapMode.Free;
+                _optionReferenceSnapPixel.Active = _appState.ReferenceSnapMode == ReferenceSnapMode.Pixel;
+                _optionReferenceSnapTile.Active = _appState.ReferenceSnapMode == ReferenceSnapMode.Tile;
+            }
+            if (isErase)
+            {
+                _optionEraseSize4.Active = _eraseTool.Size <= 4;
+                _optionEraseSize8.Active = _eraseTool.Size == 8;
+                _optionEraseSize16.Active = _eraseTool.Size == 16;
+                _optionEraseShapeSquare.Active = _eraseTool.Shape == EraseBrushShape.Square;
+                _optionEraseShapeRound.Active = _eraseTool.Shape == EraseBrushShape.Round;
             }
             _suppressOptionEvents = false;
 
             UpdateToolbarOptions();
+
+            bool anyVisible =
+                _optionRectangleFill.Visible ||
+                _optionTransparentOverwrite.Visible ||
+                _optionFillSecondary.Visible ||
+                _optionSelectionCopy.Visible ||
+                _optionSelectionExport.Visible ||
+                _optionSelectionAdd.Visible ||
+                _optionSelectionSubtract.Visible ||
+                _optionSelectionSnapPixel.Visible ||
+                _optionSelectionSnapTile.Visible ||
+                _optionClearSelection.Visible ||
+                _optionEraseSelection.Visible ||
+                _optionStampOverwrite.Visible ||
+                _optionStampSnapPixel.Visible ||
+                _optionStampSnapTile.Visible ||
+                _optionStampScale1.Visible ||
+                _optionStampScale2.Visible ||
+                _optionStampScale4.Visible ||
+                _optionStampRotate0.Visible ||
+                _optionStampRotate90.Visible ||
+                _optionStampRotate180.Visible ||
+                _optionStampRotate270.Visible ||
+                _optionStampFlipX.Visible ||
+                _optionStampFlipY.Visible ||
+                _optionEraseSize4.Visible ||
+                _optionEraseSize8.Visible ||
+                _optionEraseSize16.Visible ||
+                _optionEraseShapeSquare.Visible ||
+                _optionEraseShapeRound.Visible ||
+                _optionReferenceSnapFree.Visible ||
+                _optionReferenceSnapPixel.Visible ||
+                _optionReferenceSnapTile.Visible ||
+                _optionReferenceOpacityItem.Visible;
+
+            _menuOptions.Visible = anyVisible;
         }
 
         private void ClearSelection()
         {
             _canvas.Selection.Clear();
             UpdateOptionsMenu();
+            UpdateEditMenu();
+            RedrawAllViewports();
+        }
+
+        private void EraseSelection()
+        {
+            if (!_canvas.Selection.HasSelection)
+            {
+                return;
+            }
+
+            if (!_canvas.Selection.TryGetBounds(out int minX, out int minY, out int maxX, out int maxY))
+            {
+                return;
+            }
+
+            _undoStack.Push(_canvas.CreateSnapshot());
+            _redoStack.Clear();
+
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (_canvas.Selection.IsSelected(x, y))
+                    {
+                        _canvas.DrawPixel(x, y, 0);
+                    }
+                }
+            }
+
             UpdateEditMenu();
             RedrawAllViewports();
         }
@@ -1504,6 +1882,16 @@ namespace pixel_splash_studio
             SetTransparentOverwrite(_optionTransparentOverwrite.Active);
         }
 
+        private void OptionFillSecondary_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            _appState.SetShapeFillUseSecondary(_optionFillSecondary.Active);
+        }
+
         private void OptionStampOverwrite_Toggled(object sender, EventArgs e)
         {
             if (_suppressOptionEvents || _stampTool == null)
@@ -1514,9 +1902,173 @@ namespace pixel_splash_studio
             SetStampOverwrite(_optionStampOverwrite.Active);
         }
 
+        private void OptionSelectionModeMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            SelectionMode mode = _optionSelectionSubtract.Active ? SelectionMode.Subtract : SelectionMode.Add;
+            SetSelectionMode(mode);
+        }
+
+        private void OptionSelectionSnapMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            SelectionSnapMode mode = _optionSelectionSnapTile.Active ? SelectionSnapMode.Tile : SelectionSnapMode.Pixel;
+            SetSelectionSnapMode(mode);
+        }
+
+        private void OptionStampSnapMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            SelectionSnapMode mode = _optionStampSnapTile.Active ? SelectionSnapMode.Tile : SelectionSnapMode.Pixel;
+            _appState.SetStampSnapMode(mode);
+        }
+
+        private void OptionStampScaleMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            int scale = 1;
+            if (_optionStampScale2.Active)
+            {
+                scale = 2;
+            }
+            else if (_optionStampScale4.Active)
+            {
+                scale = 4;
+            }
+
+            _appState.SetStampScale(scale);
+        }
+
+        private void OptionStampRotationMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            StampRotation rotation = StampRotation.Deg0;
+            if (_optionStampRotate90.Active)
+            {
+                rotation = StampRotation.Deg90;
+            }
+            else if (_optionStampRotate180.Active)
+            {
+                rotation = StampRotation.Deg180;
+            }
+            else if (_optionStampRotate270.Active)
+            {
+                rotation = StampRotation.Deg270;
+            }
+
+            _appState.SetStampRotation(rotation);
+        }
+
+        private void OptionStampFlipXMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            _appState.SetStampFlipX(_optionStampFlipX.Active);
+        }
+
+        private void OptionStampFlipYMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            _appState.SetStampFlipY(_optionStampFlipY.Active);
+        }
+
+        private void OptionEraseSizeMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            int size = 4;
+            if (_optionEraseSize8.Active)
+            {
+                size = 8;
+            }
+            else if (_optionEraseSize16.Active)
+            {
+                size = 16;
+            }
+
+            _appState.SetEraseSize(size);
+        }
+
+        private void OptionEraseShapeMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            EraseBrushShape shape = _optionEraseShapeRound.Active ? EraseBrushShape.Round : EraseBrushShape.Square;
+            _appState.SetEraseShape(shape);
+        }
+
+        private void OptionReferenceSnapMenu_Toggled(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            ReferenceSnapMode mode = ReferenceSnapMode.Free;
+            if (_optionReferenceSnapPixel.Active)
+            {
+                mode = ReferenceSnapMode.Pixel;
+            }
+            else if (_optionReferenceSnapTile.Active)
+            {
+                mode = ReferenceSnapMode.Tile;
+            }
+
+            _appState.SetReferenceSnapMode(mode);
+        }
+
+        private void OptionReferenceOpacityMenu_Changed(object sender, EventArgs e)
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            double opacity = _optionReferenceOpacity.Value / 100.0;
+            HandleReferenceOpacityChanged(opacity);
+        }
+
         private void OptionClearSelection_Activated(object sender, EventArgs e)
         {
             ClearSelection();
+        }
+
+        private void OptionEraseSelection_Activated(object sender, EventArgs e)
+        {
+            EraseSelection();
         }
 
         private void Viewport_RectangleFillToggled(CanvasViewportWidget viewport, bool isFilled)
@@ -1545,6 +2097,11 @@ namespace pixel_splash_studio
             _suppressOptionEvents = false;
 
             SetTransparentOverwrite(isEnabled);
+        }
+
+        private void Viewport_FillSecondaryToggled(CanvasViewportWidget viewport, bool isEnabled)
+        {
+            _appState.SetShapeFillUseSecondary(isEnabled);
         }
 
         private void Viewport_StampOverwriteToggled(CanvasViewportWidget viewport, bool isEnabled)
@@ -1618,13 +2175,16 @@ namespace pixel_splash_studio
                 return;
             }
 
-            _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, _rectangleTool.OverwriteTransparent);
+            _toolbarPanel.SetRectangleOptions(_rectangleTool.Fill, _rectangleTool.OverwriteTransparent, _rectangleTool.FillUsesSecondary);
             _toolbarPanel.SetStampOverwrite(_stampTool.OverwriteDestination);
             _toolbarPanel.SetStampTransform(_stampTool.Rotation, _stampTool.FlipX, _stampTool.FlipY);
             _toolbarPanel.SetStampScale(_stampTool.Scale);
             _toolbarPanel.SetStampSnapMode(_stampTool.SnapMode);
             _toolbarPanel.SetSelectionMode(_selectionTool.Mode);
             _toolbarPanel.SetSelectionSnapMode(_selectionTool.SnapMode);
+            _toolbarPanel.SetReferenceSnapMode(_appState.ReferenceSnapMode);
+            _toolbarPanel.SetEraseOptions(_eraseTool.Size, _eraseTool.Shape);
+            UpdateReferenceOptions();
         }
 
         private void Viewport_ClearSelectionRequested(CanvasViewportWidget viewport)
@@ -1658,6 +2218,118 @@ namespace pixel_splash_studio
             ExportSelection_Activated(this, EventArgs.Empty);
         }
 
+        private void Viewport_SelectionEraseRequested(CanvasViewportWidget viewport)
+        {
+            EraseSelection();
+        }
+
+        private void Viewport_ReferenceAddTextRequested(CanvasViewportWidget viewport, int worldX, int worldY)
+        {
+            string text = PromptForReferenceText("Add Reference Text", "Reference");
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return;
+            }
+
+            _canvas.References.AddText(text, worldX, worldY, 12, "Sans");
+            RedrawAllViewports();
+        }
+
+        private void Viewport_ReferenceAddImageRequested(CanvasViewportWidget viewport, int worldX, int worldY)
+        {
+            FileChooserDialog dialog = new FileChooserDialog(
+                "Add Reference Image",
+                this,
+                FileChooserAction.Open,
+                "Cancel",
+                ResponseType.Cancel,
+                "Add",
+                ResponseType.Accept);
+
+            FileFilter imageFilter = new FileFilter
+            {
+                Name = "Images"
+            };
+            imageFilter.AddPattern("*.png");
+            imageFilter.AddPattern("*.jpg");
+            imageFilter.AddPattern("*.jpeg");
+            imageFilter.AddPattern("*.bmp");
+            imageFilter.AddPattern("*.gif");
+            dialog.AddFilter(imageFilter);
+
+            FileFilter allFilter = new FileFilter
+            {
+                Name = "All Files"
+            };
+            allFilter.AddPattern("*");
+            dialog.AddFilter(allFilter);
+
+            try
+            {
+                if (dialog.Run() == (int)ResponseType.Accept)
+                {
+                    using (Pixbuf pixbuf = new Pixbuf(dialog.Filename))
+                    {
+                        int pixelSize = viewport?.Viewport?.PixelSize ?? CanvasViewport.DefaultPixelSize;
+                        pixelSize = Math.Max(1, pixelSize);
+                        double width = pixbuf.Width / (double)pixelSize;
+                        double height = pixbuf.Height / (double)pixelSize;
+                        Pixbuf imageCopy = pixbuf.Copy();
+                        _canvas.References.AddImage(imageCopy, dialog.Filename, worldX, worldY, width, height);
+                    }
+
+                    RedrawAllViewports();
+                }
+            }
+            catch (Exception ex)
+            {
+                ShowError($"Add reference image failed: {ex.Message}");
+            }
+            finally
+            {
+                dialog.Destroy();
+            }
+        }
+
+        private void Viewport_ReferenceDeleteRequested(CanvasViewportWidget viewport)
+        {
+            if (_canvas.References.RemoveSelected())
+            {
+                RedrawAllViewports();
+            }
+        }
+
+        private void HandleReferenceLayerChanged()
+        {
+            UpdateReferenceOptions();
+        }
+
+        private void HandleReferenceOpacityChanged(double opacity)
+        {
+            ReferenceObject selected = _canvas.References.Selected;
+            if (selected == null)
+            {
+                return;
+            }
+
+            selected.Opacity = Math.Max(0, Math.Min(1, opacity));
+            RedrawAllViewports();
+        }
+
+        private void UpdateReferenceOptions()
+        {
+            ReferenceObject selected = _canvas.References.Selected;
+            double opacity = selected?.Opacity ?? 1.0;
+            _toolbarPanel.SetReferenceOpacity(opacity, selected != null);
+            if (_optionReferenceOpacity != null)
+            {
+                _suppressOptionEvents = true;
+                _optionReferenceOpacity.Value = Math.Max(0, Math.Min(1, opacity)) * 100.0;
+                _optionReferenceOpacity.Sensitive = selected != null;
+                _suppressOptionEvents = false;
+            }
+        }
+
         private void UpdateWindowTitle()
         {
             string title = "Pixel Splash Studio";
@@ -1685,6 +2357,37 @@ namespace pixel_splash_studio
                 }
                 data.PaletteName = _paletteLibrary?.SelectedName;
                 data.PaletteColors = PaletteStorage.NormalizeColors(PaletteStorage.ToColorData(_palette.Palette));
+                foreach (ReferenceObject reference in _canvas.References.Objects)
+                {
+                    if (reference is ReferenceTextObject textObject)
+                    {
+                        data.References.Add(new ReferenceItemData
+                        {
+                            Type = "text",
+                            X = textObject.X,
+                            Y = textObject.Y,
+                            Width = textObject.Width,
+                            Height = textObject.Height,
+                            Opacity = textObject.Opacity,
+                            Text = textObject.Text,
+                            FontFamily = textObject.FontFamily,
+                            FontSize = textObject.FontSize
+                        });
+                    }
+                    else if (reference is ReferenceImageObject imageObject)
+                    {
+                        data.References.Add(new ReferenceItemData
+                        {
+                            Type = "image",
+                            X = imageObject.X,
+                            Y = imageObject.Y,
+                            Width = imageObject.Width,
+                            Height = imageObject.Height,
+                            Opacity = imageObject.Opacity,
+                            ImagePath = imageObject.SourcePath
+                        });
+                    }
+                }
 
                 string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
                 {
@@ -1750,6 +2453,7 @@ namespace pixel_splash_studio
                 string json = File.ReadAllText(path);
                 CanvasFileData data = JsonSerializer.Deserialize<CanvasFileData>(json);
                 _canvas.ClearCanvas();
+                _canvas.References.Clear();
 
                 if (data?.Chunks != null)
                 {
@@ -1768,6 +2472,54 @@ namespace pixel_splash_studio
                 _undoStack.Clear();
                 _redoStack.Clear();
                 _pendingSnapshot = null;
+                if (data?.References != null)
+                {
+                    foreach (ReferenceItemData reference in data.References)
+                    {
+                        if (reference == null)
+                        {
+                            continue;
+                        }
+
+                        if (reference.Type == "text")
+                        {
+                            ReferenceTextObject textObject = _canvas.References.AddText(
+                                reference.Text ?? string.Empty,
+                                reference.X,
+                                reference.Y,
+                                reference.FontSize <= 0 ? 12 : reference.FontSize,
+                                string.IsNullOrWhiteSpace(reference.FontFamily) ? "Sans" : reference.FontFamily);
+                            if (reference.Width > 0)
+                            {
+                                textObject.Width = reference.Width;
+                            }
+                            if (reference.Height > 0)
+                            {
+                                textObject.Height = reference.Height;
+                            }
+                            textObject.Opacity = reference.Opacity;
+                        }
+                        else if (reference.Type == "image" && !string.IsNullOrWhiteSpace(reference.ImagePath))
+                        {
+                            try
+                            {
+                                Pixbuf pixbuf = new Pixbuf(reference.ImagePath);
+                                ReferenceImageObject imageObject = _canvas.References.AddImage(
+                                    pixbuf,
+                                    reference.ImagePath,
+                                    reference.X,
+                                    reference.Y,
+                                    reference.Width > 0 ? reference.Width : pixbuf.Width,
+                                    reference.Height > 0 ? reference.Height : pixbuf.Height);
+                                imageObject.Opacity = reference.Opacity;
+                            }
+                            catch
+                            {
+                                // Ignore reference images that fail to load.
+                            }
+                        }
+                    }
+                }
                 _currentFilePath = path;
                 UpdateEditMenu();
                 UpdateWindowTitle();
@@ -1804,6 +2556,7 @@ namespace pixel_splash_studio
             public List<CanvasChunkData> Chunks { get; set; } = new List<CanvasChunkData>();
             public string PaletteName { get; set; }
             public List<PaletteColorData> PaletteColors { get; set; } = new List<PaletteColorData>();
+            public List<ReferenceItemData> References { get; set; } = new List<ReferenceItemData>();
         }
 
         private class CanvasChunkData
@@ -1811,6 +2564,20 @@ namespace pixel_splash_studio
             public int ChunkX { get; set; }
             public int ChunkY { get; set; }
             public byte[] Data { get; set; }
+        }
+
+        private class ReferenceItemData
+        {
+            public string Type { get; set; }
+            public double X { get; set; }
+            public double Y { get; set; }
+            public double Width { get; set; }
+            public double Height { get; set; }
+            public double Opacity { get; set; } = 1.0;
+            public string Text { get; set; }
+            public string FontFamily { get; set; }
+            public double FontSize { get; set; }
+            public string ImagePath { get; set; }
         }
     }
 }

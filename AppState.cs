@@ -52,6 +52,43 @@ namespace pixel_splash_studio
             }
         }
 
+        public bool ShapeFillUseSecondary { get; private set; }
+        public event Action<bool> ShapeFillUseSecondaryChanged;
+
+        public void SetShapeFillUseSecondary(bool enabled)
+        {
+            if (ShapeFillUseSecondary != enabled)
+            {
+                ShapeFillUseSecondary = enabled;
+                ShapeFillUseSecondaryChanged?.Invoke(enabled);
+            }
+        }
+
+        // ========== ERASE OPTIONS ==========
+        public int EraseSize { get; private set; } = 4;
+        public event Action<int> EraseSizeChanged;
+
+        public void SetEraseSize(int size)
+        {
+            if (EraseSize != size)
+            {
+                EraseSize = size;
+                EraseSizeChanged?.Invoke(size);
+            }
+        }
+
+        public EraseBrushShape EraseShape { get; private set; } = EraseBrushShape.Square;
+        public event Action<EraseBrushShape> EraseShapeChanged;
+
+        public void SetEraseShape(EraseBrushShape shape)
+        {
+            if (EraseShape != shape)
+            {
+                EraseShape = shape;
+                EraseShapeChanged?.Invoke(shape);
+            }
+        }
+
         // ========== SELECTION OPTIONS ==========
         public SelectionMode SelectionMode { get; private set; } = SelectionMode.Add;
         public event Action<SelectionMode> SelectionModeChanged;
@@ -160,6 +197,19 @@ namespace pixel_splash_studio
             {
                 StampSnapMode = snapMode;
                 StampSnapModeChanged?.Invoke(snapMode);
+            }
+        }
+
+        // ========== REFERENCE OPTIONS ==========
+        public ReferenceSnapMode ReferenceSnapMode { get; private set; } = ReferenceSnapMode.Free;
+        public event Action<ReferenceSnapMode> ReferenceSnapModeChanged;
+
+        public void SetReferenceSnapMode(ReferenceSnapMode snapMode)
+        {
+            if (ReferenceSnapMode != snapMode)
+            {
+                ReferenceSnapMode = snapMode;
+                ReferenceSnapModeChanged?.Invoke(snapMode);
             }
         }
     }

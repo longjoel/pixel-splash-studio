@@ -33,6 +33,7 @@ public class CanvasViewport
     }
 
     public SelectionLayer Selection => _canvas?.Selection;
+    public ReferenceLayer References => _canvas?.References;
     public PixelSplashPalette Palette => _palette;
 
     public void SetPixelSize(int pixelSize)
@@ -126,6 +127,8 @@ public class CanvasViewport
         int startY = CameraY - (viewportPixelHeight / 2);
         int endX = startX + viewportPixelWidth - 1;
         int endY = startY + viewportPixelHeight - 1;
+
+        DrawReferences(context, startX, startY, endX, endY);
 
         int chunkStartX = FloorDiv(startX, PixelSplashCanvasChunk.ChunkWidth);
         int chunkEndX = FloorDiv(endX, PixelSplashCanvasChunk.ChunkWidth);
@@ -279,6 +282,38 @@ public class CanvasViewport
         if (_canvas.Selection.HasSelection)
         {
             DrawSelectionMarchingAnts(context, startX, startY, endX, endY);
+        }
+    }
+
+    private void DrawReferences(Context context, int startX, int startY, int endX, int endY)
+    {
+        if (_canvas?.References == null || _canvas.References.Objects.Count == 0)
+        {
+            return;
+        }
+
+        foreach (ReferenceObject reference in _canvas.References.Objects)
+        {
+            if (reference == null || reference.Width <= 0 || reference.Height <= 0)
+            {
+                continue;
+            }
+
+            double refMinX = Math.Min(reference.X, reference.X + reference.Width);
+            double refMaxX = Math.Max(reference.X, reference.X + reference.Width);
+            double refMinY = Math.Min(reference.Y, reference.Y + reference.Height);
+            double refMaxY = Math.Max(reference.Y, reference.Y + reference.Height);
+
+            if (refMaxX < startX || refMinX > endX + 1 || refMaxY < startY || refMinY > endY + 1)
+            {
+                continue;
+            }
+
+            double screenX = (reference.X - startX) * _pixelSize;
+            double screenY = (reference.Y - startY) * _pixelSize;
+            double screenWidth = reference.Width * _pixelSize;
+            double screenHeight = reference.Height * _pixelSize;
+            reference.Draw(context, this, screenX, screenY, screenWidth, screenHeight);
         }
     }
 

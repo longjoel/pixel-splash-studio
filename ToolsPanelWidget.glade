@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
+  <object class="GtkAdjustment" id="_referenceOpacityAdjustment">
+    <property name="lower">0</property>
+    <property name="upper">100</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">5</property>
+    <property name="value">100</property>
+  </object>
   <requires lib="gtk+" version="3.18"/>
   <object class="GtkBox" id="ToolsPanelWidget">
     <property name="visible">True</property>
@@ -125,6 +132,20 @@
       </object>
     </child>
     <child>
+      <object class="GtkToggleButton" id="_toolErase">
+        <property name="label" translatable="yes">Erase</property>
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkToggleButton" id="_toolReference">
+        <property name="label" translatable="yes">Reference</property>
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+      </object>
+    </child>
+    <child>
       <object class="GtkSeparator">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
@@ -152,6 +173,13 @@
             <child>
               <object class="GtkCheckButton" id="_optionTransparentOverwrite">
                 <property name="label" translatable="yes">Overwrite Transparent Pixels</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkCheckButton" id="_optionFillSecondary">
+                <property name="label" translatable="yes">Use Secondary Fill</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
               </object>
@@ -346,6 +374,132 @@
                 <property name="label" translatable="yes">Flip Y</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="_referenceOptions">
+            <property name="visible">False</property>
+            <property name="can_focus">False</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">4</property>
+            <child>
+              <object class="GtkRadioButton" id="_optionReferenceSnapFree">
+                <property name="label" translatable="yes">Free Transform</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="active">True</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioButton" id="_optionReferenceSnapPixel">
+                <property name="label" translatable="yes">Snap to Pixels</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="group">_optionReferenceSnapFree</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioButton" id="_optionReferenceSnapTile">
+                <property name="label" translatable="yes">Snap to Tiles</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="group">_optionReferenceSnapFree</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSeparator">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="_optionReferenceOpacityLabel">
+                <property name="label" translatable="yes">Opacity</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="xalign">0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkScale" id="_optionReferenceOpacity">
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="orientation">horizontal</property>
+                <property name="digits">0</property>
+                <property name="draw_value">True</property>
+                <property name="adjustment">_referenceOpacityAdjustment</property>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox" id="_eraseOptions">
+            <property name="visible">False</property>
+            <property name="can_focus">False</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">4</property>
+            <child>
+              <object class="GtkLabel" id="_optionEraseSizeLabel">
+                <property name="label" translatable="yes">Brush Size</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="xalign">0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioButton" id="_optionEraseSize4">
+                <property name="label" translatable="yes">4x4</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="active">True</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioButton" id="_optionEraseSize8">
+                <property name="label" translatable="yes">8x8</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="group">_optionEraseSize4</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioButton" id="_optionEraseSize16">
+                <property name="label" translatable="yes">16x16</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="group">_optionEraseSize4</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkSeparator">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="_optionEraseShapeLabel">
+                <property name="label" translatable="yes">Brush Shape</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="xalign">0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioButton" id="_optionEraseShapeSquare">
+                <property name="label" translatable="yes">Square</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="active">True</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkRadioButton" id="_optionEraseShapeRound">
+                <property name="label" translatable="yes">Round</property>
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="group">_optionEraseShapeSquare</property>
               </object>
             </child>
           </object>

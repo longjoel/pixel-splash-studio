@@ -5,6 +5,8 @@ public class GrabAndZoomTool : ITool
     private bool _isZooming;
     private double _lastPanX;
     private double _lastPanY;
+    private double _panRemainderX;
+    private double _panRemainderY;
     private double _lastZoomX;
     private double _lastZoomY;
     private double _zoomAccumulator;
@@ -33,6 +35,8 @@ public class GrabAndZoomTool : ITool
             _isZooming = false;
             _lastPanX = x;
             _lastPanY = y;
+            _panRemainderX = 0;
+            _panRemainderY = 0;
         }
         else
         {
@@ -66,8 +70,12 @@ public class GrabAndZoomTool : ITool
             _lastPanX = x;
             _lastPanY = y;
 
-            int worldDeltaX = (int)System.Math.Round(deltaX / _viewport.PixelSize);
-            int worldDeltaY = (int)System.Math.Round(deltaY / _viewport.PixelSize);
+            _panRemainderX += deltaX / _viewport.PixelSize;
+            _panRemainderY += deltaY / _viewport.PixelSize;
+            int worldDeltaX = (int)System.Math.Truncate(_panRemainderX);
+            int worldDeltaY = (int)System.Math.Truncate(_panRemainderY);
+            _panRemainderX -= worldDeltaX;
+            _panRemainderY -= worldDeltaY;
 
             if (worldDeltaX != 0 || worldDeltaY != 0)
             {

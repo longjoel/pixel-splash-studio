@@ -4,6 +4,7 @@ public class PixelSplashCanvas : ICanvasOperations
 {
     public Dictionary<(int, int), PixelSplashCanvasChunk> Chunks { get; } = new Dictionary<(int, int), PixelSplashCanvasChunk>();
     public SelectionLayer Selection { get; } = new SelectionLayer();
+    public ReferenceLayer References { get; } = new ReferenceLayer();
 
     private static int FloorDiv(int value, int divisor)
     {

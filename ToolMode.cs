@@ -11,6 +11,8 @@ namespace pixel_splash_studio
         FloodFill,
         SelectionOval,
         Stamp,
-        Oval
+        Oval,
+        Erase,
+        Reference
     }
 }

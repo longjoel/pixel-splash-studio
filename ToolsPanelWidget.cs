@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Gtk;
 using UI = Gtk.Builder.ObjectAttribute;
@@ -19,12 +20,17 @@ namespace pixel_splash_studio
         [UI] private ToggleButton _toolSelectionOval = null;
         [UI] private ToggleButton _toolFloodFill = null;
         [UI] private ToggleButton _toolStamp = null;
+        [UI] private ToggleButton _toolErase = null;
+        [UI] private ToggleButton _toolReference = null;
         [UI] private Box _toolOptionsBox = null;
         [UI] private Box _rectangleOptions = null;
         [UI] private Box _selectionOptions = null;
         [UI] private Box _stampOptions = null;
+        [UI] private Box _referenceOptions = null;
+        [UI] private Box _eraseOptions = null;
         [UI] private CheckButton _optionFillShape = null;
         [UI] private CheckButton _optionTransparentOverwrite = null;
+        [UI] private CheckButton _optionFillSecondary = null;
         [UI] private Button _optionSelectionCopy = null;
         [UI] private Button _optionSelectionExport = null;
         [UI] private RadioButton _optionSelectionAdd = null;
@@ -43,6 +49,15 @@ namespace pixel_splash_studio
         [UI] private RadioButton _optionRotate270 = null;
         [UI] private CheckButton _optionFlipX = null;
         [UI] private CheckButton _optionFlipY = null;
+        [UI] private RadioButton _optionReferenceSnapFree = null;
+        [UI] private RadioButton _optionReferenceSnapPixel = null;
+        [UI] private RadioButton _optionReferenceSnapTile = null;
+        [UI] private Scale _optionReferenceOpacity = null;
+        [UI] private RadioButton _optionEraseSize4 = null;
+        [UI] private RadioButton _optionEraseSize8 = null;
+        [UI] private RadioButton _optionEraseSize16 = null;
+        [UI] private RadioButton _optionEraseShapeSquare = null;
+        [UI] private RadioButton _optionEraseShapeRound = null;
 
         public event System.Action GrabZoomRequested;
         public event System.Action PenRequested;
@@ -54,9 +69,12 @@ namespace pixel_splash_studio
         public event System.Action SelectionOvalRequested;
         public event System.Action FloodFillRequested;
         public event System.Action StampRequested;
+        public event System.Action EraseRequested;
+        public event System.Action ReferenceRequested;
         public event System.Action PaletteToggleRequested;
         public event System.Action<bool> RectangleFillToggled;
         public event System.Action<bool> TransparentOverwriteToggled;
+        public event System.Action<bool> FillSecondaryToggled;
         public event System.Action SelectionCopyRequested;
         public event System.Action SelectionExportRequested;
         public event System.Action<SelectionMode> SelectionModeChanged;
@@ -67,6 +85,10 @@ namespace pixel_splash_studio
         public event System.Action<bool> StampFlipYToggled;
         public event System.Action<int> StampScaleChanged;
         public event System.Action<SelectionSnapMode> StampSnapModeChanged;
+        public event System.Action<ReferenceSnapMode> ReferenceSnapModeChanged;
+        public event System.Action<double> ReferenceOpacityChanged;
+        public event System.Action<int> EraseSizeChanged;
+        public event System.Action<EraseBrushShape> EraseShapeChanged;
 
         private readonly Dictionary<ToolId, ToggleButton> _toolButtons;
         private ToolId _activeTool = ToolId.GrabZoom;
@@ -91,7 +113,9 @@ namespace pixel_splash_studio
                 { ToolId.SelectionWand, _toolSelectionWand },
                 { ToolId.SelectionOval, _toolSelectionOval },
                 { ToolId.FloodFill, _toolFloodFill },
-                { ToolId.Stamp, _toolStamp }
+                { ToolId.Stamp, _toolStamp },
+                { ToolId.Erase, _toolErase },
+                { ToolId.Reference, _toolReference }
             };
             foreach (var button in _toolButtons.Values)
             {
@@ -115,9 +139,12 @@ namespace pixel_splash_studio
             _toolSelectionOval.Toggled += (_, __) => HandleToolToggle(ToolId.SelectionOval, _toolSelectionOval);
             _toolFloodFill.Toggled += (_, __) => HandleToolToggle(ToolId.FloodFill, _toolFloodFill);
             _toolStamp.Toggled += (_, __) => HandleToolToggle(ToolId.Stamp, _toolStamp);
+            _toolErase.Toggled += (_, __) => HandleToolToggle(ToolId.Erase, _toolErase);
+            _toolReference.Toggled += (_, __) => HandleToolToggle(ToolId.Reference, _toolReference);
 
             _optionFillShape.Toggled += (_, __) => HandleOptionToggle(() => RectangleFillToggled?.Invoke(_optionFillShape.Active));
             _optionTransparentOverwrite.Toggled += (_, __) => HandleOptionToggle(() => TransparentOverwriteToggled?.Invoke(_optionTransparentOverwrite.Active));
+            _optionFillSecondary.Toggled += (_, __) => HandleOptionToggle(() => FillSecondaryToggled?.Invoke(_optionFillSecondary.Active));
             _optionSelectionCopy.Clicked += (_, __) => SelectionCopyRequested?.Invoke();
             _optionSelectionExport.Clicked += (_, __) => SelectionExportRequested?.Invoke();
             _optionSelectionAdd.Toggled += (_, __) => HandleSelectionModeToggle();
@@ -136,6 +163,15 @@ namespace pixel_splash_studio
             _optionRotate270.Toggled += (_, __) => HandleRotationToggle();
             _optionFlipX.Toggled += (_, __) => HandleOptionToggle(() => StampFlipXToggled?.Invoke(_optionFlipX.Active));
             _optionFlipY.Toggled += (_, __) => HandleOptionToggle(() => StampFlipYToggled?.Invoke(_optionFlipY.Active));
+            _optionReferenceSnapFree.Toggled += (_, __) => HandleReferenceSnapToggle();
+            _optionReferenceSnapPixel.Toggled += (_, __) => HandleReferenceSnapToggle();
+            _optionReferenceSnapTile.Toggled += (_, __) => HandleReferenceSnapToggle();
+            _optionReferenceOpacity.ValueChanged += (_, __) => HandleReferenceOpacityChanged();
+            _optionEraseSize4.Toggled += (_, __) => HandleEraseSizeToggle();
+            _optionEraseSize8.Toggled += (_, __) => HandleEraseSizeToggle();
+            _optionEraseSize16.Toggled += (_, __) => HandleEraseSizeToggle();
+            _optionEraseShapeSquare.Toggled += (_, __) => HandleEraseShapeToggle();
+            _optionEraseShapeRound.Toggled += (_, __) => HandleEraseShapeToggle();
 
             SetActiveTool(ToolId.GrabZoom);
         }
@@ -157,11 +193,12 @@ namespace pixel_splash_studio
             UpdateActiveToolHighlight();
         }
 
-        public void SetRectangleOptions(bool fill, bool overwriteTransparent)
+        public void SetRectangleOptions(bool fill, bool overwriteTransparent, bool fillSecondary)
         {
             _suppressOptionEvents = true;
             _optionFillShape.Active = fill;
             _optionTransparentOverwrite.Active = overwriteTransparent;
+            _optionFillSecondary.Active = fillSecondary;
             _suppressOptionEvents = false;
         }
 
@@ -217,6 +254,35 @@ namespace pixel_splash_studio
             _suppressOptionEvents = false;
         }
 
+        public void SetReferenceSnapMode(ReferenceSnapMode mode)
+        {
+            _suppressOptionEvents = true;
+            _optionReferenceSnapFree.Active = mode == ReferenceSnapMode.Free;
+            _optionReferenceSnapPixel.Active = mode == ReferenceSnapMode.Pixel;
+            _optionReferenceSnapTile.Active = mode == ReferenceSnapMode.Tile;
+            _suppressOptionEvents = false;
+        }
+
+        public void SetReferenceOpacity(double opacity, bool hasSelection)
+        {
+            _suppressOptionEvents = true;
+            double clamped = Math.Max(0, Math.Min(1, opacity));
+            _optionReferenceOpacity.Value = clamped * 100.0;
+            _optionReferenceOpacity.Sensitive = hasSelection;
+            _suppressOptionEvents = false;
+        }
+
+        public void SetEraseOptions(int size, EraseBrushShape shape)
+        {
+            _suppressOptionEvents = true;
+            _optionEraseSize4.Active = size <= 4;
+            _optionEraseSize8.Active = size == 8;
+            _optionEraseSize16.Active = size == 16;
+            _optionEraseShapeSquare.Active = shape == EraseBrushShape.Square;
+            _optionEraseShapeRound.Active = shape == EraseBrushShape.Round;
+            _suppressOptionEvents = false;
+        }
+
         private void HandleToolToggle(ToolId tool, ToggleButton button)
         {
             if (_suppressToggle)
@@ -254,6 +320,8 @@ namespace pixel_splash_studio
             _toolSelectionOval.Active = tool == ToolId.SelectionOval;
             _toolFloodFill.Active = tool == ToolId.FloodFill;
             _toolStamp.Active = tool == ToolId.Stamp;
+            _toolErase.Active = tool == ToolId.Erase;
+            _toolReference.Active = tool == ToolId.Reference;
             _suppressToggle = false;
         }
 
@@ -262,11 +330,15 @@ namespace pixel_splash_studio
             bool showRectangle = tool == ToolId.Rectangle || tool == ToolId.Oval;
             bool showSelection = tool == ToolId.Selection || tool == ToolId.SelectionOval || tool == ToolId.SelectionWand;
             bool showStamp = tool == ToolId.Stamp;
+            bool showReference = tool == ToolId.Reference;
+            bool showErase = tool == ToolId.Erase;
 
             _rectangleOptions.Visible = showRectangle;
             _selectionOptions.Visible = showSelection;
             _stampOptions.Visible = showStamp;
-            _toolOptionsBox.Visible = showRectangle || showSelection || showStamp;
+            _referenceOptions.Visible = showReference;
+            _eraseOptions.Visible = showErase;
+            _toolOptionsBox.Visible = showRectangle || showSelection || showStamp || showReference || showErase;
         }
 
         private void UpdateActiveToolHighlight()
@@ -381,6 +453,68 @@ namespace pixel_splash_studio
             StampSnapModeChanged?.Invoke(mode);
         }
 
+        private void HandleReferenceSnapToggle()
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            ReferenceSnapMode mode = ReferenceSnapMode.Free;
+            if (_optionReferenceSnapPixel.Active)
+            {
+                mode = ReferenceSnapMode.Pixel;
+            }
+            else if (_optionReferenceSnapTile.Active)
+            {
+                mode = ReferenceSnapMode.Tile;
+            }
+
+            ReferenceSnapModeChanged?.Invoke(mode);
+        }
+
+        private void HandleReferenceOpacityChanged()
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            double opacity = _optionReferenceOpacity.Value / 100.0;
+            ReferenceOpacityChanged?.Invoke(opacity);
+        }
+
+        private void HandleEraseSizeToggle()
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            int size = 4;
+            if (_optionEraseSize8.Active)
+            {
+                size = 8;
+            }
+            else if (_optionEraseSize16.Active)
+            {
+                size = 16;
+            }
+
+            EraseSizeChanged?.Invoke(size);
+        }
+
+        private void HandleEraseShapeToggle()
+        {
+            if (_suppressOptionEvents)
+            {
+                return;
+            }
+
+            EraseBrushShape shape = _optionEraseShapeRound.Active ? EraseBrushShape.Round : EraseBrushShape.Square;
+            EraseShapeChanged?.Invoke(shape);
+        }
+
         private void RaiseToolRequested(ToolId tool)
         {
             switch (tool)
@@ -414,6 +548,12 @@ namespace pixel_splash_studio
                     break;
                 case ToolId.Stamp:
                     StampRequested?.Invoke();
+                    break;
+                case ToolId.Erase:
+                    EraseRequested?.Invoke();
+                    break;
+                case ToolId.Reference:
+                    ReferenceRequested?.Invoke();
                     break;
             }
         }
@@ -478,7 +618,9 @@ namespace pixel_splash_studio
             SelectionWand,
             SelectionOval,
             FloodFill,
-            Stamp
+            Stamp,
+            Erase,
+            Reference
         }
     }
 }

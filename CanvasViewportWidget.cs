@@ -17,6 +17,8 @@ public class CanvasViewportWidget : DrawingArea
     private bool _middlePanning;
     private double _middlePanLastX;
     private double _middlePanLastY;
+    private double _middlePanRemainderX;
+    private double _middlePanRemainderY;
 
     public event Action<CanvasViewportWidget> DetachRequested;
     public event Action<CanvasViewportWidget> ReattachRequested;
@@ -25,6 +27,8 @@ public class CanvasViewportWidget : DrawingArea
     public event Action<CanvasViewportWidget> SelectionChanged;
     public event Action<CanvasViewportWidget, bool> RectangleFillToggled;
     public event Action<CanvasViewportWidget, bool> TransparentOverwriteToggled;
+    public event Action<CanvasViewportWidget, bool> FillSecondaryToggled;
+    public event Action<CanvasViewportWidget> SelectionEraseRequested;
     public event Action<CanvasViewportWidget, bool> StampOverwriteToggled;
     public event Action<CanvasViewportWidget> ClearSelectionRequested;
     public event Action<CanvasViewportWidget, SelectionMode> SelectionModeChanged;
@@ -36,6 +40,9 @@ public class CanvasViewportWidget : DrawingArea
     public event Action<CanvasViewportWidget> SelectionExportRequested;
     public event Action<CanvasViewportWidget, int> StampScaleChanged;
     public event Action<CanvasViewportWidget, SelectionSnapMode> StampSnapModeChanged;
+    public event Action<CanvasViewportWidget, int, int> ReferenceAddTextRequested;
+    public event Action<CanvasViewportWidget, int, int> ReferenceAddImageRequested;
+    public event Action<CanvasViewportWidget> ReferenceDeleteRequested;
 
     public CanvasViewport Viewport => _viewport;
 
@@ -113,6 +120,21 @@ public class CanvasViewportWidget : DrawingArea
         else if (_activeTool is OvalTool ovalTool)
         {
             ovalTool.OverwriteTransparent = enabled;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetFillUsesSecondary(bool enabled)
+    {
+        if (_activeTool is RectangleTool rectTool)
+        {
+            rectTool.FillUsesSecondary = enabled;
+        }
+        else if (_activeTool is OvalTool ovalTool)
+        {
+            ovalTool.FillUsesSecondary = enabled;
         }
     }
 
@@ -210,6 +232,28 @@ public class CanvasViewportWidget : DrawingArea
         }
     }
 
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetEraseSize(int size)
+    {
+        if (_activeTool is EraseTool eraseTool)
+        {
+            eraseTool.Size = size;
+        }
+    }
+
+    /// <summary>
+    /// CALL DOWN: Parent calls this to update viewport state without triggering events.
+    /// </summary>
+    public void SetEraseShape(EraseBrushShape shape)
+    {
+        if (_activeTool is EraseTool eraseTool)
+        {
+            eraseTool.Shape = shape;
+        }
+    }
+
     private void CanvasViewportWidget_Drawn(object sender, DrawnArgs args)
     {
         _viewport?.RenderViewport(args.Cr);
@@ -245,6 +289,8 @@ public class CanvasViewportWidget : DrawingArea
             _middlePanning = true;
             _middlePanLastX = args.Event.X;
             _middlePanLastY = args.Event.Y;
+            _middlePanRemainderX = 0;
+            _middlePanRemainderY = 0;
             GrabFocus();
             return;
         }
@@ -322,6 +368,14 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
+        if (_toolManager.ActiveTool is EraseTool eraseTool && (args.Event.State & ModifierType.Button1Mask) == 0)
+        {
+            GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int previewX, out int previewY);
+            eraseTool.UpdatePreview(previewX, previewY);
+            QueueDraw();
+            return;
+        }
+
         UpdateGrabToolViewSize();
         GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
         _toolManager.UseTool(toolX, toolY);
@@ -348,7 +402,22 @@ public class CanvasViewportWidget : DrawingArea
     private void CanvasViewportWidget_EnterNotifyEvent(object o, EnterNotifyEventArgs args)
     {
         _cursorVisible = true;
-        EnsureCrosshairCursor();
+        if (_activeTool is ReferenceTransformTool)
+        {
+            if (Window != null)
+            {
+                Window.Cursor = null;
+            }
+        }
+        else
+        {
+            EnsureCrosshairCursor();
+        }
+        if (_activeTool is EraseTool eraseTool)
+        {
+            GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int previewX, out int previewY);
+            eraseTool.UpdatePreview(previewX, previewY);
+        }
         UpdateCursorPosition((int)args.Event.X, (int)args.Event.Y);
     }
 
@@ -358,6 +427,10 @@ public class CanvasViewportWidget : DrawingArea
         if (Window != null)
         {
             Window.Cursor = null;
+        }
+        if (_activeTool is EraseTool eraseTool)
+        {
+            eraseTool.ClearPreview();
         }
         QueueDraw();
     }
@@ -406,7 +479,10 @@ public class CanvasViewportWidget : DrawingArea
             context.Restore();
         }
 
-        DrawVirtualCursor(context);
+        if (!(_activeTool is ReferenceTransformTool))
+        {
+            DrawVirtualCursor(context);
+        }
     }
 
     private bool ShouldRecordHistory()
@@ -416,6 +492,7 @@ public class CanvasViewportWidget : DrawingArea
                _toolManager?.ActiveTool is RectangleTool ||
                _toolManager?.ActiveTool is OvalTool ||
                _toolManager?.ActiveTool is FloodFillTool ||
+               _toolManager?.ActiveTool is EraseTool ||
                (_toolManager?.ActiveTool is StampTool stampTool && stampTool.CanStamp);
     }
 
@@ -449,6 +526,7 @@ public class CanvasViewportWidget : DrawingArea
     private void ShowDetachMenu(EventButton evt)
     {
         Menu menu = new Menu();
+        ScreenToWorld((int)evt.X, (int)evt.Y, out int worldX, out int worldY);
         if (Parent is Gtk.Window)
         {
             MenuItem reattachItem = new MenuItem("Reattach Viewport");
@@ -462,6 +540,24 @@ public class CanvasViewportWidget : DrawingArea
             menu.Append(detachItem);
         }
 
+        menu.Append(new SeparatorMenuItem());
+        MenuItem addReferenceText = new MenuItem("Add Reference Text...");
+        addReferenceText.Activated += (_, __) => ReferenceAddTextRequested?.Invoke(this, worldX, worldY);
+        menu.Append(addReferenceText);
+
+        MenuItem addReferenceImage = new MenuItem("Add Reference Image...");
+        addReferenceImage.Activated += (_, __) => ReferenceAddImageRequested?.Invoke(this, worldX, worldY);
+        menu.Append(addReferenceImage);
+
+        bool hasReferenceSelection = _viewport?.References?.Selected != null;
+        if (hasReferenceSelection)
+        {
+            menu.Append(new SeparatorMenuItem());
+            MenuItem deleteReference = new MenuItem("Delete Reference");
+            deleteReference.Activated += (_, __) => ReferenceDeleteRequested?.Invoke(this);
+            menu.Append(deleteReference);
+        }
+
         bool hasSelection = _viewport?.Selection?.HasSelection ?? false;
         if (hasSelection)
         {
@@ -469,19 +565,22 @@ public class CanvasViewportWidget : DrawingArea
             MenuItem clearSelection = new MenuItem("Clear Selection");
             clearSelection.Activated += (_, __) => ClearSelectionRequested?.Invoke(this);
             menu.Append(clearSelection);
+            MenuItem eraseSelection = new MenuItem("Erase Selection");
+            eraseSelection.Activated += (_, __) => SelectionEraseRequested?.Invoke(this);
+            menu.Append(eraseSelection);
         }
 
         bool addedOptions = false;
         if (_activeTool is RectangleTool rectangleTool)
         {
             menu.Append(new SeparatorMenuItem());
-            AppendShapeOptions(menu, rectangleTool.Fill, rectangleTool.OverwriteTransparent);
+            AppendShapeOptions(menu, rectangleTool.Fill, rectangleTool.OverwriteTransparent, rectangleTool.FillUsesSecondary);
             addedOptions = true;
         }
         else if (_activeTool is OvalTool ovalTool)
         {
             menu.Append(new SeparatorMenuItem());
-            AppendShapeOptions(menu, ovalTool.Fill, ovalTool.OverwriteTransparent);
+            AppendShapeOptions(menu, ovalTool.Fill, ovalTool.OverwriteTransparent, ovalTool.FillUsesSecondary);
             addedOptions = true;
         }
         else if (_activeTool is StampTool stampTool)
@@ -513,7 +612,7 @@ public class CanvasViewportWidget : DrawingArea
         menu.PopupAtPointer(evt);
     }
 
-    private void AppendShapeOptions(Menu menu, bool isFilled, bool overwriteTransparent)
+    private void AppendShapeOptions(Menu menu, bool isFilled, bool overwriteTransparent, bool fillSecondary)
     {
         CheckMenuItem fillItem = new CheckMenuItem("Fill Shape")
         {
@@ -527,8 +626,15 @@ public class CanvasViewportWidget : DrawingArea
         };
         overwriteItem.Toggled += (_, __) => TransparentOverwriteToggled?.Invoke(this, overwriteItem.Active);
 
+        CheckMenuItem fillSecondaryItem = new CheckMenuItem("Use Secondary Fill")
+        {
+            Active = fillSecondary
+        };
+        fillSecondaryItem.Toggled += (_, __) => FillSecondaryToggled?.Invoke(this, fillSecondaryItem.Active);
+
         menu.Append(fillItem);
         menu.Append(overwriteItem);
+        menu.Append(fillSecondaryItem);
     }
 
     private void AppendSelectionOptions(Menu menu, SelectionMode mode, SelectionSnapMode snapMode)
@@ -800,6 +906,12 @@ public class CanvasViewportWidget : DrawingArea
             return;
         }
 
+        if (_activeTool is ReferenceTransformTool)
+        {
+            Window.Cursor = null;
+            return;
+        }
+
         if (_crosshairCursor == null)
         {
             Display display = Window?.Display ?? Display.Default;
@@ -829,8 +941,12 @@ public class CanvasViewportWidget : DrawingArea
         _middlePanLastX = screenX;
         _middlePanLastY = screenY;
 
-        int worldDeltaX = (int)Math.Round(deltaX / _viewport.PixelSize);
-        int worldDeltaY = (int)Math.Round(deltaY / _viewport.PixelSize);
+        _middlePanRemainderX += deltaX / _viewport.PixelSize;
+        _middlePanRemainderY += deltaY / _viewport.PixelSize;
+        int worldDeltaX = (int)Math.Truncate(_middlePanRemainderX);
+        int worldDeltaY = (int)Math.Truncate(_middlePanRemainderY);
+        _middlePanRemainderX -= worldDeltaX;
+        _middlePanRemainderY -= worldDeltaY;
 
         if (worldDeltaX != 0 || worldDeltaY != 0)
         {

@@ -11,6 +11,7 @@ public class RectangleTool : ITool
     private int _currentY;
     private bool _fill;
     private bool _overwriteTransparent;
+    private bool _fillUsesSecondary;
 
     public event Action PreviewChanged;
 
@@ -40,6 +41,21 @@ public class RectangleTool : ITool
             }
 
             _overwriteTransparent = value;
+            PreviewChanged?.Invoke();
+        }
+    }
+
+    public bool FillUsesSecondary
+    {
+        get { return _fillUsesSecondary; }
+        set
+        {
+            if (_fillUsesSecondary == value)
+            {
+                return;
+            }
+
+            _fillUsesSecondary = value;
             PreviewChanged?.Invoke();
         }
     }
@@ -74,7 +90,7 @@ public class RectangleTool : ITool
         int minY = Math.Min(_startY, _currentY);
         int maxY = Math.Max(_startY, _currentY);
 
-        if (_fill && TryGetSecondaryColorIndex(out byte fillColorIndex, out byte fillAlpha) && ShouldDrawPixel(fillAlpha))
+        if (_fill && TryGetFillColorIndex(out byte fillColorIndex, out byte fillAlpha) && ShouldDrawPixel(fillAlpha))
         {
             for (int y = minY; y <= maxY; y++)
             {
@@ -129,7 +145,7 @@ public class RectangleTool : ITool
 
         if (_fill)
         {
-            if (TryGetSecondaryColorIndex(out byte colorIndex, out byte alpha))
+            if (TryGetFillColorIndex(out byte colorIndex, out byte alpha))
             {
                 var color = _palette.Palette[colorIndex];
                 double a = (color.Item4 / 255.0) * 0.4;
@@ -201,6 +217,16 @@ public class RectangleTool : ITool
         colorIndex = (byte)index;
         alpha = color.Item4;
         return true;
+    }
+
+    private bool TryGetFillColorIndex(out byte colorIndex, out byte alpha)
+    {
+        if (FillUsesSecondary)
+        {
+            return TryGetSecondaryColorIndex(out colorIndex, out alpha);
+        }
+
+        return TryGetPrimaryColorIndex(out colorIndex, out alpha);
     }
 
     private bool ShouldDrawPixel(byte alpha)

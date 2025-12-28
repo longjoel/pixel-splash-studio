@@ -1,5 +1,12 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <interface>
+  <object class="GtkAdjustment" id="_referenceOpacityMenuAdjustment">
+    <property name="lower">0</property>
+    <property name="upper">100</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">5</property>
+    <property name="value">100</property>
+  </object>
   <requires lib="gtk+" version="3.18"/>
   <object class="GtkWindow" id="MainWindow">
     <property name="can_focus">False</property>
@@ -170,15 +177,79 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkCheckMenuItem" id="_optionStampOverwrite">
-                        <property name="label" translatable="yes">Overwrite Destination</property>
+                      <object class="GtkCheckMenuItem" id="_optionFillSecondary">
+                        <property name="label" translatable="yes">Use Secondary Fill</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionShapeSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionSelectionCopy">
+                        <property name="label" translatable="yes">Copy Selection</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionSelectionExport">
+                        <property name="label" translatable="yes">Export Selection</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionSelectionSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionSelectionAdd">
+                        <property name="label" translatable="yes">Add to Selection</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="active">True</property>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkSeparatorMenuItem" id="_optionSeparator">
+                      <object class="GtkRadioMenuItem" id="_optionSelectionSubtract">
+                        <property name="label" translatable="yes">Subtract from Selection</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionSelectionAdd</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionSelectionSnapSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionSelectionSnapPixel">
+                        <property name="label" translatable="yes">Snap to Pixels</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionSelectionSnapTile">
+                        <property name="label" translatable="yes">Snap to Tiles</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionSelectionSnapPixel</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionSelectionClearSeparator">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                       </object>
@@ -188,6 +259,257 @@
                         <property name="label" translatable="yes">Clear Selection</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionEraseSelection">
+                        <property name="label" translatable="yes">Erase Selection</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionStampSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckMenuItem" id="_optionStampOverwrite">
+                        <property name="label" translatable="yes">Overwrite Destination</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionStampSnapSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampSnapPixel">
+                        <property name="label" translatable="yes">Snap to Pixels</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampSnapTile">
+                        <property name="label" translatable="yes">Snap to Tiles</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionStampSnapPixel</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionStampScaleSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampScale1">
+                        <property name="label" translatable="yes">Scale 1x</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampScale2">
+                        <property name="label" translatable="yes">Scale 2x</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionStampScale1</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampScale4">
+                        <property name="label" translatable="yes">Scale 4x</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionStampScale1</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionStampRotateSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampRotate0">
+                        <property name="label" translatable="yes">Rotate 0°</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampRotate90">
+                        <property name="label" translatable="yes">Rotate 90°</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionStampRotate0</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampRotate180">
+                        <property name="label" translatable="yes">Rotate 180°</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionStampRotate0</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionStampRotate270">
+                        <property name="label" translatable="yes">Rotate 270°</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionStampRotate0</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionStampFlipSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckMenuItem" id="_optionStampFlipX">
+                        <property name="label" translatable="yes">Flip X</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkCheckMenuItem" id="_optionStampFlipY">
+                        <property name="label" translatable="yes">Flip Y</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionEraseSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionEraseSize4">
+                        <property name="label" translatable="yes">Erase 4x4</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionEraseSize8">
+                        <property name="label" translatable="yes">Erase 8x8</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionEraseSize4</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionEraseSize16">
+                        <property name="label" translatable="yes">Erase 16x16</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionEraseSize4</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionEraseShapeSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionEraseShapeSquare">
+                        <property name="label" translatable="yes">Erase Square</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionEraseShapeRound">
+                        <property name="label" translatable="yes">Erase Round</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionEraseShapeSquare</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionReferenceSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionReferenceSnapFree">
+                        <property name="label" translatable="yes">Free Transform</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionReferenceSnapPixel">
+                        <property name="label" translatable="yes">Snap to Pixels</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionReferenceSnapFree</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="_optionReferenceSnapTile">
+                        <property name="label" translatable="yes">Snap to Tiles</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="group">_optionReferenceSnapFree</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionReferenceOpacitySeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionReferenceOpacityItem">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <child>
+                          <object class="GtkBox">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="orientation">horizontal</property>
+                            <property name="spacing">6</property>
+                            <child>
+                              <object class="GtkLabel" id="_optionReferenceOpacityLabel">
+                                <property name="label" translatable="yes">Opacity</property>
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="xalign">0</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="_optionReferenceOpacity">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="orientation">horizontal</property>
+                                <property name="digits">0</property>
+                                <property name="draw_value">True</property>
+                                <property name="adjustment">_referenceOpacityMenuAdjustment</property>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
                       </object>
                     </child>
                   </object>
@@ -261,6 +583,20 @@
                     <child>
                       <object class="GtkMenuItem" id="_toolStamp">
                         <property name="label" translatable="yes">Stamp</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_toolErase">
+                        <property name="label" translatable="yes">Erase</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_toolReference">
+                        <property name="label" translatable="yes">Reference</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                       </object>
