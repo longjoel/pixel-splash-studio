@@ -1,0 +1,56 @@
+name: Build Linux AppImage
+
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+          dotnet-quality: "preview"
+
+      - name: Install AppImage dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libfuse2
+
+      - name: Install appimagetool + linuxdeploy
+        run: |
+          sudo curl -L \
+            -o /usr/local/bin/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          sudo chmod +x /usr/local/bin/appimagetool
+
+          sudo curl -L \
+            -o /usr/local/bin/linuxdeploy \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          sudo chmod +x /usr/local/bin/linuxdeploy
+
+          sudo curl -L \
+            -o /usr/local/bin/linuxdeploy-plugin-gtk \
+            https://github.com/linuxdeploy/linuxdeploy-plugin-gtk/releases/download/continuous/linuxdeploy-plugin-gtk.sh
+          sudo chmod +x /usr/local/bin/linuxdeploy-plugin-gtk
+
+      - name: Build AppImage
+        run: bash scripts/build_linux_appimage.sh
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-splash-studio-appimage
+          path: dist/pixel-splash-studio.AppImage
