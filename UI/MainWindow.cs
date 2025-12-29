@@ -107,6 +107,7 @@ namespace PixelSplashStudio
         private readonly PalettePanelWidget _palettePanel;
         private readonly FloatingPaletteWidget _paletteWindow;
         private readonly ToolsPanelWidget _toolbarPanel;
+        private readonly MiniMapWidget _miniMap;
         private readonly Gtk.Window _toolbarWindow;
         private readonly Separator _dockPaletteToolsSeparator;
         private readonly ViewportTool _viewportTool;
@@ -123,6 +124,7 @@ namespace PixelSplashStudio
         private readonly List<CanvasViewportWidget> _viewports = new List<CanvasViewportWidget>();
         private readonly Dictionary<Gtk.Window, CanvasViewportWidget> _detachedViewports = new Dictionary<Gtk.Window, CanvasViewportWidget>();
         private readonly Dictionary<CanvasViewportWidget, ViewportContext> _viewportContexts = new Dictionary<CanvasViewportWidget, ViewportContext>();
+        private CanvasViewportWidget _miniMapTarget;
         private bool _suppressOptionEvents;
         private bool _suppressPaletteSelection;
         private readonly AccelGroup _accelGroup = new AccelGroup();
@@ -197,6 +199,12 @@ namespace PixelSplashStudio
             _paletteWindow.DeleteEvent += PaletteWindow_DeleteEvent;
 
             _toolbarPanel = new ToolsPanelWidget(_palette);
+            _miniMap = new MiniMapWidget(_canvas, _palette, _viewportSettings);
+            _miniMap.ZoomInRequested += () => ZoomFocusedViewport(1);
+            _miniMap.ZoomOutRequested += () => ZoomFocusedViewport(-1);
+            _miniMap.CenterRequested += HandleMiniMapCenterRequested;
+            _miniMap.SetTargetViewport(_viewA);
+            _miniMapTarget = _viewA;
             _toolbarWindow = new Gtk.Window("Tools")
             {
                 TransientFor = this
@@ -208,6 +216,12 @@ namespace PixelSplashStudio
             _toolbarWindow.SetDefaultSize(220, 520);
             ThemeHelper.ApplyWindowBackground(_toolbarWindow);
             _toolbarWindow.DeleteEvent += ToolbarWindow_DeleteEvent;
+
+            if (_dockToolsHost != null)
+            {
+                _dockToolsHost.PackStart(_miniMap, false, false, 0);
+                _miniMap.ShowAll();
+            }
 
             // Wire up MESSAGE UP: Toolbar events notify changes
             _toolbarPanel.GrabZoomRequested += () => _appState.SetActiveTool(ToolMode.GrabZoom);
@@ -769,6 +783,60 @@ namespace PixelSplashStudio
             return _viewports.Count > 0 ? _viewports[0] : null;
         }
 
+        private CanvasViewportWidget GetMiniMapTargetViewport()
+        {
+            CanvasViewportWidget focused = GetFocusedViewport();
+            if (focused != null)
+            {
+                return focused;
+            }
+
+            if (_miniMapTarget != null)
+            {
+                return _miniMapTarget;
+            }
+
+            return _viewports.Count > 0 ? _viewports[0] : null;
+        }
+
+        private void ZoomFocusedViewport(int delta)
+        {
+            CanvasViewportWidget target = GetMiniMapTargetViewport();
+            if (target?.Viewport == null)
+            {
+                return;
+            }
+
+            int nextSize = target.Viewport.PixelSize + delta;
+            if (nextSize < 1)
+            {
+                nextSize = 1;
+            }
+
+            if (nextSize == target.Viewport.PixelSize)
+            {
+                return;
+            }
+
+            target.Viewport.SetPixelSize(nextSize);
+            target.QueueDraw();
+            _miniMap?.Refresh();
+        }
+
+        private void HandleMiniMapCenterRequested(int worldX, int worldY)
+        {
+            CanvasViewportWidget target = GetMiniMapTargetViewport();
+            if (target?.Viewport == null)
+            {
+                return;
+            }
+
+            target.Viewport.SetCamera(worldX, worldY);
+            target.GrabFocus();
+            target.QueueDraw();
+            _miniMap?.Refresh();
+        }
+
         private void UpdateBackgroundFromPalette()
         {
             if (_palette?.Palette == null || _palette.Palette.Count == 0 || _viewportSettings == null)
@@ -1139,35 +1207,38 @@ namespace PixelSplashStudio
 
             bool hasPalette = _palettePanel?.Parent == _dockToolsHost;
             bool hasToolbar = _toolbarPanel?.Parent == _dockToolsHost;
+            bool hasMiniMap = _miniMap?.Parent == _dockToolsHost;
 
             if (_dockPaletteToolsSeparator != null && _dockPaletteToolsSeparator.Parent != _dockToolsHost)
             {
                 _dockToolsHost.PackStart(_dockPaletteToolsSeparator, false, false, 0);
             }
 
-            if (hasPalette && hasToolbar)
+            int nextIndex = 0;
+            if (hasPalette)
+            {
+                _dockToolsHost.ReorderChild(_palettePanel, nextIndex++);
+            }
+
+            if (hasPalette && hasToolbar && _dockPaletteToolsSeparator != null)
             {
                 _dockPaletteToolsSeparator.Visible = true;
                 _dockPaletteToolsSeparator.ShowAll();
-                _dockToolsHost.ReorderChild(_palettePanel, 0);
-                _dockToolsHost.ReorderChild(_dockPaletteToolsSeparator, 1);
-                _dockToolsHost.ReorderChild(_toolbarPanel, 2);
-                return;
+                _dockToolsHost.ReorderChild(_dockPaletteToolsSeparator, nextIndex++);
             }
-
-            if (_dockPaletteToolsSeparator != null)
+            else if (_dockPaletteToolsSeparator != null)
             {
                 _dockPaletteToolsSeparator.Visible = false;
             }
 
-            if (hasPalette)
-            {
-                _dockToolsHost.ReorderChild(_palettePanel, 0);
-            }
-
             if (hasToolbar)
             {
-                _dockToolsHost.ReorderChild(_toolbarPanel, hasPalette ? 1 : 0);
+                _dockToolsHost.ReorderChild(_toolbarPanel, nextIndex++);
+            }
+
+            if (hasMiniMap)
+            {
+                _dockToolsHost.ReorderChild(_miniMap, nextIndex++);
             }
         }
 
@@ -1180,7 +1251,8 @@ namespace PixelSplashStudio
 
             bool hasDockedTools = _toolbarPanel?.Parent == _dockToolsHost;
             bool hasDockedPalette = _palettePanel?.Parent == _dockToolsHost;
-            _dockToolsHost.Visible = hasDockedTools || hasDockedPalette;
+            bool hasDockedMiniMap = _miniMap?.Parent == _dockToolsHost;
+            _dockToolsHost.Visible = hasDockedTools || hasDockedPalette || hasDockedMiniMap;
         }
 
         private void InitializePaletteLibrary()
@@ -1479,6 +1551,12 @@ namespace PixelSplashStudio
             _viewports.Remove(context.Widget);
             _viewportContexts.Remove(context.Widget);
             DetachViewportHandlers(context.Widget);
+
+            if (_miniMapTarget == context.Widget)
+            {
+                _miniMapTarget = _viewports.Count > 0 ? _viewports[0] : null;
+                _miniMap?.SetTargetViewport(_miniMapTarget);
+            }
         }
 
         private void ApplyToolModeToAllViewsAndToolbar(ToolMode toolMode)
@@ -1593,6 +1671,9 @@ namespace PixelSplashStudio
             viewport.ReferenceAddImageRequested += Viewport_ReferenceAddImageRequested;
             viewport.ReferenceDeleteRequested += Viewport_ReferenceDeleteRequested;
             viewport.ReferenceBakeRequested += Viewport_ReferenceBakeRequested;
+            viewport.ViewportChanged += Viewport_ViewportChanged;
+            viewport.FocusInEvent += Viewport_FocusInEvent;
+            viewport.SizeAllocated += Viewport_SizeAllocated;
         }
 
         private void DetachViewportHandlers(CanvasViewportWidget viewport)
@@ -1627,6 +1708,28 @@ namespace PixelSplashStudio
             viewport.ReferenceAddImageRequested -= Viewport_ReferenceAddImageRequested;
             viewport.ReferenceDeleteRequested -= Viewport_ReferenceDeleteRequested;
             viewport.ReferenceBakeRequested -= Viewport_ReferenceBakeRequested;
+            viewport.ViewportChanged -= Viewport_ViewportChanged;
+            viewport.FocusInEvent -= Viewport_FocusInEvent;
+            viewport.SizeAllocated -= Viewport_SizeAllocated;
+        }
+
+        private void Viewport_ViewportChanged(CanvasViewportWidget viewport)
+        {
+            _miniMap?.Refresh();
+        }
+
+        private void Viewport_FocusInEvent(object sender, FocusInEventArgs args)
+        {
+            if (sender is CanvasViewportWidget viewport)
+            {
+                _miniMapTarget = viewport;
+                _miniMap?.SetTargetViewport(viewport);
+            }
+        }
+
+        private void Viewport_SizeAllocated(object o, SizeAllocatedArgs args)
+        {
+            _miniMap?.Refresh();
         }
 
         private void Viewport_DetachRequested(CanvasViewportWidget viewport)
@@ -1682,6 +1785,11 @@ namespace PixelSplashStudio
                 _viewports.Remove(viewport);
                 _viewportContexts.Remove(viewport);
                 DetachViewportHandlers(viewport);
+                if (_miniMapTarget == viewport)
+                {
+                    _miniMapTarget = _viewports.Count > 0 ? _viewports[0] : null;
+                    _miniMap?.SetTargetViewport(_miniMapTarget);
+                }
                 window.Destroy();
                 args.RetVal = true;
             }
@@ -1913,6 +2021,8 @@ namespace PixelSplashStudio
             {
                 _viewports[i].QueueDraw();
             }
+
+            _miniMap?.Refresh();
         }
 
         private void UpdateEditMenu()
@@ -2779,6 +2889,7 @@ namespace PixelSplashStudio
         private void HandleReferenceLayerChanged()
         {
             UpdateReferenceOptions();
+            _miniMap?.Refresh();
         }
 
         private void HandleReferenceOpacityChanged(double opacity)

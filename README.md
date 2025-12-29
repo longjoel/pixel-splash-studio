@@ -12,6 +12,12 @@ Pixel Splash Studio is a pixel art editor built with C# and GtkSharp. It focuses
 - Custom project file format (`.pss`).
 - Configurable shortcuts in `config.ini`.
 
+## Screenshots
+
+![Pixel Splash Studio showing palette tools and a pixel art canvas.](docs/screenshot.png)
+![Selection tools with add and subtract modes active.](docs/screenshot-selection-mode.png)
+![Painting with a reference layer alongside the canvas.](docs/screenshot-painting-reference.png)
+
 ## Requirements
 
 - .NET SDK (target framework: net10.0)

@@ -46,6 +46,7 @@ namespace PixelSplashStudio
         public event Action<CanvasViewportWidget, int, int> ReferenceAddImageRequested;
         public event Action<CanvasViewportWidget> ReferenceDeleteRequested;
         public event Action<CanvasViewportWidget> ReferenceBakeRequested;
+        public event Action<CanvasViewportWidget> ViewportChanged;
 
         public CanvasViewport Viewport => _viewport;
 
@@ -484,6 +485,7 @@ namespace PixelSplashStudio
         private void HandleToolPreviewChanged()
         {
             QueueDraw();
+            ViewportChanged?.Invoke(this);
         }
 
         private void DrawVirtualCursor(Context context)
@@ -941,6 +943,7 @@ namespace PixelSplashStudio
             {
                 _viewport.Pan(-worldDeltaX, -worldDeltaY);
                 QueueDraw();
+                ViewportChanged?.Invoke(this);
             }
         }
 
@@ -971,6 +974,7 @@ namespace PixelSplashStudio
 
             _viewport.SetPixelSize(nextSize);
             _viewport.SetCamera((int)Math.Round(newCameraX), (int)Math.Round(newCameraY));
+            ViewportChanged?.Invoke(this);
         }
     }
 }
