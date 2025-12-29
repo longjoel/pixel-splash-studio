@@ -204,6 +204,23 @@
         border: 1px solid rgba(18, 18, 24, 0.08);
       }
 
+      .screenshot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 16px;
+      }
+
+      .screenshot figure {
+        margin: 0;
+        display: grid;
+        gap: 10px;
+      }
+
+      .screenshot figcaption {
+        font-size: 14px;
+        color: var(--muted);
+      }
+
       .pixel-grid {
         display: grid;
         grid-template-columns: repeat(8, 1fr);
@@ -413,12 +430,33 @@
         </div>
       </section>
 
-      <section class="screenshot" aria-label="Application screenshot">
-        <img
-          src="screenshot.png"
-          alt="Pixel Splash Studio showing palette tools and a pixel art canvas."
-          loading="lazy"
-        />
+      <section class="screenshot" aria-label="Application screenshots">
+        <div class="screenshot-grid">
+          <figure>
+            <img
+              src="screenshot.png"
+              alt="Pixel Splash Studio showing palette tools and a pixel art canvas."
+              loading="lazy"
+            />
+            <figcaption>Palette tools and pixel canvas</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="screenshot-selection-mode.png"
+              alt="Selection tools active with add and subtract modes."
+              loading="lazy"
+            />
+            <figcaption>Selection tools and add or subtract modes</figcaption>
+          </figure>
+          <figure>
+            <img
+              src="screenshot-painting-reference.png"
+              alt="Reference layer painting alongside the main canvas."
+              loading="lazy"
+            />
+            <figcaption>Reference layer painting workflow</figcaption>
+          </figure>
+        </div>
       </section>
 
       <section id="features">
