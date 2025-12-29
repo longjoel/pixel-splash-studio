@@ -19,7 +19,7 @@ function Publish-App([string]$rid) {
         -c $config `
         -r $rid `
         --self-contained true `
-        -o $publishDir
+        -o $publishDir | Out-Null
 
     return $publishDir
 }
