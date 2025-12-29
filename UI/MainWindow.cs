@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using Gdk;
 using Gtk;
 using UI = Gtk.Builder.ObjectAttribute;
@@ -28,6 +29,7 @@ namespace PixelSplashStudio
         [UI] private MenuItem _editUndo = null;
         [UI] private MenuItem _editRedo = null;
         [UI] private MenuItem _editCopy = null;
+        [UI] private MenuItem _editPaste = null;
         [UI] private MenuItem _fileNew = null;
         [UI] private MenuItem _fileOpen = null;
         [UI] private MenuItem _fileSave = null;
@@ -75,6 +77,10 @@ namespace PixelSplashStudio
         [UI] private SeparatorMenuItem _optionReferenceOpacitySeparator = null;
         [UI] private MenuItem _optionReferenceOpacityItem = null;
         [UI] private Scale _optionReferenceOpacity = null;
+        [UI] private SeparatorMenuItem _optionReferenceActionSeparator = null;
+        [UI] private MenuItem _optionReferenceBake = null;
+        [UI] private MenuItem _optionReferenceDelete = null;
+        [UI] private MenuItem _helpShortcuts = null;
         [UI] private MenuItem _optionClearSelection = null;
         [UI] private MenuItem _optionEraseSelection = null;
         [UI] private SeparatorMenuItem _optionShapeSeparator = null;
@@ -441,6 +447,7 @@ namespace PixelSplashStudio
             _editUndo.Activated += EditUndo_Activated;
             _editRedo.Activated += EditRedo_Activated;
             _editCopy.Activated += EditCopy_Activated;
+            _editPaste.Activated += EditPaste_Activated;
             _fileNew.Activated += FileNew_Activated;
             _fileOpen.Activated += FileOpen_Activated;
             _fileSave.Activated += FileSave_Activated;
@@ -477,21 +484,13 @@ namespace PixelSplashStudio
             _optionReferenceSnapPixel.Toggled += OptionReferenceSnapMenu_Toggled;
             _optionReferenceSnapTile.Toggled += OptionReferenceSnapMenu_Toggled;
             _optionReferenceOpacity.ValueChanged += OptionReferenceOpacityMenu_Changed;
+            _optionReferenceBake.Activated += OptionReferenceBakeMenu_Activated;
+            _optionReferenceDelete.Activated += OptionReferenceDeleteMenu_Activated;
+            _helpShortcuts.Activated += HelpShortcuts_Activated;
             _optionClearSelection.Activated += OptionClearSelection_Activated;
             _optionEraseSelection.Activated += OptionEraseSelection_Activated;
 
-            _editUndo.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.z, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
-            _editRedo.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.y, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
-            _editCopy.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.c, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
-            _fileNew.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.n, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
-            _fileOpen.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.o, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
-            _fileSave.AddAccelerator("activate", _accelGroup, (uint)Gdk.Key.s, Gdk.ModifierType.ControlMask, AccelFlags.Visible);
-            _fileSaveAs.AddAccelerator(
-                "activate",
-                _accelGroup,
-                (uint)Gdk.Key.s,
-                Gdk.ModifierType.ControlMask | Gdk.ModifierType.ShiftMask,
-                AccelFlags.Visible);
+            ApplyShortcutBindings();
 
             UpdateOptionsMenu();
             UpdateEditMenu();
@@ -506,6 +505,261 @@ namespace PixelSplashStudio
         private void Window_DeleteEvent(object sender, DeleteEventArgs a)
         {
             Application.Quit();
+        }
+
+        private void HelpShortcuts_Activated(object sender, EventArgs e)
+        {
+            string content = BuildShortcutCheatSheet();
+            Dialog dialog = new Dialog("Shortcut Keys", this, DialogFlags.Modal);
+            dialog.SetDefaultSize(520, 560);
+            ThemeHelper.ApplyWindowBackground(dialog);
+
+            ScrolledWindow scrolled = new ScrolledWindow
+            {
+                ShadowType = ShadowType.In
+            };
+            TextView textView = new TextView
+            {
+                Editable = false,
+                CursorVisible = false,
+                Monospace = true,
+                WrapMode = WrapMode.WordChar
+            };
+            textView.Buffer.Text = content;
+            scrolled.Add(textView);
+
+            Box contentArea = dialog.ContentArea;
+            contentArea.PackStart(scrolled, true, true, 8);
+
+            dialog.AddButton("Close", ResponseType.Close);
+            dialog.Response += (_, __) => dialog.Destroy();
+            dialog.ShowAll();
+        }
+
+        private string BuildShortcutCheatSheet()
+        {
+            // Build the help text from config shortcuts to keep it in sync with user edits.
+            var lines = new List<string>
+            {
+                "Shortcut Keys",
+                "-------------"
+            };
+
+            string[] categories =
+            {
+                "file",
+                "edit",
+                "view",
+                "tool",
+                "selection",
+                "shape",
+                "stamp",
+                "erase",
+                "reference"
+            };
+
+            foreach (string category in categories)
+            {
+                var entries = new List<(string action, string shortcut)>();
+                foreach (var pair in _config.Shortcuts)
+                {
+                    if (pair.Key.StartsWith(category + ".", StringComparison.OrdinalIgnoreCase))
+                    {
+                        entries.Add((pair.Key, pair.Value));
+                    }
+                }
+
+                if (entries.Count == 0)
+                {
+                    continue;
+                }
+
+                entries.Sort((left, right) => string.Compare(left.action, right.action, StringComparison.OrdinalIgnoreCase));
+                lines.Add(string.Empty);
+                lines.Add(Titleize(category));
+                lines.Add(new string('-', Titleize(category).Length));
+                foreach (var entry in entries)
+                {
+                    lines.Add($"{FormatActionLabel(entry.action)}: {entry.shortcut}");
+                }
+            }
+
+            lines.Add(string.Empty);
+            lines.Add($"Config: {AppConfig.GetConfigPath()}");
+            return string.Join(Environment.NewLine, lines);
+        }
+
+        private static string FormatActionLabel(string actionId)
+        {
+            if (string.IsNullOrWhiteSpace(actionId))
+            {
+                return "Unknown";
+            }
+
+            string[] parts = actionId.Split('.');
+            if (parts.Length < 2)
+            {
+                return Titleize(actionId);
+            }
+
+            string category = Titleize(parts[0]);
+            string action = Titleize(string.Join("_", parts, 1, parts.Length - 1));
+            return $"{category}: {action}";
+        }
+
+        private static string Titleize(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            string[] parts = value.Split('_');
+            for (int i = 0; i < parts.Length; i++)
+            {
+                string part = parts[i];
+                if (part.Length == 0)
+                {
+                    continue;
+                }
+
+                string head = part.Substring(0, 1).ToUpperInvariant();
+                string tail = part.Length > 1 ? part.Substring(1) : string.Empty;
+                parts[i] = head + tail;
+            }
+
+            return string.Join(" ", parts);
+        }
+
+        private void ApplyShortcutBindings()
+        {
+            // Bind all accelerators from config.ini so key remaps apply at startup.
+            BindMenuShortcut(_fileNew, "file.new");
+            BindMenuShortcut(_fileOpen, "file.open");
+            BindMenuShortcut(_fileSave, "file.save");
+            BindMenuShortcut(_fileSaveAs, "file.save_as");
+            BindMenuShortcut(_editUndo, "edit.undo");
+            BindMenuShortcut(_editRedo, "edit.redo");
+            BindMenuShortcut(_editCopy, "edit.copy");
+            BindMenuShortcut(_editPaste, "edit.paste");
+            BindMenuShortcut(_viewNewViewport, "view.new_viewport");
+            BindMenuShortcut(_viewToolbarToggle, "view.toggle_tools");
+            BindMenuShortcut(_viewPaletteToggle, "view.toggle_palette");
+
+            BindMenuShortcut(_toolGrabZoom, "tool.grab_zoom");
+            BindMenuShortcut(_toolPen, "tool.pen");
+            BindMenuShortcut(_toolLine, "tool.line");
+            BindMenuShortcut(_toolRectangle, "tool.rectangle");
+            BindMenuShortcut(_toolOval, "tool.oval");
+            BindMenuShortcut(_toolSelection, "tool.selection");
+            BindMenuShortcut(_toolSelectionWand, "tool.selection_wand");
+            BindMenuShortcut(_toolSelectionOval, "tool.selection_oval");
+            BindMenuShortcut(_toolFloodFill, "tool.flood_fill");
+            BindMenuShortcut(_toolStamp, "tool.stamp");
+            BindMenuShortcut(_toolErase, "tool.erase");
+            BindMenuShortcut(_toolReference, "tool.reference");
+
+            BindMenuShortcut(_optionSelectionAdd, "selection.mode_add");
+            BindMenuShortcut(_optionSelectionSubtract, "selection.mode_subtract");
+            BindMenuShortcut(_optionSelectionSnapPixel, "selection.snap_pixel");
+            BindMenuShortcut(_optionSelectionSnapTile, "selection.snap_tile");
+            BindMenuShortcut(_optionSelectionCopy, "selection.copy");
+            BindMenuShortcut(_optionSelectionExport, "selection.export");
+            BindMenuShortcut(_optionClearSelection, "selection.clear");
+            BindMenuShortcut(_optionEraseSelection, "selection.erase");
+
+            BindMenuShortcut(_optionRectangleFill, "shape.fill");
+            BindMenuShortcut(_optionTransparentOverwrite, "shape.overwrite_transparent");
+            BindMenuShortcut(_optionFillSecondary, "shape.fill_secondary");
+
+            BindMenuShortcut(_optionStampOverwrite, "stamp.overwrite");
+            BindMenuShortcut(_optionStampSnapPixel, "stamp.snap_pixel");
+            BindMenuShortcut(_optionStampSnapTile, "stamp.snap_tile");
+            BindMenuShortcut(_optionStampScale1, "stamp.scale_1");
+            BindMenuShortcut(_optionStampScale2, "stamp.scale_2");
+            BindMenuShortcut(_optionStampScale4, "stamp.scale_4");
+            BindMenuShortcut(_optionStampRotate0, "stamp.rotate_0");
+            BindMenuShortcut(_optionStampRotate90, "stamp.rotate_90");
+            BindMenuShortcut(_optionStampRotate180, "stamp.rotate_180");
+            BindMenuShortcut(_optionStampRotate270, "stamp.rotate_270");
+            BindMenuShortcut(_optionStampFlipX, "stamp.flip_x");
+            BindMenuShortcut(_optionStampFlipY, "stamp.flip_y");
+
+            BindMenuShortcut(_optionEraseSize4, "erase.size_4");
+            BindMenuShortcut(_optionEraseSize8, "erase.size_8");
+            BindMenuShortcut(_optionEraseSize16, "erase.size_16");
+            BindMenuShortcut(_optionEraseShapeSquare, "erase.shape_square");
+            BindMenuShortcut(_optionEraseShapeRound, "erase.shape_round");
+
+            BindMenuShortcut(_optionReferenceSnapFree, "reference.snap_free");
+            BindMenuShortcut(_optionReferenceSnapPixel, "reference.snap_pixel");
+            BindMenuShortcut(_optionReferenceSnapTile, "reference.snap_tile");
+
+            BindMenuShortcut(_optionReferenceDelete, "reference.delete");
+            BindMenuShortcut(_optionReferenceBake, "reference.bake");
+        }
+
+        private void BindMenuShortcut(MenuItem item, string actionId)
+        {
+            if (item == null || !TryGetShortcut(actionId, out string shortcut))
+            {
+                return;
+            }
+
+            if (!TryParseAccelerator(shortcut, out uint key, out ModifierType modifiers))
+            {
+                return;
+            }
+
+            item.AddAccelerator("activate", _accelGroup, key, modifiers, AccelFlags.Visible);
+        }
+
+        private bool TryGetShortcut(string actionId, out string shortcut)
+        {
+            shortcut = null;
+            if (_config?.Shortcuts == null)
+            {
+                return false;
+            }
+
+            if (!_config.Shortcuts.TryGetValue(actionId, out string value))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            shortcut = value.Trim();
+            return true;
+        }
+
+        private static bool TryParseAccelerator(string shortcut, out uint key, out ModifierType modifiers)
+        {
+            key = 0;
+            modifiers = ModifierType.None;
+            if (string.IsNullOrWhiteSpace(shortcut))
+            {
+                return false;
+            }
+
+            Gtk.Accelerator.Parse(shortcut, out key, out modifiers);
+            return key != 0;
+        }
+
+        private CanvasViewportWidget GetFocusedViewport()
+        {
+            foreach (var viewport in _viewports)
+            {
+                if (viewport != null && viewport.HasFocus)
+                {
+                    return viewport;
+                }
+            }
+
+            return _viewports.Count > 0 ? _viewports[0] : null;
         }
 
         private void UpdateBackgroundFromPalette()
@@ -1330,6 +1584,7 @@ namespace PixelSplashStudio
             viewport.ReferenceAddTextRequested += Viewport_ReferenceAddTextRequested;
             viewport.ReferenceAddImageRequested += Viewport_ReferenceAddImageRequested;
             viewport.ReferenceDeleteRequested += Viewport_ReferenceDeleteRequested;
+            viewport.ReferenceBakeRequested += Viewport_ReferenceBakeRequested;
         }
 
         private void DetachViewportHandlers(CanvasViewportWidget viewport)
@@ -1362,6 +1617,7 @@ namespace PixelSplashStudio
             viewport.ReferenceAddTextRequested -= Viewport_ReferenceAddTextRequested;
             viewport.ReferenceAddImageRequested -= Viewport_ReferenceAddImageRequested;
             viewport.ReferenceDeleteRequested -= Viewport_ReferenceDeleteRequested;
+            viewport.ReferenceBakeRequested -= Viewport_ReferenceBakeRequested;
         }
 
         private void Viewport_DetachRequested(CanvasViewportWidget viewport)
@@ -1514,6 +1770,19 @@ namespace PixelSplashStudio
             ClearSelection();
             ToolStamp_Activated(this, EventArgs.Empty);
             UpdateEditMenu();
+        }
+
+        private void EditPaste_Activated(object sender, EventArgs e)
+        {
+            CanvasViewportWidget viewport = GetFocusedViewport();
+            if (viewport == null)
+            {
+                return;
+            }
+
+            int worldX = viewport.Viewport?.CameraPixelX ?? 0;
+            int worldY = viewport.Viewport?.CameraPixelY ?? 0;
+            PasteReferenceFromClipboard(viewport, worldX, worldY);
         }
 
         private void ExportSelection_Activated(object sender, EventArgs e)
@@ -1673,9 +1942,13 @@ namespace PixelSplashStudio
             _optionReferenceSnapFree.Visible = isReference;
             _optionReferenceSnapPixel.Visible = isReference;
             _optionReferenceSnapTile.Visible = isReference;
-            bool showReferenceOpacity = isReference && _canvas.References.Selected != null;
+            bool showReferenceActions = isReference && _canvas.References.Selected != null;
+            bool showReferenceOpacity = showReferenceActions;
             _optionReferenceOpacitySeparator.Visible = showReferenceOpacity;
             _optionReferenceOpacityItem.Visible = showReferenceOpacity;
+            _optionReferenceActionSeparator.Visible = showReferenceActions;
+            _optionReferenceBake.Visible = showReferenceActions;
+            _optionReferenceDelete.Visible = showReferenceActions;
 
             _suppressOptionEvents = true;
             if (isStamp)
@@ -1764,7 +2037,10 @@ namespace PixelSplashStudio
                 _optionReferenceSnapFree.Visible ||
                 _optionReferenceSnapPixel.Visible ||
                 _optionReferenceSnapTile.Visible ||
-                _optionReferenceOpacityItem.Visible;
+                _optionReferenceOpacityItem.Visible ||
+                _optionReferenceActionSeparator.Visible ||
+                _optionReferenceBake.Visible ||
+                _optionReferenceDelete.Visible;
 
             _menuOptions.Visible = anyVisible;
         }
@@ -2006,6 +2282,19 @@ namespace PixelSplashStudio
             HandleReferenceOpacityChanged(opacity);
         }
 
+        private void OptionReferenceBakeMenu_Activated(object sender, EventArgs e)
+        {
+            Viewport_ReferenceBakeRequested(GetFocusedViewport());
+        }
+
+        private void OptionReferenceDeleteMenu_Activated(object sender, EventArgs e)
+        {
+            if (_canvas.References.RemoveSelected())
+            {
+                RedrawAllViewports();
+            }
+        }
+
         private void OptionClearSelection_Activated(object sender, EventArgs e)
         {
             ClearSelection();
@@ -2242,6 +2531,178 @@ namespace PixelSplashStudio
             {
                 RedrawAllViewports();
             }
+        }
+
+        private void PasteReferenceFromClipboard(CanvasViewportWidget viewport, int worldX, int worldY)
+        {
+            Clipboard clipboard = Clipboard.Get(Gdk.Atom.Intern("CLIPBOARD", false));
+            Pixbuf image = clipboard?.WaitForImage();
+            if (image != null)
+            {
+                _appState.SetActiveTool(ToolMode.Reference);
+                int pixelSize = viewport?.Viewport?.PixelSize ?? CanvasViewport.DefaultPixelSize;
+                pixelSize = Math.Max(1, pixelSize);
+                double width = image.Width / (double)pixelSize;
+                double height = image.Height / (double)pixelSize;
+                Pixbuf imageCopy = image.Copy();
+                image.Dispose();
+                _canvas.References.AddImage(imageCopy, "clipboard", worldX, worldY, width, height);
+                RedrawAllViewports();
+                return;
+            }
+
+            string text = clipboard?.WaitForText();
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                _appState.SetActiveTool(ToolMode.Reference);
+                _canvas.References.AddText(text, worldX, worldY, 12, "Sans");
+                RedrawAllViewports();
+            }
+        }
+
+
+        private void Viewport_ReferenceBakeRequested(CanvasViewportWidget viewport)
+        {
+            ReferenceObject selected = _canvas?.References?.Selected;
+            if (selected == null || _palette?.Palette == null || _palette.Palette.Count == 0)
+            {
+                return;
+            }
+
+            double minX = Math.Min(selected.X, selected.X + selected.Width);
+            double minY = Math.Min(selected.Y, selected.Y + selected.Height);
+            double maxX = Math.Max(selected.X, selected.X + selected.Width);
+            double maxY = Math.Max(selected.Y, selected.Y + selected.Height);
+
+            int startX = (int)Math.Floor(minX);
+            int startY = (int)Math.Floor(minY);
+            int endX = (int)Math.Ceiling(maxX);
+            int endY = (int)Math.Ceiling(maxY);
+
+            int width = Math.Max(1, endX - startX);
+            int height = Math.Max(1, endY - startY);
+
+            using (Cairo.ImageSurface surface = new Cairo.ImageSurface(Cairo.Format.Argb32, width, height))
+            {
+                using (Cairo.Context context = new Cairo.Context(surface))
+                {
+                    context.Operator = Cairo.Operator.Source;
+                    context.SetSourceRGBA(0, 0, 0, 0);
+                    context.Paint();
+                    context.Operator = Cairo.Operator.Over;
+
+                    CanvasViewport bakeViewport = new CanvasViewport(_canvas, _palette)
+                    {
+                        PixelSize = 1
+                    };
+
+                    double screenX = selected.X - startX;
+                    double screenY = selected.Y - startY;
+                    double screenWidth = selected.Width;
+                    double screenHeight = selected.Height;
+                    selected.Draw(context, bakeViewport, screenX, screenY, screenWidth, screenHeight);
+                }
+
+                surface.Flush();
+                int rowstride = surface.Stride;
+                byte[] data = new byte[rowstride * height];
+                Buffer.BlockCopy(surface.Data, 0, data, 0, data.Length);
+
+                _history.BeginSnapshot();
+
+                for (int y = 0; y < height; y++)
+                {
+                    int rowOffset = y * rowstride;
+                    int worldY = startY + y;
+                    for (int x = 0; x < width; x++)
+                    {
+                        int offset = rowOffset + (x * 4);
+                        byte b = data[offset];
+                        byte g = data[offset + 1];
+                        byte r = data[offset + 2];
+                        byte a = data[offset + 3];
+                        if (a == 0)
+                        {
+                            continue;
+                        }
+
+                        int worldX = startX + x;
+                        byte destIndex = _canvas.GetPixel(worldX, worldY);
+                        Tuple<byte, byte, byte, byte> destColor = _palette.Palette[0];
+                        if (destIndex < _palette.Palette.Count)
+                        {
+                            destColor = _palette.Palette[destIndex];
+                        }
+
+                        double srcA = a / 255.0;
+                        double dstA = destColor.Item4 / 255.0;
+                        double srcRp = r / 255.0;
+                        double srcGp = g / 255.0;
+                        double srcBp = b / 255.0;
+                        double dstR = destColor.Item1 / 255.0;
+                        double dstG = destColor.Item2 / 255.0;
+                        double dstB = destColor.Item3 / 255.0;
+                        double dstRp = dstR * dstA;
+                        double dstGp = dstG * dstA;
+                        double dstBp = dstB * dstA;
+                        double outA = srcA + (dstA * (1.0 - srcA));
+                        if (outA <= 0)
+                        {
+                            continue;
+                        }
+
+                        double outRp = srcRp + (dstRp * (1.0 - srcA));
+                        double outGp = srcGp + (dstGp * (1.0 - srcA));
+                        double outBp = srcBp + (dstBp * (1.0 - srcA));
+                        double outR = outRp / outA;
+                        double outG = outGp / outA;
+                        double outB = outBp / outA;
+                        byte outAlpha = (byte)Math.Round(outA * 255.0);
+
+                        byte outRByte = (byte)Math.Round(outR * 255.0);
+                        byte outGByte = (byte)Math.Round(outG * 255.0);
+                        byte outBByte = (byte)Math.Round(outB * 255.0);
+                        int paletteIndex = FindNearestPaletteIndex(_palette.Palette, outRByte, outGByte, outBByte, outAlpha);
+                        _canvas.DrawPixel(worldX, worldY, (byte)paletteIndex);
+                    }
+                }
+
+                _history.CommitSnapshot();
+            }
+
+            UpdateEditMenu();
+            RedrawAllViewports();
+        }
+
+        private static int FindNearestPaletteIndex(IReadOnlyList<Tuple<byte, byte, byte, byte>> palette, byte r, byte g, byte b, byte a)
+        {
+            if (palette == null || palette.Count == 0)
+            {
+                return 0;
+            }
+
+            int bestIndex = 0;
+            int bestDistance = int.MaxValue;
+            for (int i = 0; i < palette.Count; i++)
+            {
+                Tuple<byte, byte, byte, byte> color = palette[i];
+                int dr = color.Item1 - r;
+                int dg = color.Item2 - g;
+                int db = color.Item3 - b;
+                int da = color.Item4 - a;
+                int distance = (dr * dr) + (dg * dg) + (db * db) + (da * da);
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestIndex = i;
+                    if (distance == 0)
+                    {
+                        break;
+                    }
+                }
+            }
+
+            return bestIndex;
         }
 
         private void HandleReferenceLayerChanged()

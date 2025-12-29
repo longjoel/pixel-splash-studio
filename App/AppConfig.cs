@@ -8,6 +8,67 @@ namespace PixelSplashStudio
 {
     public class AppConfig
     {
+        // Default shortcut map written to config.ini on first run.
+        private static readonly (string action, string shortcut)[] DefaultShortcuts =
+        {
+            ("file.new", "Ctrl+N"),
+            ("file.open", "Ctrl+O"),
+            ("file.save", "Ctrl+S"),
+            ("file.save_as", "Ctrl+Shift+S"),
+            ("edit.undo", "Ctrl+Z"),
+            ("edit.redo", "Ctrl+Y"),
+            ("edit.copy", "Ctrl+C"),
+            ("edit.paste", "Ctrl+V"),
+            ("view.new_viewport", "Ctrl+Shift+N"),
+            ("view.toggle_tools", "Ctrl+Shift+T"),
+            ("view.toggle_palette", "Ctrl+Shift+P"),
+            ("tool.grab_zoom", "G"),
+            ("tool.pen", "P"),
+            ("tool.line", "L"),
+            ("tool.rectangle", "R"),
+            ("tool.oval", "O"),
+            ("tool.selection", "S"),
+            ("tool.selection_wand", "W"),
+            ("tool.selection_oval", "Shift+S"),
+            ("tool.flood_fill", "F"),
+            ("tool.stamp", "T"),
+            ("tool.erase", "E"),
+            ("tool.reference", "Q"),
+            ("selection.mode_add", "A"),
+            ("selection.mode_subtract", "D"),
+            ("selection.snap_pixel", "1"),
+            ("selection.snap_tile", "2"),
+            ("selection.copy", "Ctrl+Shift+C"),
+            ("selection.export", "Ctrl+Shift+E"),
+            ("selection.clear", "Ctrl+K"),
+            ("selection.erase", "Ctrl+E"),
+            ("shape.fill", "Shift+F"),
+            ("shape.overwrite_transparent", "Shift+T"),
+            ("shape.fill_secondary", "Shift+U"),
+            ("stamp.overwrite", "Shift+O"),
+            ("stamp.snap_pixel", "Shift+1"),
+            ("stamp.snap_tile", "Shift+2"),
+            ("stamp.scale_1", "1"),
+            ("stamp.scale_2", "2"),
+            ("stamp.scale_4", "4"),
+            ("stamp.rotate_0", "0"),
+            ("stamp.rotate_90", "9"),
+            ("stamp.rotate_180", "8"),
+            ("stamp.rotate_270", "7"),
+            ("stamp.flip_x", "X"),
+            ("stamp.flip_y", "Y"),
+            ("erase.size_4", "Shift+1"),
+            ("erase.size_8", "Shift+2"),
+            ("erase.size_16", "Shift+3"),
+            ("erase.shape_square", "Shift+["),
+            ("erase.shape_round", "Shift+]"),
+            ("reference.snap_free", "Shift+1"),
+            ("reference.snap_pixel", "Shift+2"),
+            ("reference.snap_tile", "Shift+3"),
+            ("reference.bake", "Shift+B"),
+            ("reference.delete", "Delete")
+        };
+
         public int WindowDefaultWidth { get; set; } = 1024;
         public int WindowDefaultHeight { get; set; } = 768;
         public int WindowMinWidth { get; set; } = 1024;
@@ -15,6 +76,15 @@ namespace PixelSplashStudio
         public int PixelGridMinSize { get; set; } = 10;
         public int TileGridSize { get; set; } = 8;
         public double ZoomDragStepPixels { get; set; } = 8.0;
+        public Dictionary<string, string> Shortcuts { get; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        public AppConfig()
+        {
+            foreach (var (action, shortcut) in DefaultShortcuts)
+            {
+                Shortcuts[action] = shortcut;
+            }
+        }
 
         public static AppConfig Load()
         {
@@ -72,6 +142,25 @@ namespace PixelSplashStudio
                     case "zoom.drag_step_pixels":
                         if (TryParseDouble(value, out double zoomStep)) config.ZoomDragStepPixels = zoomStep;
                         break;
+                    default:
+                        if (key.StartsWith("shortcut.", StringComparison.OrdinalIgnoreCase))
+                        {
+                            string action = key.Substring("shortcut.".Length).Trim();
+                            if (string.IsNullOrWhiteSpace(action))
+                            {
+                                break;
+                            }
+
+                            if (string.IsNullOrWhiteSpace(value))
+                            {
+                                config.Shortcuts.Remove(action);
+                            }
+                            else
+                            {
+                                config.Shortcuts[action] = value;
+                            }
+                        }
+                        break;
                 }
             }
 
@@ -89,6 +178,12 @@ namespace PixelSplashStudio
             builder.AppendLine("grid.pixel_min_size=10");
             builder.AppendLine("grid.tile_size=8");
             builder.AppendLine("zoom.drag_step_pixels=8");
+            builder.AppendLine();
+            builder.AppendLine("# Shortcuts");
+            foreach (var (action, shortcut) in DefaultShortcuts)
+            {
+                builder.AppendLine($"shortcut.{action}={shortcut}");
+            }
             return builder.ToString();
         }
 

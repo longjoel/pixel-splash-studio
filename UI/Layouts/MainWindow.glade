@@ -107,6 +107,13 @@
                         <property name="can_focus">False</property>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_editPaste">
+                        <property name="label" translatable="yes">Paste</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -512,6 +519,26 @@
                         </child>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="_optionReferenceActionSeparator">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionReferenceBake">
+                        <property name="label" translatable="yes">Bake Reference to Pixels</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionReferenceDelete">
+                        <property name="label" translatable="yes">Delete Reference</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -617,6 +644,18 @@
                 <property name="label" translatable="yes">Help</property>
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
+                <child type="submenu">
+                  <object class="GtkMenu" id="_helpMenu">
+                    <property name="visible">True</property>
+                    <child>
+                      <object class="GtkMenuItem" id="_helpShortcuts">
+                        <property name="label" translatable="yes">Shortcut Keys</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
               </object>
             </child>
           </object>

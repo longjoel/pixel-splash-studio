@@ -44,6 +44,7 @@ namespace PixelSplashStudio
         public event Action<CanvasViewportWidget, int, int> ReferenceAddTextRequested;
         public event Action<CanvasViewportWidget, int, int> ReferenceAddImageRequested;
         public event Action<CanvasViewportWidget> ReferenceDeleteRequested;
+        public event Action<CanvasViewportWidget> ReferenceBakeRequested;
 
         public CanvasViewport Viewport => _viewport;
 
@@ -264,14 +265,13 @@ namespace PixelSplashStudio
         private void ConfigureInput()
         {
             CanFocus = true;
-            AddEvents((int)(EventMask.ButtonPressMask | EventMask.ButtonReleaseMask | EventMask.PointerMotionMask | EventMask.ScrollMask | EventMask.EnterNotifyMask | EventMask.LeaveNotifyMask | EventMask.KeyPressMask));
+            AddEvents((int)(EventMask.ButtonPressMask | EventMask.ButtonReleaseMask | EventMask.PointerMotionMask | EventMask.ScrollMask | EventMask.EnterNotifyMask | EventMask.LeaveNotifyMask));
             ButtonPressEvent += CanvasViewportWidget_ButtonPressEvent;
             ButtonReleaseEvent += CanvasViewportWidget_ButtonReleaseEvent;
             MotionNotifyEvent += CanvasViewportWidget_MotionNotifyEvent;
             ScrollEvent += CanvasViewportWidget_ScrollEvent;
             EnterNotifyEvent += CanvasViewportWidget_EnterNotifyEvent;
             LeaveNotifyEvent += CanvasViewportWidget_LeaveNotifyEvent;
-            KeyPressEvent += CanvasViewportWidget_KeyPressEvent;
         }
 
         private void CanvasViewportWidget_ButtonPressEvent(object o, ButtonPressEventArgs args)
@@ -381,23 +381,6 @@ namespace PixelSplashStudio
             GetToolCoordinates((int)args.Event.X, (int)args.Event.Y, out int toolX, out int toolY);
             _toolManager.UseTool(toolX, toolY);
             QueueDraw();
-        }
-
-        private void CanvasViewportWidget_KeyPressEvent(object o, KeyPressEventArgs args)
-        {
-            if ((args.Event.State & ModifierType.ControlMask) == 0)
-            {
-                return;
-            }
-
-            if (args.Event.Key == Gdk.Key.c || args.Event.Key == Gdk.Key.C)
-            {
-                if (_viewport?.Selection?.HasSelection ?? false)
-                {
-                    SelectionCopyRequested?.Invoke(this);
-                    args.RetVal = true;
-                }
-            }
         }
 
         private void CanvasViewportWidget_EnterNotifyEvent(object o, EnterNotifyEventArgs args)
@@ -554,6 +537,9 @@ namespace PixelSplashStudio
             if (hasReferenceSelection)
             {
                 menu.Append(new SeparatorMenuItem());
+                MenuItem bakeReference = new MenuItem("Bake Reference to Pixels");
+                bakeReference.Activated += (_, __) => ReferenceBakeRequested?.Invoke(this);
+                menu.Append(bakeReference);
                 MenuItem deleteReference = new MenuItem("Delete Reference");
                 deleteReference.Activated += (_, __) => ReferenceDeleteRequested?.Invoke(this);
                 menu.Append(deleteReference);

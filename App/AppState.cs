@@ -116,7 +116,7 @@ namespace PixelSplashStudio
             }
         }
 
-        public bool StampOverwriteEnabled { get; private set; }
+        public bool StampOverwriteEnabled { get; private set; } = true;
         public event Action<bool> StampOverwriteEnabledChanged;
 
         public void SetStampOverwrite(bool enabled)
