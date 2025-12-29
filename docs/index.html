@@ -1,0 +1,575 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel Splash Studio</title>
+    <script 
+
+  src="https://www.paypal.com/sdk/js?client-id=BAAZRVYfX97MzTtRV4hyz31MYx24oVTL-2yA6qQB7fjt4dmtDnfOiSp5HtjGLtZ7DOzZsGi2wamNePfSlc&components=hosted-buttons&enable-funding=venmo&currency=USD">
+
+</script>
+    <meta
+      name="description"
+      content="Pixel Splash Studio is a fast, GtkSharp-based pixel art editor built for crisp tools, selection workflows, and reference layers."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Space+Grotesk:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #121218;
+        --muted: #59586b;
+        --accent: #ff4f4f;
+        --accent-2: #f2a900;
+        --surface: #ffffff;
+        --panel: #f6f1e9;
+        --line: rgba(18, 18, 24, 0.12);
+        --shadow: 0 20px 60px rgba(18, 18, 24, 0.12);
+        --radius: 18px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Space Grotesk", "Segoe UI", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at 20% 20%, #ffe2c7 0%, transparent 60%),
+          radial-gradient(circle at 80% 10%, #ffd7d7 0%, transparent 55%),
+          linear-gradient(120deg, #fef6e7, #f7f4ff);
+        background-attachment: fixed;
+        min-height: 100vh;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background-image:
+          linear-gradient(90deg, rgba(18, 18, 24, 0.05) 1px, transparent 1px),
+          linear-gradient(rgba(18, 18, 24, 0.05) 1px, transparent 1px);
+        background-size: 32px 32px;
+        pointer-events: none;
+        opacity: 0.3;
+      }
+
+      .page {
+        position: relative;
+        z-index: 1;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 48px 24px 80px;
+      }
+
+      header {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 32px;
+        align-items: center;
+        justify-content: space-between;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+
+      .brand-mark {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        background: linear-gradient(145deg, var(--accent), var(--accent-2));
+        box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.7);
+      }
+
+      .brand-name {
+        font-family: "Fraunces", "Times New Roman", serif;
+        font-size: 22px;
+        letter-spacing: 0.5px;
+      }
+
+      nav {
+        display: flex;
+        gap: 20px;
+        font-size: 15px;
+        color: var(--muted);
+      }
+
+      nav a {
+        color: inherit;
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+      }
+
+      nav a:hover {
+        color: var(--ink);
+        border-bottom-color: currentColor;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 36px;
+        margin-top: 56px;
+        align-items: center;
+      }
+
+      .hero h1 {
+        font-family: "Fraunces", "Times New Roman", serif;
+        font-size: clamp(36px, 6vw, 64px);
+        margin: 0 0 16px;
+        line-height: 1.05;
+      }
+
+      .hero p {
+        font-size: 18px;
+        line-height: 1.6;
+        color: var(--muted);
+        margin: 0 0 28px;
+      }
+
+      .cta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+      }
+
+      .cta {
+        padding: 12px 20px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        text-decoration: none;
+        font-weight: 600;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .cta.primary {
+        background: var(--ink);
+        color: #fff;
+        box-shadow: var(--shadow);
+      }
+
+      .cta.secondary {
+        color: var(--ink);
+        border-color: var(--ink);
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .cta:hover {
+        transform: translateY(-2px);
+      }
+
+      .hero-card {
+        position: relative;
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 28px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .hero-card::after {
+        content: "";
+        position: absolute;
+        inset: -20% -10% auto auto;
+        width: 200px;
+        height: 200px;
+        background: radial-gradient(circle, rgba(255, 79, 79, 0.3), transparent 70%);
+        animation: float 14s ease-in-out infinite;
+      }
+
+      .screenshot {
+        margin-top: 64px;
+        background: var(--surface);
+        border-radius: calc(var(--radius) + 6px);
+        padding: 16px;
+        box-shadow: var(--shadow);
+        border: 1px solid var(--line);
+      }
+
+      .screenshot img {
+        width: 100%;
+        height: auto;
+        display: block;
+        border-radius: calc(var(--radius) - 2px);
+        border: 1px solid rgba(18, 18, 24, 0.08);
+      }
+
+      .pixel-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 6px;
+      }
+
+      .pixel {
+        padding-top: 100%;
+        border-radius: 6px;
+        background: #ffefe0;
+        box-shadow: inset 0 0 0 1px rgba(18, 18, 24, 0.08);
+      }
+
+      .pixel.highlight {
+        background: linear-gradient(150deg, #ff4f4f, #f2a900);
+      }
+
+      section {
+        margin-top: 72px;
+      }
+
+      .section-title {
+        font-family: "Fraunces", "Times New Roman", serif;
+        font-size: 30px;
+        margin-bottom: 20px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+      }
+
+      .card {
+        background: var(--panel);
+        border-radius: var(--radius);
+        padding: 20px;
+        border: 1px solid rgba(18, 18, 24, 0.08);
+      }
+
+      .card h3 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .card p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 24px;
+        align-items: start;
+      }
+
+      .stack {
+        display: grid;
+        gap: 14px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        border-radius: 999px;
+        background: rgba(18, 18, 24, 0.08);
+        font-size: 14px;
+      }
+
+      footer {
+        margin-top: 80px;
+        padding-top: 24px;
+        border-top: 1px solid var(--line);
+        color: var(--muted);
+        font-size: 14px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      @keyframes float {
+        0% {
+          transform: translate(-10px, -10px);
+        }
+        50% {
+          transform: translate(10px, 6px);
+        }
+        100% {
+          transform: translate(-10px, -10px);
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <header>
+        <div class="brand">
+          <div class="brand-mark" aria-hidden="true"></div>
+          <div class="brand-name">Pixel Splash Studio</div>
+        </div>
+        <nav>
+          <a href="#features">Features</a>
+          <a href="#workflow">Workflow</a>
+          <a href="#download">Downloads</a>
+          <a href="#contribute">Contribute</a>
+        </nav>
+      </header>
+
+      <section class="hero">
+        <div>
+          <h1>Pixel art with speed, snap, and soul.</h1>
+          <p>
+            Pixel Splash Studio is a GtkSharp-powered editor built for crisp
+            drawing tools, flexible selection workflows, and reference layers
+            you can bake into pixels when it is time to commit.
+          </p>
+          <div class="cta-row">
+            <a
+              class="cta primary"
+              href="https://github.com/longjoel/pixel-splash-studio/releases"
+              >Get the latest build</a
+            >
+            <a class="cta secondary" href="#download">Build from source</a>
+          </div>
+        </div>
+        <div class="hero-card">
+          <div class="pill">Fast tools + tight grid control</div>
+          <div class="pixel-grid" aria-hidden="true">
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel"></div>
+            <div class="pixel highlight"></div>
+            <div class="pixel"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="screenshot" aria-label="Application screenshot">
+        <img
+          src="screenshot.png"
+          alt="Pixel Splash Studio showing palette tools and a pixel art canvas."
+          loading="lazy"
+        />
+      </section>
+
+      <section id="features">
+        <div class="section-title">Built for pixel-first workflows</div>
+        <div class="grid">
+          <div class="card">
+            <h3>Precise tools</h3>
+            <p>
+              Pen, line, rectangles, ovals, erase, flood fill, and a stamp tool
+              with rotate, flip, scale, snap, and overwrite modes.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Selection power</h3>
+            <p>
+              Rectangle, oval, magic wand, plus add and subtract modes so you
+              can stay in control of every pixel.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Reference layers</h3>
+            <p>
+              Paste or load references, adjust opacity, and bake them into your
+              pixel layer when you are ready.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Configurable shortcuts</h3>
+            <p>
+              Shortcut bindings live in `config.ini`, making it easy to tailor
+              the workflow to your muscle memory.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="workflow">
+        <div class="section-title">How the layers flow</div>
+        <div class="split">
+          <div class="stack">
+            <div class="card">
+              <h3>Pixel layer</h3>
+              <p>
+                Core drawing surface for every tool, with grid-aware snapping
+                and fast selection editing.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Selection layer</h3>
+              <p>
+                Add, subtract, and refine before committing. Export selections
+                directly to PNG when needed.
+              </p>
+            </div>
+          </div>
+          <div class="stack">
+            <div class="card">
+              <h3>Reference layer</h3>
+              <p>
+                Drag in images or text, adjust opacity, then bake into pixels to
+                keep the source nearby.
+              </p>
+            </div>
+            <div class="card">
+              <h3>Custom file format</h3>
+              <p>
+                Save `.pss` projects to keep every layer and tool setting
+                intact between sessions.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="download">
+        <div class="section-title">Downloads and builds</div>
+        <div class="grid">
+          <div class="card">
+            <h3>Linux AppImage</h3>
+            <p>
+              Run `scripts/build_linux_appimage.sh` to produce
+              `dist/pixel-splash-studio.AppImage`. Requires GTK 3 runtime and
+              `appimagetool`.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Windows packages</h3>
+            <p>
+              Run `scripts/build_windows_packages.ps1` for zip packages (and
+              optional self-extracting executables with 7z installed).
+            </p>
+          </div>
+          <div class="card">
+            <h3>From source</h3>
+            <p>
+              `dotnet build` for a quick local build, then `dotnet run` to jump
+              straight into the editor.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="contribute">
+        <div class="section-title">Contribute and collaborate</div>
+        <div class="grid">
+          <div class="card">
+            <h3>AI-ready contributions</h3>
+            <p>
+              AI-assisted code is welcome. Just review carefully and share how
+              you validated the change.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Tool requests</h3>
+            <p>
+              Use the issue templates to describe new tools, selection behavior,
+              grid snapping, and layer impact.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Join the build</h3>
+            <p>
+              Read the guide in `CONTRIBUTING.md` for workflow expectations and
+              pull request tips.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section id="support">
+        <div class="section-title">Support the project</div>
+        <div class="card">
+          <h3>Keep Pixel Splash Studio moving forward</h3>
+          <p>
+            If this editor helps your work, please consider supporting its
+            continued development. Your encouragement keeps the momentum and
+            motivation going. Buy a license here.
+           <div id="paypal-container-RKJDDK8J5ZPVW"></div>
+<script>
+  paypal.HostedButtons({
+    hostedButtonId: "RKJDDK8J5ZPVW",
+  }).render("#paypal-container-RKJDDK8J5ZPVW")
+</script>
+          </p>
+        </div>
+      </section>
+
+      <footer>
+        <span>Pixel Splash Studio • MIT License</span>
+        <span>Built with GtkSharp and .NET</span>
+      </footer>
+    </div>
+  </body>
+</html>
