@@ -4,6 +4,9 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <PublishAot>true</PublishAot>
+  </PropertyGroup>
 
   <ItemGroup>
     <None Remove="**\*.glade" />
