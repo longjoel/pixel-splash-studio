@@ -18,6 +18,7 @@ namespace PixelSplashStudio
             ("edit.undo", "Ctrl+Z"),
             ("edit.redo", "Ctrl+Y"),
             ("edit.copy", "Ctrl+C"),
+            ("edit.cut", "Ctrl+X"),
             ("edit.paste", "Ctrl+V"),
             ("view.new_viewport", "Ctrl+Shift+N"),
             ("view.toggle_tools", "Ctrl+Shift+T"),

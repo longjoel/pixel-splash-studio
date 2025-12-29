@@ -108,6 +108,13 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="_editCut">
+                        <property name="label" translatable="yes">Cut</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkMenuItem" id="_editPaste">
                         <property name="label" translatable="yes">Paste</property>
                         <property name="visible">True</property>
@@ -200,6 +207,13 @@
                     <child>
                       <object class="GtkMenuItem" id="_optionSelectionCopy">
                         <property name="label" translatable="yes">Copy Selection</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="_optionSelectionCut">
+                        <property name="label" translatable="yes">Cut Selection</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                       </object>

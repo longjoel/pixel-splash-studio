@@ -29,6 +29,7 @@ namespace PixelSplashStudio
         [UI] private MenuItem _editUndo = null;
         [UI] private MenuItem _editRedo = null;
         [UI] private MenuItem _editCopy = null;
+        [UI] private MenuItem _editCut = null;
         [UI] private MenuItem _editPaste = null;
         [UI] private MenuItem _fileNew = null;
         [UI] private MenuItem _fileOpen = null;
@@ -39,6 +40,7 @@ namespace PixelSplashStudio
         [UI] private CheckMenuItem _optionFillSecondary = null;
         [UI] private CheckMenuItem _optionStampOverwrite = null;
         [UI] private MenuItem _optionSelectionCopy = null;
+        [UI] private MenuItem _optionSelectionCut = null;
         [UI] private MenuItem _optionSelectionExport = null;
         [UI] private RadioMenuItem _optionSelectionAdd = null;
         [UI] private RadioMenuItem _optionSelectionSubtract = null;
@@ -236,6 +238,7 @@ namespace PixelSplashStudio
             _toolbarPanel.EraseSizeChanged += _appState.SetEraseSize;
             _toolbarPanel.EraseShapeChanged += _appState.SetEraseShape;
             _toolbarPanel.SelectionCopyRequested += () => EditCopy_Activated(this, EventArgs.Empty);
+            _toolbarPanel.SelectionCutRequested += () => EditCut_Activated(this, EventArgs.Empty);
             _toolbarPanel.SelectionExportRequested += () => ExportSelection_Activated(this, EventArgs.Empty);
             _toolbarPanel.PaletteSwapRequested += HandlePaletteSwapRequested;
 
@@ -447,6 +450,7 @@ namespace PixelSplashStudio
             _editUndo.Activated += EditUndo_Activated;
             _editRedo.Activated += EditRedo_Activated;
             _editCopy.Activated += EditCopy_Activated;
+            _editCut.Activated += EditCut_Activated;
             _editPaste.Activated += EditPaste_Activated;
             _fileNew.Activated += FileNew_Activated;
             _fileOpen.Activated += FileOpen_Activated;
@@ -459,6 +463,7 @@ namespace PixelSplashStudio
             _optionFillSecondary.Toggled += OptionFillSecondary_Toggled;
             _optionStampOverwrite.Toggled += OptionStampOverwrite_Toggled;
             _optionSelectionCopy.Activated += EditCopy_Activated;
+            _optionSelectionCut.Activated += EditCut_Activated;
             _optionSelectionExport.Activated += ExportSelection_Activated;
             _optionSelectionAdd.Toggled += OptionSelectionModeMenu_Toggled;
             _optionSelectionSubtract.Toggled += OptionSelectionModeMenu_Toggled;
@@ -641,6 +646,7 @@ namespace PixelSplashStudio
             BindMenuShortcut(_editUndo, "edit.undo");
             BindMenuShortcut(_editRedo, "edit.redo");
             BindMenuShortcut(_editCopy, "edit.copy");
+            BindMenuShortcut(_editCut, "edit.cut");
             BindMenuShortcut(_editPaste, "edit.paste");
             BindMenuShortcut(_viewNewViewport, "view.new_viewport");
             BindMenuShortcut(_viewToolbarToggle, "view.toggle_tools");
@@ -664,6 +670,7 @@ namespace PixelSplashStudio
             BindMenuShortcut(_optionSelectionSnapPixel, "selection.snap_pixel");
             BindMenuShortcut(_optionSelectionSnapTile, "selection.snap_tile");
             BindMenuShortcut(_optionSelectionCopy, "selection.copy");
+            BindMenuShortcut(_optionSelectionCut, "edit.cut");
             BindMenuShortcut(_optionSelectionExport, "selection.export");
             BindMenuShortcut(_optionClearSelection, "selection.clear");
             BindMenuShortcut(_optionEraseSelection, "selection.erase");
@@ -1579,6 +1586,7 @@ namespace PixelSplashStudio
             viewport.SelectionModeChanged += Viewport_SelectionModeChanged;
             viewport.SelectionSnapModeChanged += Viewport_SelectionSnapModeChanged;
             viewport.SelectionCopyRequested += Viewport_SelectionCopyRequested;
+            viewport.SelectionCutRequested += Viewport_SelectionCutRequested;
             viewport.SelectionExportRequested += Viewport_SelectionExportRequested;
             viewport.SelectionEraseRequested += Viewport_SelectionEraseRequested;
             viewport.ReferenceAddTextRequested += Viewport_ReferenceAddTextRequested;
@@ -1612,6 +1620,7 @@ namespace PixelSplashStudio
             viewport.SelectionModeChanged -= Viewport_SelectionModeChanged;
             viewport.SelectionSnapModeChanged -= Viewport_SelectionSnapModeChanged;
             viewport.SelectionCopyRequested -= Viewport_SelectionCopyRequested;
+            viewport.SelectionCutRequested -= Viewport_SelectionCutRequested;
             viewport.SelectionExportRequested -= Viewport_SelectionExportRequested;
             viewport.SelectionEraseRequested -= Viewport_SelectionEraseRequested;
             viewport.ReferenceAddTextRequested -= Viewport_ReferenceAddTextRequested;
@@ -1772,6 +1781,57 @@ namespace PixelSplashStudio
             UpdateEditMenu();
         }
 
+        private void EditCut_Activated(object sender, EventArgs e)
+        {
+            if (!_canvas.Selection.HasSelection)
+            {
+                return;
+            }
+
+            if (!_canvas.Selection.TryGetBounds(out int minX, out int minY, out int maxX, out int maxY))
+            {
+                return;
+            }
+
+            SelectionClipboard clipboard = new SelectionClipboard(minX, minY);
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (!_canvas.Selection.IsSelected(x, y))
+                    {
+                        continue;
+                    }
+
+                    clipboard.Pixels.Add(new ClipboardPixel(x - minX, y - minY, _canvas.GetPixel(x, y)));
+                }
+            }
+
+            if (clipboard.Pixels.Count == 0)
+            {
+                return;
+            }
+
+            _history.BeginSnapshot();
+            for (int y = minY; y <= maxY; y++)
+            {
+                for (int x = minX; x <= maxX; x++)
+                {
+                    if (_canvas.Selection.IsSelected(x, y))
+                    {
+                        _canvas.DrawPixel(x, y, 0);
+                    }
+                }
+            }
+            _history.CommitSnapshot();
+
+            _clipboardService.Clipboard = clipboard;
+            ClearSelection();
+            ToolStamp_Activated(this, EventArgs.Empty);
+            RedrawAllViewports();
+            UpdateEditMenu();
+        }
+
         private void EditPaste_Activated(object sender, EventArgs e)
         {
             CanvasViewportWidget viewport = GetFocusedViewport();
@@ -1871,6 +1931,10 @@ namespace PixelSplashStudio
             {
                 _editCopy.Sensitive = _canvas.Selection.HasSelection;
             }
+            if (_editCut != null)
+            {
+                _editCut.Sensitive = _canvas.Selection.HasSelection;
+            }
         }
 
         private void UpdateOptionsMenu(ToolMode toolMode = ToolMode.GrabZoom)
@@ -1898,6 +1962,7 @@ namespace PixelSplashStudio
             bool showSelectionTools = isSelectionTool;
             bool showSelectionActions = hasSelection;
             _optionSelectionCopy.Visible = showSelectionActions;
+            _optionSelectionCut.Visible = showSelectionActions;
             _optionSelectionExport.Visible = showSelectionActions;
             _optionSelectionSeparator.Visible = showSelectionActions && showSelectionTools;
             _optionSelectionAdd.Visible = showSelectionTools;
@@ -1909,6 +1974,7 @@ namespace PixelSplashStudio
             _optionClearSelection.Visible = showSelectionActions;
             _optionEraseSelection.Visible = showSelectionActions;
             _optionSelectionCopy.Sensitive = hasSelection;
+            _optionSelectionCut.Sensitive = hasSelection;
             _optionSelectionExport.Sensitive = hasSelection;
             _optionEraseSelection.Sensitive = hasSelection;
 
@@ -2445,6 +2511,11 @@ namespace PixelSplashStudio
         private void Viewport_SelectionCopyRequested(CanvasViewportWidget viewport)
         {
             EditCopy_Activated(this, EventArgs.Empty);
+        }
+
+        private void Viewport_SelectionCutRequested(CanvasViewportWidget viewport)
+        {
+            EditCut_Activated(this, EventArgs.Empty);
         }
 
         private void Viewport_SelectionExportRequested(CanvasViewportWidget viewport)

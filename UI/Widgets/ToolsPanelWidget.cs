@@ -33,6 +33,7 @@ namespace PixelSplashStudio
         [UI] private CheckButton _optionTransparentOverwrite = null;
         [UI] private CheckButton _optionFillSecondary = null;
         [UI] private Button _optionSelectionCopy = null;
+        [UI] private Button _optionSelectionCut = null;
         [UI] private Button _optionSelectionExport = null;
         [UI] private RadioButton _optionSelectionAdd = null;
         [UI] private RadioButton _optionSelectionSubtract = null;
@@ -77,6 +78,7 @@ namespace PixelSplashStudio
         public event System.Action<bool> TransparentOverwriteToggled;
         public event System.Action<bool> FillSecondaryToggled;
         public event System.Action SelectionCopyRequested;
+        public event System.Action SelectionCutRequested;
         public event System.Action SelectionExportRequested;
         public event System.Action<SelectionMode> SelectionModeChanged;
         public event System.Action<SelectionSnapMode> SelectionSnapModeChanged;
@@ -150,6 +152,7 @@ namespace PixelSplashStudio
             _optionTransparentOverwrite.Toggled += (_, __) => HandleOptionToggle(() => TransparentOverwriteToggled?.Invoke(_optionTransparentOverwrite.Active));
             _optionFillSecondary.Toggled += (_, __) => HandleOptionToggle(() => FillSecondaryToggled?.Invoke(_optionFillSecondary.Active));
             _optionSelectionCopy.Clicked += (_, __) => SelectionCopyRequested?.Invoke();
+            _optionSelectionCut.Clicked += (_, __) => SelectionCutRequested?.Invoke();
             _optionSelectionExport.Clicked += (_, __) => SelectionExportRequested?.Invoke();
             _optionSelectionAdd.Toggled += (_, __) => HandleSelectionModeToggle();
             _optionSelectionSubtract.Toggled += (_, __) => HandleSelectionModeToggle();
