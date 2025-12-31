@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Gdk;
@@ -129,6 +130,8 @@ namespace PixelSplashStudio
         private bool _suppressPaletteSelection;
         private readonly AccelGroup _accelGroup = new AccelGroup();
         private string _currentFilePath;
+        private const int MaxClipboardDimension = 512;
+        private const long MaxClipboardPixels = 100_000_000;
 
         public MainWindow(MainWindowDependencies dependencies) : this(UiBuilder.Load("MainWindow.glade"), dependencies) { }
 
@@ -1946,33 +1949,102 @@ namespace PixelSplashStudio
             UpdateEditMenu();
         }
 
-        private void EditCopy_Activated(object sender, EventArgs e)
+        private bool TryBuildSelectionClipboard(out SelectionClipboard clipboard)
         {
+            clipboard = null;
             if (!_canvas.Selection.HasSelection)
             {
-                return;
+                return false;
             }
 
             if (!_canvas.Selection.TryGetBounds(out int minX, out int minY, out int maxX, out int maxY))
             {
-                return;
+                return false;
             }
 
-            SelectionClipboard clipboard = new SelectionClipboard(minX, minY);
-            for (int y = minY; y <= maxY; y++)
+            long boundsWidth = (long)maxX - minX + 1;
+            long boundsHeight = (long)maxY - minY + 1;
+            if (boundsWidth <= 0 || boundsHeight <= 0)
             {
-                for (int x = minX; x <= maxX; x++)
-                {
-                    if (!_canvas.Selection.IsSelected(x, y))
-                    {
-                        continue;
-                    }
-
-                    clipboard.Pixels.Add(new ClipboardPixel(x - minX, y - minY, _canvas.GetPixel(x, y)));
-                }
+                return false;
             }
 
-            if (clipboard.Pixels.Count == 0)
+            if (boundsWidth > MaxClipboardDimension || boundsHeight > MaxClipboardDimension)
+            {
+                ShowError($"Selection too large to copy (max {MaxClipboardDimension}x{MaxClipboardDimension}).");
+                return false;
+            }
+
+            long totalPixels;
+            try
+            {
+                totalPixels = checked(boundsWidth * boundsHeight);
+            }
+            catch (OverflowException)
+            {
+                ShowError($"Selection too large to copy (max {MaxClipboardDimension}x{MaxClipboardDimension}).");
+                return false;
+            }
+
+            if (totalPixels > MaxClipboardPixels)
+            {
+                ShowError($"Selection too large to copy (max {MaxClipboardDimension}x{MaxClipboardDimension}).");
+                return false;
+            }
+
+            int width = (int)boundsWidth;
+            int height = (int)boundsHeight;
+            int totalPixelsInt = (int)totalPixels;
+
+            try
+            {
+                byte[] pixelData = new byte[totalPixelsInt];
+                BitArray mask = new BitArray(totalPixelsInt);
+                int selectedCount = 0;
+                int maxLocalX = -1;
+                int maxLocalY = -1;
+
+                for (int y = minY; y <= maxY; y++)
+                {
+                    int localY = y - minY;
+                    int rowOffset = localY * width;
+                    for (int x = minX; x <= maxX; x++)
+                    {
+                        if (!_canvas.Selection.IsSelected(x, y))
+                        {
+                            continue;
+                        }
+
+                        int localX = x - minX;
+                        int index = rowOffset + localX;
+                        mask[index] = true;
+                        pixelData[index] = _canvas.GetPixel(x, y);
+                        selectedCount++;
+                        if (localX > maxLocalX) maxLocalX = localX;
+                        if (localY > maxLocalY) maxLocalY = localY;
+                    }
+                }
+
+                if (selectedCount == 0)
+                {
+                    return false;
+                }
+
+                int clipboardWidth = maxLocalX + 1;
+                int clipboardHeight = maxLocalY + 1;
+                clipboard = new SelectionClipboard(minX, minY, width, height, clipboardWidth, clipboardHeight, pixelData, mask, selectedCount);
+                return true;
+            }
+            catch (OutOfMemoryException)
+            {
+                ShowError($"Selection too large to copy (max {MaxClipboardDimension}x{MaxClipboardDimension}).");
+                return false;
+            }
+        }
+
+        private void EditCopy_Activated(object sender, EventArgs e)
+        {
+            if (!TryBuildSelectionClipboard(out SelectionClipboard clipboard))
             {
                 return;
             }
@@ -1985,31 +2057,12 @@ namespace PixelSplashStudio
 
         private void EditCut_Activated(object sender, EventArgs e)
         {
-            if (!_canvas.Selection.HasSelection)
+            if (!TryBuildSelectionClipboard(out SelectionClipboard clipboard))
             {
                 return;
             }
 
             if (!_canvas.Selection.TryGetBounds(out int minX, out int minY, out int maxX, out int maxY))
-            {
-                return;
-            }
-
-            SelectionClipboard clipboard = new SelectionClipboard(minX, minY);
-            for (int y = minY; y <= maxY; y++)
-            {
-                for (int x = minX; x <= maxX; x++)
-                {
-                    if (!_canvas.Selection.IsSelected(x, y))
-                    {
-                        continue;
-                    }
-
-                    clipboard.Pixels.Add(new ClipboardPixel(x - minX, y - minY, _canvas.GetPixel(x, y)));
-                }
-            }
-
-            if (clipboard.Pixels.Count == 0)
             {
                 return;
             }

@@ -5,7 +5,6 @@ namespace PixelSplashStudio
     public class StampTool : ITool
     {
         private readonly PixelSplashCanvas _canvas;
-        private readonly PixelSplashPalette _palette;
         private readonly Func<SelectionClipboard> _clipboardProvider;
         private bool _isStamping;
         private int _lastX;
@@ -20,6 +19,19 @@ namespace PixelSplashStudio
         private bool _flipY;
         private int _scale = 1;
         private SelectionSnapMode _snapMode = SelectionSnapMode.Pixel;
+        private const int MaxPreviewOutlinePixels = 50000;
+        private SelectionClipboard _cachedClipboard;
+        private StampRotation _cachedRotation;
+        private bool _cachedFlipX;
+        private bool _cachedFlipY;
+        private int _cachedWidth;
+        private int _cachedHeight;
+        private int _cachedPixelWidth;
+        private int _cachedPixelHeight;
+        private System.Collections.Generic.List<CachedPixel> _cachedPixels;
+        private Cairo.ImageSurface _cachedPreviewSurface;
+        private int _cachedPaletteHash;
+        private int _cachedPaletteCount;
 
         public event Action PreviewChanged;
 
@@ -119,14 +131,13 @@ namespace PixelSplashStudio
             get
             {
                 SelectionClipboard clipboard = _clipboardProvider?.Invoke();
-                return clipboard != null && clipboard.Pixels.Count > 0;
+                return clipboard != null && clipboard.PixelCount > 0;
             }
         }
 
-        public StampTool(PixelSplashCanvas canvas, PixelSplashPalette palette, Func<SelectionClipboard> clipboardProvider)
+        public StampTool(PixelSplashCanvas canvas, Func<SelectionClipboard> clipboardProvider)
         {
             _canvas = canvas;
-            _palette = palette;
             _clipboardProvider = clipboardProvider;
         }
 
@@ -201,33 +212,98 @@ namespace PixelSplashStudio
                 return;
             }
 
-            if (!TryGetTransformedPixels(_previewX, _previewY, out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels))
+            SelectionClipboard clipboard = _clipboardProvider?.Invoke();
+            if (clipboard == null || clipboard.PixelCount == 0)
             {
                 return;
             }
 
-            var previewPixels = new System.Collections.Generic.HashSet<(int, int)>();
-            for (int i = 0; i < pixels.Count; i++)
+            System.Collections.Generic.List<CachedPixel> cachedPixels = GetCachedPixels(clipboard);
+            if (cachedPixels == null || cachedPixels.Count == 0)
             {
-                (int worldX, int worldY, byte colorIndex) = pixels[i];
-                if (viewport.Selection?.HasSelection == true && !viewport.Selection.IsSelected(worldX, worldY))
+                return;
+            }
+
+            long previewPixelCount = (long)clipboard.PixelCount * _scale * _scale;
+            bool collectOutline = previewPixelCount <= MaxPreviewOutlinePixels;
+            System.Collections.Generic.HashSet<(int, int)> previewPixels = collectOutline
+                ? new System.Collections.Generic.HashSet<(int, int)>()
+                : null;
+
+            bool hasSelectionMask = viewport.Selection?.HasSelection == true;
+            if (!hasSelectionMask)
+            {
+                Cairo.ImageSurface previewSurface = GetCachedPreviewSurface(viewport.Palette, cachedPixels);
+                if (previewSurface != null)
                 {
-                    continue;
+                    viewport.WorldToScreen(_previewX, _previewY, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+                    context.Save();
+                    context.Translate(screenX, screenY);
+                    double scale = viewport.PixelSize * _scale;
+                    context.Scale(scale, scale);
+                    using (Cairo.SurfacePattern pattern = new Cairo.SurfacePattern(previewSurface))
+                    {
+                        pattern.Filter = Cairo.Filter.Nearest;
+                        context.SetSource(pattern);
+                        context.Paint();
+                    }
+                    context.Restore();
                 }
-                int paletteIndex = colorIndex;
+
+                if (!collectOutline)
+                {
+                    return;
+                }
+            }
+
+            for (int i = 0; i < cachedPixels.Count; i++)
+            {
+                CachedPixel pixel = cachedPixels[i];
+                int paletteIndex = pixel.ColorIndex;
                 if (paletteIndex < 0 || paletteIndex >= viewport.Palette.Palette.Count)
                 {
                     continue;
                 }
 
+                bool isTransparentIndex = paletteIndex == 0;
+                if (!OverwriteDestination && isTransparentIndex)
+                {
+                    continue;
+                }
+
                 Tuple<byte, byte, byte, byte> color = viewport.Palette.Palette[paletteIndex];
-                double alpha = (color.Item4 / 255.0) * 0.4;
-                context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
-                DrawPreviewPixel(context, viewport, worldX, worldY);
-                previewPixels.Add((worldX, worldY));
+                if (hasSelectionMask && !isTransparentIndex)
+                {
+                    double alpha = (color.Item4 / 255.0) * 0.4;
+                    context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
+                }
+
+                int scaledX = pixel.X * _scale;
+                int scaledY = pixel.Y * _scale;
+                for (int sy = 0; sy < _scale; sy++)
+                {
+                    int worldY = _previewY + scaledY + sy;
+                    for (int sx = 0; sx < _scale; sx++)
+                    {
+                        int worldX = _previewX + scaledX + sx;
+                        if (hasSelectionMask && !viewport.Selection.IsSelected(worldX, worldY))
+                        {
+                            continue;
+                        }
+
+                        if (hasSelectionMask && !isTransparentIndex)
+                        {
+                            DrawPreviewPixel(context, viewport, worldX, worldY);
+                        }
+                        if (collectOutline)
+                        {
+                            previewPixels.Add((worldX, worldY));
+                        }
+                    }
+                }
             }
 
-            if (previewPixels.Count == 0)
+            if (!collectOutline || previewPixels.Count == 0)
             {
                 return;
             }
@@ -296,96 +372,203 @@ namespace PixelSplashStudio
             }
         }
 
-        public bool CanWriteTo(int x, int y)
+        private bool ShouldWriteSourcePixel(byte colorIndex)
         {
-            if (OverwriteDestination || _canvas == null || _palette == null)
-            {
-                return true;
-            }
-
-            byte colorIndex = _canvas.GetPixel(x, y);
-            if (colorIndex >= _palette.Palette.Count)
-            {
-                return true;
-            }
-
-            Tuple<byte, byte, byte, byte> color = _palette.Palette[colorIndex];
-            return color.Item4 == 0;
+            return OverwriteDestination || colorIndex != 0;
         }
 
         private void PlaceStamp(int originX, int originY)
         {
-            if (!TryGetTransformedPixels(originX, originY, out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels))
+            SelectionClipboard clipboard = _clipboardProvider?.Invoke();
+            if (clipboard == null || clipboard.PixelCount == 0)
             {
                 return;
             }
 
-            for (int i = 0; i < pixels.Count; i++)
+            System.Collections.Generic.List<CachedPixel> cachedPixels = GetCachedPixels(clipboard);
+            if (cachedPixels == null || cachedPixels.Count == 0)
             {
-                (int worldX, int worldY, byte colorIndex) = pixels[i];
-                if (!CanWriteTo(worldX, worldY))
+                return;
+            }
+
+            for (int i = 0; i < cachedPixels.Count; i++)
+            {
+                CachedPixel pixel = cachedPixels[i];
+                if (!ShouldWriteSourcePixel(pixel.ColorIndex))
                 {
                     continue;
                 }
 
-                _canvas.DrawPixel(worldX, worldY, colorIndex);
-            }
-        }
-
-        private bool TryGetTransformedPixels(int originX, int originY, out System.Collections.Generic.List<(int x, int y, byte colorIndex)> pixels)
-        {
-            pixels = null;
-            SelectionClipboard clipboard = _clipboardProvider?.Invoke();
-            if (clipboard == null || clipboard.Pixels.Count == 0)
-            {
-                return false;
-            }
-
-            if (!TryGetClipboardSize(clipboard, out int width, out int height))
-            {
-                return false;
-            }
-
-            pixels = new System.Collections.Generic.List<(int x, int y, byte colorIndex)>(clipboard.Pixels.Count);
-            for (int i = 0; i < clipboard.Pixels.Count; i++)
-            {
-                ClipboardPixel pixel = clipboard.Pixels[i];
-                TransformPixel(pixel.X, pixel.Y, width, height, out int tx, out int ty);
-                int scaledX = tx * _scale;
-                int scaledY = ty * _scale;
+                int scaledX = pixel.X * _scale;
+                int scaledY = pixel.Y * _scale;
                 for (int sy = 0; sy < _scale; sy++)
                 {
+                    int worldY = originY + scaledY + sy;
                     for (int sx = 0; sx < _scale; sx++)
                     {
-                        pixels.Add((originX + scaledX + sx, originY + scaledY + sy, pixel.ColorIndex));
+                        int worldX = originX + scaledX + sx;
+                        _canvas.DrawPixel(worldX, worldY, pixel.ColorIndex);
                     }
                 }
             }
-
-            return true;
         }
 
-        private bool TryGetClipboardSize(SelectionClipboard clipboard, out int width, out int height)
+        private System.Collections.Generic.List<CachedPixel> GetCachedPixels(SelectionClipboard clipboard)
         {
-            width = 0;
-            height = 0;
-            if (clipboard == null || clipboard.Pixels.Count == 0)
+            if (clipboard == null || clipboard.PixelCount == 0 || clipboard.Width <= 0 || clipboard.Height <= 0)
             {
-                return false;
+                ClearCache();
+                return null;
             }
 
-            int maxX = 0;
-            int maxY = 0;
-            for (int i = 0; i < clipboard.Pixels.Count; i++)
+            if (_cachedClipboard == clipboard &&
+                _cachedRotation == _rotation &&
+                _cachedFlipX == _flipX &&
+                _cachedFlipY == _flipY &&
+                _cachedWidth == clipboard.Width &&
+                _cachedHeight == clipboard.Height &&
+                _cachedPixels != null)
             {
-                ClipboardPixel pixel = clipboard.Pixels[i];
-                if (pixel.X > maxX) maxX = pixel.X;
-                if (pixel.Y > maxY) maxY = pixel.Y;
+                return _cachedPixels;
             }
 
-            width = maxX + 1;
-            height = maxY + 1;
-            return width > 0 && height > 0;
+            _cachedClipboard = clipboard;
+            _cachedRotation = _rotation;
+            _cachedFlipX = _flipX;
+            _cachedFlipY = _flipY;
+            _cachedWidth = clipboard.Width;
+            _cachedHeight = clipboard.Height;
+            _cachedPixelWidth = (_cachedRotation == StampRotation.Deg90 || _cachedRotation == StampRotation.Deg270) ? _cachedHeight : _cachedWidth;
+            _cachedPixelHeight = (_cachedRotation == StampRotation.Deg90 || _cachedRotation == StampRotation.Deg270) ? _cachedWidth : _cachedHeight;
+            _cachedPixels = new System.Collections.Generic.List<CachedPixel>(clipboard.PixelCount);
+            ClearPreviewSurface();
+
+            foreach (ClipboardPixel pixel in clipboard.EnumeratePixels())
+            {
+                TransformPixel(pixel.X, pixel.Y, _cachedWidth, _cachedHeight, out int tx, out int ty);
+                _cachedPixels.Add(new CachedPixel(tx, ty, pixel.ColorIndex));
+            }
+
+            return _cachedPixels;
+        }
+
+        private void ClearCache()
+        {
+            _cachedClipboard = null;
+            _cachedPixels = null;
+            _cachedWidth = 0;
+            _cachedHeight = 0;
+            _cachedPixelWidth = 0;
+            _cachedPixelHeight = 0;
+            ClearPreviewSurface();
+        }
+
+        private void ClearPreviewSurface()
+        {
+            if (_cachedPreviewSurface != null)
+            {
+                _cachedPreviewSurface.Dispose();
+                _cachedPreviewSurface = null;
+            }
+
+            _cachedPaletteHash = 0;
+            _cachedPaletteCount = 0;
+        }
+
+        private Cairo.ImageSurface GetCachedPreviewSurface(PixelSplashPalette palette, System.Collections.Generic.List<CachedPixel> cachedPixels)
+        {
+            if (palette?.Palette == null || cachedPixels == null || cachedPixels.Count == 0)
+            {
+                return null;
+            }
+
+            if (_cachedPixelWidth <= 0 || _cachedPixelHeight <= 0)
+            {
+                return null;
+            }
+
+            int paletteCount = palette.Palette.Count;
+            if (paletteCount == 0)
+            {
+                return null;
+            }
+
+            int paletteHash = GetPaletteHash(palette.Palette);
+            if (_cachedPreviewSurface != null &&
+                _cachedPaletteHash == paletteHash &&
+                _cachedPaletteCount == paletteCount &&
+                _cachedPreviewSurface.Width == _cachedPixelWidth &&
+                _cachedPreviewSurface.Height == _cachedPixelHeight)
+            {
+                return _cachedPreviewSurface;
+            }
+
+            ClearPreviewSurface();
+            _cachedPreviewSurface = new Cairo.ImageSurface(Cairo.Format.Argb32, _cachedPixelWidth, _cachedPixelHeight);
+            _cachedPaletteHash = paletteHash;
+            _cachedPaletteCount = paletteCount;
+
+            byte[] data = _cachedPreviewSurface.Data;
+            System.Array.Clear(data, 0, data.Length);
+            int stride = _cachedPreviewSurface.Stride;
+
+            for (int i = 0; i < cachedPixels.Count; i++)
+            {
+                CachedPixel pixel = cachedPixels[i];
+                int paletteIndex = pixel.ColorIndex;
+                if (paletteIndex <= 0 || paletteIndex >= paletteCount)
+                {
+                    continue;
+                }
+
+                Tuple<byte, byte, byte, byte> color = palette.Palette[paletteIndex];
+                byte alpha = (byte)(color.Item4 * 0.4);
+                if (alpha == 0)
+                {
+                    continue;
+                }
+
+                byte r = (byte)((color.Item1 * alpha) / 255);
+                byte g = (byte)((color.Item2 * alpha) / 255);
+                byte b = (byte)((color.Item3 * alpha) / 255);
+                int offset = (pixel.Y * stride) + (pixel.X * 4);
+                if (offset < 0 || offset + 3 >= data.Length)
+                {
+                    continue;
+                }
+
+                data[offset] = b;
+                data[offset + 1] = g;
+                data[offset + 2] = r;
+                data[offset + 3] = alpha;
+            }
+
+            _cachedPreviewSurface.MarkDirty();
+            return _cachedPreviewSurface;
+        }
+
+        private static int GetPaletteHash(System.Collections.Generic.IReadOnlyList<Tuple<byte, byte, byte, byte>> palette)
+        {
+            if (palette == null)
+            {
+                return 0;
+            }
+
+            unchecked
+            {
+                int hash = 17;
+                hash = (hash * 31) + palette.Count;
+                for (int i = 0; i < palette.Count; i++)
+                {
+                    Tuple<byte, byte, byte, byte> color = palette[i];
+                    hash = (hash * 31) + color.Item1;
+                    hash = (hash * 31) + color.Item2;
+                    hash = (hash * 31) + color.Item3;
+                    hash = (hash * 31) + color.Item4;
+                }
+
+                return hash;
+            }
         }
 
         private void TransformPixel(int x, int y, int width, int height, out int tx, out int ty)
@@ -411,6 +594,20 @@ namespace PixelSplashStudio
                     tx = localX;
                     ty = localY;
                     break;
+            }
+        }
+
+        private readonly struct CachedPixel
+        {
+            public int X { get; }
+            public int Y { get; }
+            public byte ColorIndex { get; }
+
+            public CachedPixel(int x, int y, byte colorIndex)
+            {
+                X = x;
+                Y = y;
+                ColorIndex = colorIndex;
             }
         }
 
