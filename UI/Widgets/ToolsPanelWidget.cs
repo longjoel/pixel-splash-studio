@@ -11,6 +11,8 @@ namespace PixelSplashStudio
         [UI] private Button _colorSwatchButton = null;
         [UI] private DrawingArea _primaryColorSwatch = null;
         [UI] private DrawingArea _secondaryColorSwatch = null;
+        [UI] private Button _undoButton = null;
+        [UI] private Button _redoButton = null;
         [UI] private ToggleButton _toolGrabZoom = null;
         [UI] private ToggleButton _toolPen = null;
         [UI] private ToggleButton _toolLine = null;
@@ -37,6 +39,8 @@ namespace PixelSplashStudio
         public event System.Action EraseRequested;
         public event System.Action ReferenceRequested;
         public event System.Action PaletteSwapRequested;
+        public event System.Action UndoRequested;
+        public event System.Action RedoRequested;
 
         private readonly PixelSplashPalette _palette;
         private readonly Dictionary<ToolMode, ToggleButton> _toolButtons;
@@ -73,6 +77,8 @@ namespace PixelSplashStudio
             }
 
             _colorSwatchButton.Clicked += (_, __) => PaletteSwapRequested?.Invoke();
+            _undoButton.Clicked += (_, __) => UndoRequested?.Invoke();
+            _redoButton.Clicked += (_, __) => RedoRequested?.Invoke();
             _primaryColorSwatch.Drawn += OnPrimaryColorDraw;
             _secondaryColorSwatch.Drawn += OnSecondaryColorDraw;
 
@@ -314,6 +320,19 @@ namespace PixelSplashStudio
         {
             _primaryColorSwatch?.QueueDraw();
             _secondaryColorSwatch?.QueueDraw();
+        }
+
+        public void SetHistoryEnabled(bool canUndo, bool canRedo)
+        {
+            if (_undoButton != null)
+            {
+                _undoButton.Sensitive = canUndo;
+            }
+
+            if (_redoButton != null)
+            {
+                _redoButton.Sensitive = canRedo;
+            }
         }
     }
 }

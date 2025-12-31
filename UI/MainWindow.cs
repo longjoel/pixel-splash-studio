@@ -14,6 +14,8 @@ namespace PixelSplashStudio
         [UI] private Box _viewportTab2 = null;
         [UI] private Notebook _viewportTabs = null;
         [UI] private Box _dockToolsHost = null;
+        [UI] private ScrolledWindow _dockToolsScroll = null;
+        [UI] private Box _dockMiniMapHost = null;
         [UI] private MenuItem _toolGrabZoom = null;
         [UI] private MenuItem _toolPen = null;
         [UI] private MenuItem _toolLine = null;
@@ -230,7 +232,12 @@ namespace PixelSplashStudio
             _toolbarWindow.DeleteEvent += ToolbarWindow_DeleteEvent;
             _toolOptionsWindow.DeleteEvent += ToolOptionsWindow_DeleteEvent;
 
-            if (_dockToolsHost != null)
+            if (_dockMiniMapHost != null)
+            {
+                _dockMiniMapHost.PackStart(_miniMap, false, false, 0);
+                _miniMap.ShowAll();
+            }
+            else if (_dockToolsHost != null)
             {
                 _dockToolsHost.PackStart(_miniMap, false, false, 0);
                 _miniMap.ShowAll();
@@ -250,6 +257,8 @@ namespace PixelSplashStudio
             _toolbarPanel.EraseRequested += () => _appState.SetActiveTool(ToolMode.Erase);
             _toolbarPanel.ReferenceRequested += () => _appState.SetActiveTool(ToolMode.Reference);
             _toolbarPanel.PaletteSwapRequested += HandlePaletteSwapRequested;
+            _toolbarPanel.UndoRequested += () => EditUndo_Activated(this, EventArgs.Empty);
+            _toolbarPanel.RedoRequested += () => EditRedo_Activated(this, EventArgs.Empty);
             _toolOptionsPanel.RectangleFillToggled += _appState.SetRectangleFill;
             _toolOptionsPanel.TransparentOverwriteToggled += _appState.SetTransparentOverwrite;
             _toolOptionsPanel.FillSecondaryToggled += _appState.SetShapeFillUseSecondary;
@@ -1377,7 +1386,6 @@ namespace PixelSplashStudio
             bool hasPalette = _palettePanel?.Parent == _dockToolsHost;
             bool hasToolbar = _toolbarPanel?.Parent == _dockToolsHost;
             bool hasToolOptions = _toolOptionsPanel?.Parent == _dockToolsHost;
-            bool hasMiniMap = _miniMap?.Parent == _dockToolsHost;
 
             if (_dockPaletteToolsSeparator != null && _dockPaletteToolsSeparator.Parent != _dockToolsHost)
             {
@@ -1411,10 +1419,6 @@ namespace PixelSplashStudio
                 _dockToolsHost.ReorderChild(_toolOptionsPanel, nextIndex++);
             }
 
-            if (hasMiniMap)
-            {
-                _dockToolsHost.ReorderChild(_miniMap, nextIndex++);
-            }
         }
 
         private void UpdateDockHostVisibility()
@@ -1427,8 +1431,20 @@ namespace PixelSplashStudio
             bool hasDockedTools = _toolbarPanel?.Parent == _dockToolsHost;
             bool hasDockedToolOptions = _toolOptionsPanel?.Parent == _dockToolsHost;
             bool hasDockedPalette = _palettePanel?.Parent == _dockToolsHost;
-            bool hasDockedMiniMap = _miniMap?.Parent == _dockToolsHost;
-            _dockToolsHost.Visible = hasDockedTools || hasDockedToolOptions || hasDockedPalette || hasDockedMiniMap;
+            bool hasDockedMiniMap = _miniMap?.Parent == _dockMiniMapHost;
+            if (_dockToolsScroll != null)
+            {
+                _dockToolsScroll.Visible = hasDockedTools || hasDockedToolOptions || hasDockedPalette;
+            }
+            else
+            {
+                _dockToolsHost.Visible = hasDockedTools || hasDockedToolOptions || hasDockedPalette || hasDockedMiniMap;
+            }
+
+            if (_dockMiniMapHost != null)
+            {
+                _dockMiniMapHost.Visible = hasDockedMiniMap;
+            }
         }
 
         private void InitializePaletteLibrary()
@@ -2262,6 +2278,8 @@ namespace PixelSplashStudio
             {
                 _editRedo.Sensitive = _history.CanRedo;
             }
+
+            _toolbarPanel?.SetHistoryEnabled(_history.CanUndo, _history.CanRedo);
 
             if (_editCopy != null)
             {
