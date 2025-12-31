@@ -1077,6 +1077,26 @@ namespace PixelSplashStudio
                 ResponseType.Cancel,
                 "Open",
                 ResponseType.Accept);
+            FileFilter splashFilter = new FileFilter
+            {
+                Name = "Pixel Splash Studio (*.splash)"
+            };
+            splashFilter.AddPattern("*.splash");
+            dialog.AddFilter(splashFilter);
+
+            FileFilter legacyFilter = new FileFilter
+            {
+                Name = "Legacy Pixel Splash (*.pss)"
+            };
+            legacyFilter.AddPattern("*.pss");
+            dialog.AddFilter(legacyFilter);
+
+            FileFilter allFilter = new FileFilter
+            {
+                Name = "All Files"
+            };
+            allFilter.AddPattern("*");
+            dialog.AddFilter(allFilter);
 
             try
             {
@@ -1106,13 +1126,32 @@ namespace PixelSplashStudio
                 "Save",
                 ResponseType.Accept);
             dialog.DoOverwriteConfirmation = true;
-            dialog.CurrentName = "canvas.pss";
+            dialog.CurrentName = "canvas.splash";
+
+            FileFilter splashFilter = new FileFilter
+            {
+                Name = "Pixel Splash Studio (*.splash)"
+            };
+            splashFilter.AddPattern("*.splash");
+            dialog.AddFilter(splashFilter);
+
+            FileFilter legacyFilter = new FileFilter
+            {
+                Name = "Legacy Pixel Splash (*.pss)"
+            };
+            legacyFilter.AddPattern("*.pss");
+            dialog.AddFilter(legacyFilter);
 
             try
             {
                 if (dialog.Run() == (int)ResponseType.Accept)
                 {
-                    _currentFilePath = dialog.Filename;
+                    string filename = dialog.Filename;
+                    if (string.IsNullOrWhiteSpace(System.IO.Path.GetExtension(filename)))
+                    {
+                        filename = $"{filename}.splash";
+                    }
+                    _currentFilePath = filename;
                     SaveCanvasToFile(_currentFilePath);
                     UpdateWindowTitle();
                 }
