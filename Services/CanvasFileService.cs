@@ -65,14 +65,24 @@ namespace PixelSplashStudio
                         }
                         textObject.Opacity = reference.Opacity;
                     }
-                    else if (reference.Type == "image" && !string.IsNullOrWhiteSpace(reference.ImagePath))
+                    else if (reference.Type == "image")
                     {
                         try
                         {
-                            Pixbuf pixbuf = new Pixbuf(reference.ImagePath);
+                            Pixbuf pixbuf = LoadReferenceImage(reference);
+                            if (pixbuf == null)
+                            {
+                                continue;
+                            }
+
+                            string sourcePath = reference.ImagePath;
+                            if (string.IsNullOrWhiteSpace(sourcePath))
+                            {
+                                sourcePath = "embedded";
+                            }
                             ReferenceImageObject imageObject = _canvas.References.AddImage(
                                 pixbuf,
-                                reference.ImagePath,
+                                sourcePath,
                                 reference.X,
                                 reference.Y,
                                 reference.Width > 0 ? reference.Width : pixbuf.Width,
@@ -133,7 +143,8 @@ namespace PixelSplashStudio
                         Width = imageObject.Width,
                         Height = imageObject.Height,
                         Opacity = imageObject.Opacity,
-                        ImagePath = imageObject.SourcePath
+                        ImagePath = imageObject.SourcePath,
+                        ImageData = EncodeReferenceImage(imageObject.Image)
                     });
                 }
             }
@@ -143,6 +154,116 @@ namespace PixelSplashStudio
                 WriteIndented = true
             });
             File.WriteAllText(path, json);
+        }
+
+        private static Pixbuf LoadReferenceImage(ReferenceItemData reference)
+        {
+            if (reference == null)
+            {
+                return null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(reference.ImageData))
+            {
+                Pixbuf pixbuf = DecodeReferenceImage(reference.ImageData);
+                if (pixbuf != null)
+                {
+                    return pixbuf;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(reference.ImagePath))
+            {
+                return null;
+            }
+
+            return new Pixbuf(reference.ImagePath);
+        }
+
+        private static string EncodeReferenceImage(Pixbuf pixbuf)
+        {
+            if (pixbuf == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                byte[] bytes = SavePixbufToPngBytes(pixbuf);
+                if (bytes == null || bytes.Length == 0)
+                {
+                    return null;
+                }
+
+                return Convert.ToBase64String(bytes);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static Pixbuf DecodeReferenceImage(string base64)
+        {
+            if (string.IsNullOrWhiteSpace(base64))
+            {
+                return null;
+            }
+
+            string tempPath = Path.Combine(Path.GetTempPath(), $"pixel-splash-ref-load-{Guid.NewGuid():N}.png");
+            try
+            {
+                byte[] bytes = Convert.FromBase64String(base64);
+                File.WriteAllBytes(tempPath, bytes);
+                return new Pixbuf(tempPath);
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempPath))
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                catch
+                {
+                    // Ignore temp cleanup failures.
+                }
+            }
+        }
+
+        private static byte[] SavePixbufToPngBytes(Pixbuf pixbuf)
+        {
+            if (pixbuf == null)
+            {
+                return null;
+            }
+
+            string tempPath = Path.Combine(Path.GetTempPath(), $"pixel-splash-ref-{Guid.NewGuid():N}.png");
+            try
+            {
+                pixbuf.Save(tempPath, "png");
+                return File.ReadAllBytes(tempPath);
+            }
+            finally
+            {
+                try
+                {
+                    if (File.Exists(tempPath))
+                    {
+                        File.Delete(tempPath);
+                    }
+                }
+                catch
+                {
+                    // Ignore temp cleanup failures.
+                }
+            }
         }
     }
 }

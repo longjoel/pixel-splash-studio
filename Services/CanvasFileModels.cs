@@ -29,5 +29,6 @@ namespace PixelSplashStudio
         public string FontFamily { get; set; }
         public double FontSize { get; set; }
         public string ImagePath { get; set; }
+        public string ImageData { get; set; }
     }
 }
