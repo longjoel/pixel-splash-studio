@@ -20,6 +20,8 @@ namespace PixelSplashStudio
         private double _middlePanLastY;
         private double _middlePanRemainderX;
         private double _middlePanRemainderY;
+        private double _viewWidth;
+        private double _viewHeight;
 
         public event Action<CanvasViewportWidget> DetachRequested;
         public event Action<CanvasViewportWidget> ReattachRequested;
@@ -260,6 +262,16 @@ namespace PixelSplashStudio
 
         private void CanvasViewportWidget_Drawn(object sender, DrawnArgs args)
         {
+            if (args?.Cr != null)
+            {
+                Cairo.Rectangle clip = args.Cr.ClipExtents();
+                if (clip.Width > 0 && clip.Height > 0)
+                {
+                    _viewWidth = clip.Width;
+                    _viewHeight = clip.Height;
+                }
+            }
+
             _viewport?.RenderViewport(args.Cr);
             DrawToolOverlay(args.Cr);
         }
@@ -495,7 +507,8 @@ namespace PixelSplashStudio
                 return;
             }
 
-            _viewport.WorldToScreen(_cursorWorldX, _cursorWorldY, AllocatedWidth, AllocatedHeight, out double screenX, out double screenY);
+            GetViewSize(out double viewWidth, out double viewHeight);
+            _viewport.WorldToScreen(_cursorWorldX, _cursorWorldY, viewWidth, viewHeight, out double screenX, out double screenY);
             double x0 = screenX + 0.5;
             double y0 = screenY + 0.5;
             double size = _viewport.PixelSize;
@@ -857,12 +870,13 @@ namespace PixelSplashStudio
             worldX = 0;
             worldY = 0;
 
-            if (_viewport == null || _viewport.PixelSize <= 0 || AllocatedWidth <= 0 || AllocatedHeight <= 0)
+            GetViewSize(out double viewWidth, out double viewHeight);
+            if (_viewport == null || _viewport.PixelSize <= 0 || viewWidth <= 0 || viewHeight <= 0)
             {
                 return;
             }
 
-            _viewport.GetViewportBounds(AllocatedWidth, AllocatedHeight, out int startX, out int startY, out _, out _);
+            _viewport.GetViewportBounds(viewWidth, viewHeight, out int startX, out int startY, out _, out _);
             worldX = startX + (int)Math.Floor(screenX / (double)_viewport.PixelSize);
             worldY = startY + (int)Math.Floor(screenY / (double)_viewport.PixelSize);
         }
@@ -910,13 +924,14 @@ namespace PixelSplashStudio
 
         private void UpdateGrabToolViewSize()
         {
-            if (_activeTool is GrabAndZoomTool grabTool && AllocatedWidth > 0 && AllocatedHeight > 0)
+            GetViewSize(out double viewWidth, out double viewHeight);
+            if (_activeTool is GrabAndZoomTool grabTool && viewWidth > 0 && viewHeight > 0)
             {
-                grabTool.SetViewSize(AllocatedWidth, AllocatedHeight);
+                grabTool.SetViewSize((int)viewWidth, (int)viewHeight);
             }
-            else if (_activeTool is ReferenceTransformTool referenceTool && AllocatedWidth > 0 && AllocatedHeight > 0)
+            else if (_activeTool is ReferenceTransformTool referenceTool && viewWidth > 0 && viewHeight > 0)
             {
-                referenceTool.SetViewSize(AllocatedWidth, AllocatedHeight);
+                referenceTool.SetViewSize((int)viewWidth, (int)viewHeight);
             }
         }
 
@@ -949,7 +964,8 @@ namespace PixelSplashStudio
 
         private void ZoomViewportAt(int screenX, int screenY, int deltaPixelSize)
         {
-            if (_viewport == null || AllocatedWidth <= 0 || AllocatedHeight <= 0)
+            GetViewSize(out double viewWidth, out double viewHeight);
+            if (_viewport == null || viewWidth <= 0 || viewHeight <= 0)
             {
                 return;
             }
@@ -966,15 +982,28 @@ namespace PixelSplashStudio
                 return;
             }
 
-            double worldX = _viewport.CameraPixelX - (AllocatedWidth / (2.0 * oldSize)) + (screenX / (double)oldSize);
-            double worldY = _viewport.CameraPixelY - (AllocatedHeight / (2.0 * oldSize)) + (screenY / (double)oldSize);
+            double worldX = _viewport.CameraPixelX - (viewWidth / (2.0 * oldSize)) + (screenX / (double)oldSize);
+            double worldY = _viewport.CameraPixelY - (viewHeight / (2.0 * oldSize)) + (screenY / (double)oldSize);
 
-            double newCameraX = worldX + (AllocatedWidth / (2.0 * nextSize)) - (screenX / (double)nextSize);
-            double newCameraY = worldY + (AllocatedHeight / (2.0 * nextSize)) - (screenY / (double)nextSize);
+            double newCameraX = worldX + (viewWidth / (2.0 * nextSize)) - (screenX / (double)nextSize);
+            double newCameraY = worldY + (viewHeight / (2.0 * nextSize)) - (screenY / (double)nextSize);
 
             _viewport.SetPixelSize(nextSize);
             _viewport.SetCamera((int)Math.Round(newCameraX), (int)Math.Round(newCameraY));
             ViewportChanged?.Invoke(this);
+        }
+
+        private void GetViewSize(out double viewWidth, out double viewHeight)
+        {
+            if (_viewWidth > 0 && _viewHeight > 0)
+            {
+                viewWidth = _viewWidth;
+                viewHeight = _viewHeight;
+                return;
+            }
+
+            viewWidth = AllocatedWidth;
+            viewHeight = AllocatedHeight;
         }
     }
 }

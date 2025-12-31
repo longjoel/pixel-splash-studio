@@ -32,7 +32,7 @@ namespace PixelSplashStudio
             SelectionOval = new SelectionOvalTool(canvas);
             SelectionWand = new SelectionWandTool(canvas);
             FloodFill = new FloodFillTool(canvas, palette);
-            Stamp = new StampTool(canvas, palette, () => clipboardService.Clipboard);
+            Stamp = new StampTool(canvas, () => clipboardService.Clipboard);
             Erase = new EraseTool(canvas);
         }
     }

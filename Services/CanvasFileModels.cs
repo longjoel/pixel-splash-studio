@@ -29,5 +29,22 @@ namespace PixelSplashStudio
         public string FontFamily { get; set; }
         public double FontSize { get; set; }
         public string ImagePath { get; set; }
+        public string ImageData { get; set; }
+    }
+
+    public class CanvasArchiveMeta
+    {
+        public int Version { get; set; } = 1;
+        public string PaletteName { get; set; }
+        public string PaletteFile { get; set; }
+        public List<CanvasChunkFileData> Chunks { get; set; } = new List<CanvasChunkFileData>();
+        public List<ReferenceItemData> References { get; set; } = new List<ReferenceItemData>();
+    }
+
+    public class CanvasChunkFileData
+    {
+        public int ChunkX { get; set; }
+        public int ChunkY { get; set; }
+        public string File { get; set; }
     }
 }

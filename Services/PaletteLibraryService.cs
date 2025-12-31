@@ -82,10 +82,24 @@ namespace PixelSplashStudio
                 Library = new PaletteLibraryData();
             }
 
+            List<PaletteColorData> normalized = PaletteStorage.NormalizeColors(colors);
+            PaletteEntryData existing = FindPaletteByColors(normalized);
+            if (existing != null)
+            {
+                if (select)
+                {
+                    Library.SelectedName = existing.Name;
+                    ApplyPalette(existing.Name);
+                }
+
+                PaletteStorage.SaveLibrary(Library);
+                return existing;
+            }
+
             PaletteEntryData entry = new PaletteEntryData
             {
                 Name = EnsureUniqueName(name),
-                Colors = PaletteStorage.NormalizeColors(colors)
+                Colors = normalized
             };
             Library.Palettes.Add(entry);
 
@@ -173,6 +187,80 @@ namespace PixelSplashStudio
         public PaletteFileData LoadPaletteFile(string path)
         {
             return PaletteStorage.LoadPaletteFile(path);
+        }
+
+        private PaletteEntryData FindPaletteByColors(List<PaletteColorData> colors)
+        {
+            if (Library?.Palettes == null || colors == null)
+            {
+                return null;
+            }
+
+            int targetHash = GetPaletteHash(colors);
+            for (int i = 0; i < Library.Palettes.Count; i++)
+            {
+                PaletteEntryData entry = Library.Palettes[i];
+                if (entry?.Colors == null)
+                {
+                    continue;
+                }
+
+                if (GetPaletteHash(entry.Colors) != targetHash)
+                {
+                    continue;
+                }
+
+                if (AreColorsEqual(entry.Colors, colors))
+                {
+                    return entry;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool AreColorsEqual(IReadOnlyList<PaletteColorData> left, IReadOnlyList<PaletteColorData> right)
+        {
+            if (left == null || right == null || left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < left.Count; i++)
+            {
+                PaletteColorData a = left[i];
+                PaletteColorData b = right[i];
+                if (a.R != b.R || a.G != b.G || a.B != b.B || a.A != b.A)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static int GetPaletteHash(IReadOnlyList<PaletteColorData> colors)
+        {
+            if (colors == null)
+            {
+                return 0;
+            }
+
+            unchecked
+            {
+                int hash = 17;
+                hash = (hash * 31) + colors.Count;
+                for (int i = 0; i < colors.Count; i++)
+                {
+                    PaletteColorData color = colors[i];
+                    hash = (hash * 31) + color.R;
+                    hash = (hash * 31) + color.G;
+                    hash = (hash * 31) + color.B;
+                    hash = (hash * 31) + color.A;
+                }
+
+                return hash;
+            }
         }
 
         public void SaveLibrary()

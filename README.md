@@ -9,7 +9,7 @@ Pixel Splash Studio is a pixel art editor built with C# and GtkSharp. It focuses
 - Stamp tool with rotation, flip, scale, snap modes, and overwrite behavior.
 - Reference layer for images or text, with opacity control and bake-to-pixels.
 - Copy selection to stamp clipboard and export selections to PNG.
-- Custom project file format (`.pss`).
+- Custom project file format (`.splash`, legacy `.pss` supported).
 - Configurable shortcuts in `config.ini`.
 
 ## Screenshots
