@@ -766,8 +766,102 @@ namespace PixelSplashStudio
                 return false;
             }
 
+            if (TryParseAcceleratorInternal(shortcut, out key, out modifiers))
+            {
+                return true;
+            }
+
+            string normalized = NormalizeShortcutForGtk(shortcut);
+            if (string.IsNullOrWhiteSpace(normalized) || string.Equals(normalized, shortcut, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return TryParseAcceleratorInternal(normalized, out key, out modifiers);
+        }
+
+        private static bool TryParseAcceleratorInternal(string shortcut, out uint key, out ModifierType modifiers)
+        {
             Gtk.Accelerator.Parse(shortcut, out key, out modifiers);
             return key != 0;
+        }
+
+        private static string NormalizeShortcutForGtk(string shortcut)
+        {
+            if (string.IsNullOrWhiteSpace(shortcut))
+            {
+                return null;
+            }
+
+            string trimmed = shortcut.Trim();
+            if (trimmed.IndexOf('<') >= 0)
+            {
+                return trimmed;
+            }
+
+            string[] tokens = trimmed.Split('+');
+            if (tokens.Length <= 1)
+            {
+                return trimmed;
+            }
+
+            string keyToken = null;
+            string normalized = string.Empty;
+            foreach (string rawToken in tokens)
+            {
+                string token = rawToken.Trim();
+                if (token.Length == 0)
+                {
+                    continue;
+                }
+
+                if (TryMapModifierToken(token, out string modifierTag))
+                {
+                    normalized += modifierTag;
+                }
+                else
+                {
+                    keyToken = token;
+                }
+            }
+
+            if (keyToken == null)
+            {
+                return trimmed;
+            }
+
+            return normalized + keyToken;
+        }
+
+        private static bool TryMapModifierToken(string token, out string modifierTag)
+        {
+            modifierTag = null;
+            switch (token.ToLowerInvariant())
+            {
+                case "ctrl":
+                case "control":
+                    modifierTag = "<Control>";
+                    return true;
+                case "shift":
+                    modifierTag = "<Shift>";
+                    return true;
+                case "alt":
+                    modifierTag = "<Alt>";
+                    return true;
+                case "meta":
+                    modifierTag = "<Meta>";
+                    return true;
+                case "super":
+                    modifierTag = "<Super>";
+                    return true;
+                case "primary":
+                case "cmd":
+                case "command":
+                    modifierTag = "<Primary>";
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private CanvasViewportWidget GetFocusedViewport()
