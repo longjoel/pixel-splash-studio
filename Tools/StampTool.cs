@@ -207,119 +207,127 @@ namespace PixelSplashStudio
 
         public void DrawPreview(Cairo.Context context, CanvasViewport viewport)
         {
-            if (!_hasPreview || viewport?.Palette == null)
+            try
             {
-                return;
-            }
-
-            SelectionClipboard clipboard = _clipboardProvider?.Invoke();
-            if (clipboard == null || clipboard.PixelCount == 0)
-            {
-                return;
-            }
-
-            System.Collections.Generic.List<CachedPixel> cachedPixels = GetCachedPixels(clipboard);
-            if (cachedPixels == null || cachedPixels.Count == 0)
-            {
-                return;
-            }
-
-            long previewPixelCount = (long)clipboard.PixelCount * _scale * _scale;
-            bool collectOutline = previewPixelCount <= MaxPreviewOutlinePixels;
-            System.Collections.Generic.HashSet<(int, int)> previewPixels = collectOutline
-                ? new System.Collections.Generic.HashSet<(int, int)>()
-                : null;
-
-            bool hasSelectionMask = viewport.Selection?.HasSelection == true;
-            if (!hasSelectionMask)
-            {
-                Cairo.ImageSurface previewSurface = GetCachedPreviewSurface(viewport.Palette, cachedPixels);
-                if (previewSurface != null)
-                {
-                    viewport.WorldToScreen(_previewX, _previewY, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
-                    context.Save();
-                    context.Translate(screenX, screenY);
-                    double scale = viewport.PixelSize * _scale;
-                    context.Scale(scale, scale);
-                    using (Cairo.SurfacePattern pattern = new Cairo.SurfacePattern(previewSurface))
-                    {
-                        pattern.Filter = Cairo.Filter.Nearest;
-                        context.SetSource(pattern);
-                        context.Paint();
-                    }
-                    context.Restore();
-                }
-
-                if (!collectOutline)
+                if (!_hasPreview || viewport?.Palette == null)
                 {
                     return;
                 }
-            }
 
-            for (int i = 0; i < cachedPixels.Count; i++)
-            {
-                CachedPixel pixel = cachedPixels[i];
-                int paletteIndex = pixel.ColorIndex;
-                if (paletteIndex < 0 || paletteIndex >= viewport.Palette.Palette.Count)
+                SelectionClipboard clipboard = _clipboardProvider?.Invoke();
+                if (clipboard == null || clipboard.PixelCount == 0)
                 {
-                    continue;
+                    return;
                 }
 
-                bool isTransparentIndex = paletteIndex == 0;
-                if (!OverwriteDestination && isTransparentIndex)
+                System.Collections.Generic.List<CachedPixel> cachedPixels = GetCachedPixels(clipboard);
+                if (cachedPixels == null || cachedPixels.Count == 0)
                 {
-                    continue;
+                    return;
                 }
 
-                Tuple<byte, byte, byte, byte> color = viewport.Palette.Palette[paletteIndex];
-                if (hasSelectionMask && !isTransparentIndex)
-                {
-                    double alpha = (color.Item4 / 255.0) * 0.4;
-                    context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
-                }
+                long previewPixelCount = (long)clipboard.PixelCount * _scale * _scale;
+                bool collectOutline = previewPixelCount <= MaxPreviewOutlinePixels;
+                System.Collections.Generic.HashSet<(int, int)> previewPixels = collectOutline
+                    ? new System.Collections.Generic.HashSet<(int, int)>()
+                    : null;
 
-                int scaledX = pixel.X * _scale;
-                int scaledY = pixel.Y * _scale;
-                for (int sy = 0; sy < _scale; sy++)
+                bool hasSelectionMask = viewport.Selection?.HasSelection == true;
+                if (!hasSelectionMask)
                 {
-                    int worldY = _previewY + scaledY + sy;
-                    for (int sx = 0; sx < _scale; sx++)
+                    Cairo.ImageSurface previewSurface = GetCachedPreviewSurface(viewport.Palette, cachedPixels);
+                    if (previewSurface != null)
                     {
-                        int worldX = _previewX + scaledX + sx;
-                        if (hasSelectionMask && !viewport.Selection.IsSelected(worldX, worldY))
+                        viewport.WorldToScreen(_previewX, _previewY, context.ClipExtents().Width, context.ClipExtents().Height, out double screenX, out double screenY);
+                        context.Save();
+                        context.Translate(screenX, screenY);
+                        double scale = viewport.PixelSize * _scale;
+                        context.Scale(scale, scale);
+                        using (Cairo.SurfacePattern pattern = new Cairo.SurfacePattern(previewSurface))
                         {
-                            continue;
+                            pattern.Filter = Cairo.Filter.Nearest;
+                            context.SetSource(pattern);
+                            context.Paint();
                         }
+                        context.Restore();
+                    }
 
-                        if (hasSelectionMask && !isTransparentIndex)
+                    if (!collectOutline)
+                    {
+                        return;
+                    }
+                }
+
+                for (int i = 0; i < cachedPixels.Count; i++)
+                {
+                    CachedPixel pixel = cachedPixels[i];
+                    int paletteIndex = pixel.ColorIndex;
+                    if (paletteIndex < 0 || paletteIndex >= viewport.Palette.Palette.Count)
+                    {
+                        continue;
+                    }
+
+                    bool isTransparentIndex = paletteIndex == 0;
+                    if (!OverwriteDestination && isTransparentIndex)
+                    {
+                        continue;
+                    }
+
+                    Tuple<byte, byte, byte, byte> color = viewport.Palette.Palette[paletteIndex];
+                    if (hasSelectionMask && !isTransparentIndex)
+                    {
+                        double alpha = (color.Item4 / 255.0) * 0.4;
+                        context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, alpha);
+                    }
+
+                    int scaledX = pixel.X * _scale;
+                    int scaledY = pixel.Y * _scale;
+                    for (int sy = 0; sy < _scale; sy++)
+                    {
+                        int worldY = _previewY + scaledY + sy;
+                        for (int sx = 0; sx < _scale; sx++)
                         {
-                            DrawPreviewPixel(context, viewport, worldX, worldY);
-                        }
-                        if (collectOutline)
-                        {
-                            previewPixels.Add((worldX, worldY));
+                            int worldX = _previewX + scaledX + sx;
+                            if (hasSelectionMask && !viewport.Selection.IsSelected(worldX, worldY))
+                            {
+                                continue;
+                            }
+
+                            if (hasSelectionMask && !isTransparentIndex)
+                            {
+                                DrawPreviewPixel(context, viewport, worldX, worldY);
+                            }
+                            if (collectOutline)
+                            {
+                                previewPixels.Add((worldX, worldY));
+                            }
                         }
                     }
                 }
-            }
 
-            if (!collectOutline || previewPixels.Count == 0)
+                if (!collectOutline || previewPixels.Count == 0)
+                {
+                    return;
+                }
+
+                double dashOffset = CanvasViewport.GetMarchingAntsOffset();
+                context.LineWidth = 1.0;
+
+                context.SetSourceRGBA(0, 0, 0, 1);
+                context.SetDash(new double[] { 4, 4 }, dashOffset);
+                DrawStampOutline(context, viewport, previewPixels);
+                context.Stroke();
+
+                context.SetSourceRGBA(1, 1, 1, 1);
+                context.SetDash(new double[] { 4, 4 }, dashOffset + 4);
+                DrawStampOutline(context, viewport, previewPixels);
+                context.Stroke();
+            }
+            catch (Exception ex)
             {
-                return;
+                LogPreviewException(ex, viewport);
+                throw;
             }
-
-            double dashOffset = CanvasViewport.GetMarchingAntsOffset();
-            context.LineWidth = 1.0;
-
-            context.SetSourceRGBA(0, 0, 0, 1);
-            context.SetDash(new double[] { 4, 4 }, dashOffset);
-            DrawStampOutline(context, viewport, previewPixels);
-            context.Stroke();
-
-            context.SetSourceRGBA(1, 1, 1, 1);
-            context.SetDash(new double[] { 4, 4 }, dashOffset + 4);
-            DrawStampOutline(context, viewport, previewPixels);
-            context.Stroke();
         }
 
         private void DrawPreviewPixel(Cairo.Context context, CanvasViewport viewport, int x, int y)
@@ -495,6 +503,7 @@ namespace PixelSplashStudio
 
             int paletteHash = GetPaletteHash(palette.Palette);
             if (_cachedPreviewSurface != null &&
+        
                 _cachedPaletteHash == paletteHash &&
                 _cachedPaletteCount == paletteCount &&
                 _cachedPreviewSurface.Width == _cachedPixelWidth &&
@@ -568,6 +577,48 @@ namespace PixelSplashStudio
                 }
 
                 return hash;
+            }
+        }
+
+        private void LogPreviewException(Exception ex, CanvasViewport viewport)
+        {
+            try
+            {
+                SelectionClipboard clipboard = null;
+                int clipboardPixels = 0;
+                int clipboardWidth = 0;
+                int clipboardHeight = 0;
+                try
+                {
+                    clipboard = _clipboardProvider?.Invoke();
+                    if (clipboard != null)
+                    {
+                        clipboardPixels = clipboard.PixelCount;
+                        clipboardWidth = clipboard.Width;
+                        clipboardHeight = clipboard.Height;
+                    }
+                }
+                catch (Exception clipboardEx)
+                {
+                    Console.Error.WriteLine($"StampTool.DrawPreview clipboard error: {clipboardEx}");
+                }
+
+                int paletteCount = viewport?.Palette?.Palette?.Count ?? 0;
+                bool hasSelection = viewport?.Selection?.HasSelection ?? false;
+                int cachedCount = _cachedPixels?.Count ?? 0;
+                int surfaceWidth = _cachedPreviewSurface?.Width ?? 0;
+                int surfaceHeight = _cachedPreviewSurface?.Height ?? 0;
+
+                Console.Error.WriteLine($"StampTool.DrawPreview crashed: {ex.GetType().Name}: {ex.Message}");
+                Console.Error.WriteLine($"Preview state: hasPreview={_hasPreview}, preview=({_previewX},{_previewY}), scale={_scale}, rotation={_rotation}, flipX={_flipX}, flipY={_flipY}, overwrite={_overwriteDestination}");
+                Console.Error.WriteLine($"Clipboard: available={(clipboard != null)}, pixelCount={clipboardPixels}, width={clipboardWidth}, height={clipboardHeight}");
+                Console.Error.WriteLine($"Cache: cachedPixels={cachedCount}, cachedSize={_cachedWidth}x{_cachedHeight}, cachedPixelSize={_cachedPixelWidth}x{_cachedPixelHeight}, surface={surfaceWidth}x{surfaceHeight}");
+                Console.Error.WriteLine($"Viewport: pixelSize={viewport?.PixelSize ?? 0}, selection={hasSelection}, paletteCount={paletteCount}");
+                Console.Error.WriteLine(ex.ToString());
+            }
+            catch (Exception logEx)
+            {
+                Console.Error.WriteLine($"StampTool.DrawPreview logging failed: {logEx}");
             }
         }
 
