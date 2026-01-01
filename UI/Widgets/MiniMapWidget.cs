@@ -216,12 +216,20 @@ namespace PixelSplashStudio
                         }
 
                         byte colorIndex = chunk.Data[py * PixelSplashCanvasChunk.ChunkWidth + px];
+                        if (colorIndex == 0)
+                        {
+                            continue;
+                        }
                         if (colorIndex >= _palette.Palette.Count)
                         {
                             continue;
                         }
 
                         var color = _palette.Palette[colorIndex];
+                        if (color.Item4 == 0)
+                        {
+                            continue;
+                        }
                         context.SetSourceRGBA(color.Item1 / 255.0, color.Item2 / 255.0, color.Item3 / 255.0, color.Item4 / 255.0);
 
                         double screenX = offsetX + ((worldX - minX) * scale);

@@ -219,12 +219,20 @@ namespace PixelSplashStudio
                             }
 
                             byte colorIndex = chunk.Data[py * PixelSplashCanvasChunk.ChunkWidth + px];
+                            if (colorIndex == 0)
+                            {
+                                continue;
+                            }
                             if (colorIndex >= _palette.Palette.Count)
                             {
                                 continue;
                             }
 
                             var color = _palette.Palette[colorIndex];
+                            if (color.Item4 == 0)
+                            {
+                                continue;
+                            }
                             double r = color.Item1 / 255.0;
                             double g = color.Item2 / 255.0;
                             double b = color.Item3 / 255.0;
