@@ -33,4 +33,7 @@ interface Window {
   appApi: {
     setTitle: (title: string) => void;
   };
+  debugApi: {
+    logPerf: (message: string) => Promise<string | null>;
+  };
 }

@@ -1,7 +1,11 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions } from 'electron';
 import { join } from 'path';
-import { readFile, writeFile } from 'fs/promises';
+import { appendFile, readFile } from 'fs/promises';
+import { tmpdir } from 'os';
 import JSZip from 'jszip';
+import { Worker } from 'worker_threads';
+
+const perfLoggingEnabled = { value: false };
 
 const createWindow = () => {
   const win = new BrowserWindow({
@@ -85,6 +89,19 @@ app.whenReady().then(() => {
       ],
     },
     {
+      label: 'Options',
+      submenu: [
+        {
+          label: 'Performance Logging',
+          type: 'checkbox' as const,
+          checked: perfLoggingEnabled.value,
+          click: (menuItem) => {
+            perfLoggingEnabled.value = menuItem.checked;
+          },
+        },
+      ],
+    },
+    {
       label: 'Help',
       submenu: [
         {
@@ -114,6 +131,11 @@ app.on('window-all-closed', () => {
   }
 });
 
+app.on('before-quit', () => {
+  const filePath = join(tmpdir(), 'pixel-splash-perf.log');
+  console.log(`Perf log: ${filePath}`);
+});
+
 export type ProjectPayload = {
   data: {
     palette: {
@@ -134,14 +156,43 @@ export type ProjectPayload = {
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
 };
 
-const writeProjectZip = async (payload: ProjectPayload) => {
-  const zip = new JSZip();
-  zip.file('data.json', JSON.stringify(payload.data, null, 2));
-  for (const block of payload.blocks) {
-    zip.file(`pixels/${block.row}-${block.col}.bin`, block.data);
-  }
-  return zip.generateAsync({ type: 'nodebuffer' });
-};
+const writeProjectToPath = (payload: ProjectPayload, filePath: string) =>
+  new Promise<void>((resolve, reject) => {
+    const transferList: ArrayBuffer[] = [];
+    const seenBuffers = new Set<ArrayBuffer>();
+    for (const block of payload.blocks) {
+      const buffer = block.data.buffer;
+      if (buffer instanceof ArrayBuffer && !seenBuffers.has(buffer)) {
+        seenBuffers.add(buffer);
+        transferList.push(buffer);
+      }
+    }
+
+    const worker = new Worker(join(__dirname, 'projectWriter.js'), {
+      workerData: { payload, filePath },
+      transferList,
+    });
+    let settled = false;
+
+    worker.once('message', (message) => {
+      settled = true;
+      if (message?.ok) {
+        resolve();
+      } else {
+        const errorMessage = message?.error?.message ?? 'Failed to write project';
+        reject(new Error(errorMessage));
+      }
+    });
+    worker.once('error', (error) => {
+      settled = true;
+      reject(error);
+    });
+    worker.once('exit', (code) => {
+      if (!settled && code !== 0) {
+        reject(new Error(`Project writer exited with code ${code}`));
+      }
+    });
+  });
 
 const readProjectZip = async (buffer: Buffer) => {
   const zip = await JSZip.loadAsync(buffer);
@@ -180,8 +231,7 @@ const readProjectZip = async (buffer: Buffer) => {
 
 ipcMain.handle('project:save', async (_event, payload: ProjectPayload, existingPath?: string) => {
   if (existingPath) {
-    const buffer = await writeProjectZip(payload);
-    await writeFile(existingPath, buffer);
+    await writeProjectToPath(payload, existingPath);
     return existingPath;
   }
 
@@ -198,8 +248,7 @@ ipcMain.handle('project:save', async (_event, payload: ProjectPayload, existingP
     return null;
   }
 
-  const buffer = await writeProjectZip(payload);
-  await writeFile(filePath, buffer);
+  await writeProjectToPath(payload, filePath);
   return filePath;
 });
 
@@ -227,6 +276,16 @@ ipcMain.handle('project:load', async (_event, existingPath?: string) => {
   const buffer = await readFile(filePaths[0]);
   const payload = await readProjectZip(buffer);
   return { path: filePaths[0], ...payload };
+});
+
+ipcMain.handle('debug:perf-log', async (_event, message: string) => {
+  if (!perfLoggingEnabled.value) {
+    return null;
+  }
+  const filePath = join(tmpdir(), 'pixel-splash-perf.log');
+  const line = `[${new Date().toISOString()}] ${message}\n`;
+  await appendFile(filePath, line);
+  return filePath;
 });
 
 ipcMain.on('app:set-title', (event, title: string) => {

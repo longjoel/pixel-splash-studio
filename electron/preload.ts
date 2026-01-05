@@ -24,3 +24,7 @@ contextBridge.exposeInMainWorld('menuApi', {
 contextBridge.exposeInMainWorld('appApi', {
   setTitle: (title: string) => ipcRenderer.send('app:set-title', title),
 });
+
+contextBridge.exposeInMainWorld('debugApi', {
+  logPerf: (message: string) => ipcRenderer.invoke('debug:perf-log', message),
+});

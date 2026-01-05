@@ -7,10 +7,14 @@ import { CursorState, ToolController } from '@/core/tools';
 import { PenTool } from '@/tools/penTool';
 import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
+import { LineTool } from '@/tools/lineTool';
+import { RectangleTool } from '@/tools/rectangleTool';
+import { useToolStore } from '@/state/toolStore';
 
 const GRID_COLOR = 'rgba(255, 255, 255, 0.08)';
 const TILE_GRID_COLOR = 'rgba(255, 255, 255, 0.18)';
 const AXIS_COLOR = 'rgba(245, 197, 66, 0.5)';
+const MIN_TOOL_ZOOM = 0.6;
 
 
 const drawGrid = (
@@ -83,16 +87,50 @@ const setupCanvas = (canvas: HTMLCanvasElement, width: number, height: number) =
   return context;
 };
 
+type BlockCacheEntry = {
+  canvas: HTMLCanvasElement;
+  pixels: number;
+};
+
+const buildBlockCanvas = (block: Uint8Array, palette: string[]) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = BLOCK_SIZE * PIXEL_SIZE;
+  canvas.height = BLOCK_SIZE * PIXEL_SIZE;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return null;
+  }
+  context.imageSmoothingEnabled = false;
+
+  let pixels = 0;
+  for (let y = 0; y < BLOCK_SIZE; y += 1) {
+    for (let x = 0; x < BLOCK_SIZE; x += 1) {
+      const paletteIndex = block[y * BLOCK_SIZE + x];
+      if (paletteIndex === 0) {
+        continue;
+      }
+      pixels += 1;
+      context.fillStyle = palette[paletteIndex] ?? palette[0];
+      context.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+    }
+  }
+
+  return { canvas, pixels };
+};
+
 const drawPixelLayer = (
   context: CanvasRenderingContext2D,
   viewX: number,
   viewY: number,
   viewWidth: number,
   viewHeight: number,
-  palette: string[]
+  palette: string[],
+  blockCache: Map<string, BlockCacheEntry>
 ) => {
   const pixelStore = usePixelStore.getState();
   const blocks = pixelStore.store.getBlocks();
+  let blocksDrawn = 0;
+  let pixelsDrawn = 0;
   for (const { row, col, block } of blocks) {
     const blockX = col * BLOCK_SIZE;
     const blockY = row * BLOCK_SIZE;
@@ -109,22 +147,23 @@ const drawPixelLayer = (
       continue;
     }
 
-    for (let y = 0; y < BLOCK_SIZE; y += 1) {
-      for (let x = 0; x < BLOCK_SIZE; x += 1) {
-        const paletteIndex = block[y * BLOCK_SIZE + x];
-        if (paletteIndex === 0) {
-          continue;
-        }
-        context.fillStyle = palette[paletteIndex] ?? palette[0];
-        context.fillRect(
-          (blockX + x) * PIXEL_SIZE,
-          (blockY + y) * PIXEL_SIZE,
-          PIXEL_SIZE,
-          PIXEL_SIZE
-        );
+    blocksDrawn += 1;
+    const key = `${row}:${col}`;
+    let cached = blockCache.get(key);
+    if (!cached) {
+      const rebuilt = buildBlockCanvas(block, palette);
+      if (rebuilt) {
+        cached = rebuilt;
+        blockCache.set(key, rebuilt);
       }
     }
+
+    if (cached) {
+      pixelsDrawn += cached.pixels;
+      context.drawImage(cached.canvas, blockLeft, blockTop);
+    }
   }
+  return { blocksDrawn, pixelsDrawn };
 };
 
 const drawPreviewLayer = (context: CanvasRenderingContext2D, palette: string[]) => {
@@ -145,7 +184,10 @@ const ViewportCanvas = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const frameRef = useRef<number | null>(null);
   const controllerRef = useRef<ToolController | null>(null);
+  const blockCacheRef = useRef<Map<string, BlockCacheEntry>>(new Map());
+  const lastPerfLogRef = useRef(0);
   const setSize = useViewportStore((state) => state.setSize);
+  const zoom = useViewportStore((state) => state.camera.zoom);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -157,9 +199,22 @@ const ViewportCanvas = () => {
     setSize(wrapper.clientWidth, wrapper.clientHeight);
 
     controllerRef.current = new ToolController();
-    controllerRef.current.setTool(new PenTool());
+    const tools = {
+      pen: new PenTool(),
+      line: new LineTool(),
+      rectangle: new RectangleTool(),
+    };
+    controllerRef.current.setTool(tools.pen);
+
+    const unsubscribeTool = useToolStore.subscribe((state) => {
+      controllerRef.current?.setTool(tools[state.activeTool]);
+    });
+    const unsubscribePalette = usePaletteStore.subscribe(() => {
+      blockCacheRef.current.clear();
+    });
 
     const render = () => {
+      const frameStart = performance.now();
       const state = useViewportStore.getState();
       if (state.width === 0 || state.height === 0) {
         return;
@@ -188,7 +243,32 @@ const ViewportCanvas = () => {
       const viewHeight = state.height / state.camera.zoom;
 
       const palette = usePaletteStore.getState().colors;
-      drawPixelLayer(context, state.camera.x, state.camera.y, viewWidth, viewHeight, palette);
+      const { dirtyAll, blocks: dirtyBlocks } = usePixelStore.getState().consumeDirtyBlocks();
+      if (dirtyAll) {
+        blockCacheRef.current.clear();
+      }
+      for (const dirty of dirtyBlocks) {
+        const key = `${dirty.row}:${dirty.col}`;
+        const block = usePixelStore.getState().store.getBlock(dirty.row, dirty.col);
+        if (!block) {
+          blockCacheRef.current.delete(key);
+          continue;
+        }
+        const rebuilt = buildBlockCanvas(block, palette);
+        if (rebuilt) {
+          blockCacheRef.current.set(key, rebuilt);
+        }
+      }
+
+      const { blocksDrawn, pixelsDrawn } = drawPixelLayer(
+        context,
+        state.camera.x,
+        state.camera.y,
+        viewWidth,
+        viewHeight,
+        palette,
+        blockCacheRef.current
+      );
       drawGrid(
         context,
         state.camera.x,
@@ -212,6 +292,22 @@ const ViewportCanvas = () => {
       drawPreviewLayer(context, palette);
       context.restore();
 
+      const frameEnd = performance.now();
+      const duration = frameEnd - frameStart;
+      if (duration > 50 && frameEnd - lastPerfLogRef.current > 500) {
+        lastPerfLogRef.current = frameEnd;
+        window.debugApi?.logPerf(
+          [
+            'viewport:render',
+            `ms=${duration.toFixed(2)}`,
+            `zoom=${state.camera.zoom.toFixed(2)}`,
+            `view=${viewWidth.toFixed(1)}x${viewHeight.toFixed(1)}`,
+            `blocks=${blocksDrawn}`,
+            `pixels=${pixelsDrawn}`,
+          ].join(' ')
+        );
+      }
+
       frameRef.current = requestAnimationFrame(render);
     };
 
@@ -226,6 +322,8 @@ const ViewportCanvas = () => {
     resizeObserver.observe(wrapper);
 
     return () => {
+      unsubscribeTool();
+      unsubscribePalette();
       resizeObserver.disconnect();
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
@@ -252,24 +350,45 @@ const ViewportCanvas = () => {
   };
 
   const handlePointerDown = (event: React.PointerEvent) => {
+    const state = useViewportStore.getState();
+    if (state.camera.zoom < MIN_TOOL_ZOOM) {
+      usePreviewStore.getState().clear();
+      return;
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('begin', cursor);
   };
 
   const handlePointerMove = (event: React.PointerEvent) => {
+    const state = useViewportStore.getState();
+    if (state.camera.zoom < MIN_TOOL_ZOOM) {
+      usePreviewStore.getState().clear();
+      return;
+    }
     const cursor = toCursorState(event);
     const isDrawing = (event.buttons & 1) === 1 || (event.buttons & 2) === 2;
     controllerRef.current?.handleEvent(isDrawing ? 'move' : 'hover', cursor);
   };
 
   const handlePointerUp = (event: React.PointerEvent) => {
+    const state = useViewportStore.getState();
+    if (state.camera.zoom < MIN_TOOL_ZOOM) {
+      usePreviewStore.getState().clear();
+      event.currentTarget.releasePointerCapture(event.pointerId);
+      return;
+    }
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('end', cursor);
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const handlePointerLeave = (event: React.PointerEvent) => {
+    const state = useViewportStore.getState();
+    if (state.camera.zoom < MIN_TOOL_ZOOM) {
+      usePreviewStore.getState().clear();
+      return;
+    }
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('cancel', cursor);
   };
@@ -282,6 +401,7 @@ const ViewportCanvas = () => {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
+        style={{ cursor: zoom < MIN_TOOL_ZOOM ? 'not-allowed' : 'crosshair' }}
       />
     </div>
   );

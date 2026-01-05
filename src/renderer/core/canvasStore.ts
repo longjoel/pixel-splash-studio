@@ -60,6 +60,10 @@ export class CanvasStore {
     this.blocks.set(blockKey(row, col), data);
   }
 
+  getBlock(row: number, col: number) {
+    return this.blocks.get(blockKey(row, col));
+  }
+
   clear() {
     this.blocks.clear();
   }

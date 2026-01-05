@@ -5,6 +5,9 @@ import PaletteBar from './ui/PaletteBar';
 import { loadProject, newProject, saveProject } from './services/project';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
+import { useToolStore } from './state/toolStore';
+import { useBrushStore } from './state/brushStore';
+import { useRectangleStore } from './state/rectangleStore';
 
 const App = () => {
   const undo = useHistoryStore((state) => state.undo);
@@ -12,6 +15,14 @@ const App = () => {
   const projectPath = useProjectStore((state) => state.path);
   const dirty = useProjectStore((state) => state.dirty);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const activeTool = useToolStore((state) => state.activeTool);
+  const setActiveTool = useToolStore((state) => state.setActiveTool);
+  const brushSize = useBrushStore((state) => state.size);
+  const brushShape = useBrushStore((state) => state.shape);
+  const rectangleMode = useRectangleStore((state) => state.mode);
+  const setRectangleMode = useRectangleStore((state) => state.setMode);
+  const setBrushSize = useBrushStore((state) => state.setSize);
+  const setBrushShape = useBrushStore((state) => state.setShape);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -122,13 +133,116 @@ const App = () => {
         <div className="app__toolbar panel">
           <div className="panel__section">
             <h2>Tools</h2>
-            <div className="panel__item">Pen</div>
-            <div className="panel__item">Line</div>
-            <div className="panel__item">Rectangle</div>
+            <button
+              type="button"
+              className="panel__item"
+              data-active={activeTool === 'pen'}
+              onClick={() => setActiveTool('pen')}
+            >
+              Pen
+            </button>
+            <button
+              type="button"
+              className="panel__item"
+              data-active={activeTool === 'line'}
+              onClick={() => setActiveTool('line')}
+            >
+              Line
+            </button>
+            <button
+              type="button"
+              className="panel__item"
+              data-active={activeTool === 'rectangle'}
+              onClick={() => setActiveTool('rectangle')}
+            >
+              Rectangle
+            </button>
           </div>
           <div className="panel__section">
             <h2>Options</h2>
-            <div className="panel__item">Brush: 1px</div>
+            {activeTool === 'pen' ? (
+              <>
+                <div className="panel__group">
+                  <span className="panel__label">Size</span>
+                  <div className="panel__row">
+                    {[1, 4, 8].map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        className="panel__item"
+                        data-active={brushSize === size}
+                        disabled={brushShape === 'point'}
+                        onClick={() => setBrushSize(size)}
+                      >
+                        {size}px
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="panel__group">
+                  <span className="panel__label">Brush</span>
+                  <div className="panel__row">
+                    {([
+                      { id: 'point', label: 'fine-point' },
+                      { id: 'square', label: 'rectangle' },
+                      { id: 'round', label: 'circle' },
+                    ] as const).map((shape) => (
+                      <button
+                        key={shape.id}
+                        type="button"
+                        className="panel__item"
+                        data-active={brushShape === shape.id}
+                        onClick={() => setBrushShape(shape.id)}
+                      >
+                    <span className="tool-label" aria-label={shape.label}>
+                      {shape.label}
+                    </span>
+                  </button>
+                ))}
+                  </div>
+                </div>
+              </>
+            ) : activeTool === 'rectangle' ? (
+              <div className="panel__group">
+                <span className="panel__label">Mode</span>
+                <div className="panel__row">
+                  <label className="panel__radio">
+                    <input
+                      type="radio"
+                      name="rectangle-mode"
+                      value="filled"
+                      checked={rectangleMode === 'filled'}
+                      onChange={() => setRectangleMode('filled')}
+                    />
+                    Filled
+                  </label>
+                  <label className="panel__radio">
+                    <input
+                      type="radio"
+                      name="rectangle-mode"
+                      value="outlined"
+                      checked={rectangleMode === 'outlined'}
+                      onChange={() => setRectangleMode('outlined')}
+                    />
+                    Outlined
+                  </label>
+                  <label className="panel__radio">
+                    <input
+                      type="radio"
+                      name="rectangle-mode"
+                      value="outline-fill"
+                      checked={rectangleMode === 'outline-fill'}
+                      onChange={() => setRectangleMode('outline-fill')}
+                    />
+                    Outline + Fill
+                  </label>
+                </div>
+              </div>
+            ) : (
+              <div className="panel__item" aria-disabled="true">
+                No options
+              </div>
+            )}
           </div>
         </div>
         <div className="app__palette panel">

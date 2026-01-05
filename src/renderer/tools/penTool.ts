@@ -4,12 +4,42 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
+import { useBrushStore } from '@/state/brushStore';
+
+const getBrushOffsets = (radius: number, shape: 'square' | 'round') => {
+  const offsets: Array<[number, number]> = [];
+  const min = -radius;
+  const max = radius;
+
+  for (let y = min; y <= max; y += 1) {
+    for (let x = min; x <= max; x += 1) {
+      if (shape === 'round' && x * x + y * y > radius * radius) {
+        continue;
+      }
+      offsets.push([x, y]);
+    }
+  }
+
+  return offsets;
+};
+
+const applyBrush = (x: number, y: number, paletteIndex: number) => {
+  const { size, shape } = useBrushStore.getState();
+  const preview = usePreviewStore.getState();
+  if (shape === 'point') {
+    preview.setPixel(x, y, paletteIndex);
+    return;
+  }
+  const offsets = getBrushOffsets(size, shape);
+  for (const [dx, dy] of offsets) {
+    preview.setPixel(x + dx, y + dy, paletteIndex);
+  }
+};
 
 const drawPoint = (cursor: CursorState, paletteIndex: number) => {
   const gridX = Math.floor(cursor.canvasX / PIXEL_SIZE);
   const gridY = Math.floor(cursor.canvasY / PIXEL_SIZE);
-  const preview = usePreviewStore.getState();
-  preview.setPixel(gridX, gridY, paletteIndex);
+  applyBrush(gridX, gridY, paletteIndex);
 };
 
 export class PenTool implements Tool {
@@ -63,7 +93,7 @@ export class PenTool implements Tool {
       let y = this.lastPoint.y;
 
       while (true) {
-        preview.setPixel(x, y, this.activeIndex);
+        applyBrush(x, y, this.activeIndex);
         if (x === nextPoint.x && y === nextPoint.y) {
           break;
         }
@@ -87,9 +117,13 @@ export class PenTool implements Tool {
     if (!this.drawing) {
       return;
     }
+    const start = performance.now();
     const preview = usePreviewStore.getState();
     const pixelStore = usePixelStore.getState();
+    const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
+    let entryCount = 0;
     for (const pixel of preview.entries()) {
+      entryCount += 1;
       const key = `${pixel.x}:${pixel.y}`;
       if (!this.changes.has(key)) {
         this.changes.set(key, {
@@ -104,14 +138,27 @@ export class PenTool implements Tool {
           entry.next = pixel.paletteIndex;
         }
       }
-      pixelStore.setPixel(pixel.x, pixel.y, pixel.paletteIndex);
+      pixelsToCommit.push({ x: pixel.x, y: pixel.y, paletteIndex: pixel.paletteIndex });
     }
+    pixelStore.setPixels(pixelsToCommit);
+    const afterPixels = performance.now();
     const history = useHistoryStore.getState();
     history.pushBatch({ changes: Array.from(this.changes.values()) });
+    const afterHistory = performance.now();
     this.changes.clear();
     preview.clear();
     this.drawing = false;
     this.lastPoint = null;
+    const end = performance.now();
+    window.debugApi?.logPerf(
+      [
+        'pen:onEnd',
+        `entries=${entryCount}`,
+        `pixelsMs=${(afterPixels - start).toFixed(2)}`,
+        `historyMs=${(afterHistory - afterPixels).toFixed(2)}`,
+        `totalMs=${(end - start).toFixed(2)}`,
+      ].join(' ')
+    );
   };
 
   onCancel = () => {

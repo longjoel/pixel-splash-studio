@@ -1,10 +1,11 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useViewportStore } from '@/state/viewportStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { BLOCK_SIZE } from '@/core/canvasStore';
+import { PIXEL_SIZE } from '@/core/grid';
 
-const MIN_WORLD_SIZE = 512;
+const MIN_WORLD_SIZE = 512 * PIXEL_SIZE;
 const AXIS_COLOR = '#f5c542';
 
 const getPixelBounds = () => {
@@ -22,12 +23,12 @@ const getPixelBounds = () => {
         if (paletteIndex === 0) {
           continue;
         }
-        const worldX = col * BLOCK_SIZE + x;
-        const worldY = row * BLOCK_SIZE + y;
+        const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
+        const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
         minX = Math.min(minX, worldX);
         minY = Math.min(minY, worldY);
-        maxX = Math.max(maxX, worldX + 1);
-        maxY = Math.max(maxY, worldY + 1);
+        maxX = Math.max(maxX, worldX + PIXEL_SIZE);
+        maxY = Math.max(maxY, worldY + PIXEL_SIZE);
       }
     }
   }
@@ -133,17 +134,23 @@ const drawMinimap = (
 
   const pixelStore = usePixelStore.getState();
   const blocks = pixelStore.store.getBlocks();
+  let blocksDrawn = 0;
+  let pixelsDrawn = 0;
+  const pixelScale = scale * PIXEL_SIZE;
+  const sampleStride = Math.max(1, Math.floor(1 / Math.max(pixelScale * 0.75, 0.01)));
   for (const { row, col, block } of blocks) {
-    for (let y = 0; y < BLOCK_SIZE; y += 1) {
-      for (let x = 0; x < BLOCK_SIZE; x += 1) {
+    blocksDrawn += 1;
+    for (let y = 0; y < BLOCK_SIZE; y += sampleStride) {
+      for (let x = 0; x < BLOCK_SIZE; x += sampleStride) {
         const paletteIndex = block[y * BLOCK_SIZE + x];
         if (paletteIndex === 0) {
           continue;
         }
-        const worldX = col * BLOCK_SIZE + x;
-        const worldY = row * BLOCK_SIZE + y;
+        pixelsDrawn += 1;
+        const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
+        const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
         context.fillStyle = palette[paletteIndex] ?? palette[0];
-        const pixelSize = Math.max(1, scale * 0.9);
+        const pixelSize = Math.max(1, pixelScale * sampleStride);
         context.fillRect(
           offsetX + worldX * scale,
           offsetY + worldY * scale,
@@ -167,6 +174,8 @@ const drawMinimap = (
     context.lineWidth = 2;
     context.strokeRect(viewX, viewY, viewW, viewH);
   }
+
+  return { blocksDrawn, pixelsDrawn, zoom: state.camera.zoom };
 };
 
 const setupCanvas = (canvas: HTMLCanvasElement, width: number, height: number) => {
@@ -192,10 +201,26 @@ const Minimap = () => {
   const draggingRef = useRef(false);
   const targetRef = useRef<{ x: number; y: number } | null>(null);
   const frameRef = useRef<number | null>(null);
+  const lastPerfLogRef = useRef(0);
   const panTo = useViewportStore((state) => state.panTo);
   const zoomBy = useViewportStore((state) => state.zoomBy);
   const resetCamera = useViewportStore((state) => state.resetCamera);
   const camera = useViewportStore((state) => state.camera);
+  const [xInput, setXInput] = useState(String(Math.round(camera.x)));
+  const [yInput, setYInput] = useState(String(Math.round(camera.y)));
+
+  useEffect(() => {
+    setXInput(String(Math.round(camera.x)));
+    setYInput(String(Math.round(camera.y)));
+  }, [camera.x, camera.y]);
+
+  const commitPan = () => {
+    const nextX = Number(xInput);
+    const nextY = Number(yInput);
+    if (Number.isFinite(nextX) && Number.isFinite(nextY)) {
+      panTo(nextX, nextY);
+    }
+  };
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -209,7 +234,26 @@ const Minimap = () => {
       if (!context) {
         return;
       }
-      drawMinimap(context, wrapper.clientWidth, wrapper.clientHeight);
+      const start = performance.now();
+      const { blocksDrawn, pixelsDrawn, zoom } = drawMinimap(
+        context,
+        wrapper.clientWidth,
+        wrapper.clientHeight
+      );
+      const end = performance.now();
+      const duration = end - start;
+      if (duration > 50 && end - lastPerfLogRef.current > 500) {
+        lastPerfLogRef.current = end;
+        window.debugApi?.logPerf(
+          [
+            'minimap:render',
+            `ms=${duration.toFixed(2)}`,
+            `zoom=${zoom.toFixed(2)}`,
+            `blocks=${blocksDrawn}`,
+            `pixels=${pixelsDrawn}`,
+          ].join(' ')
+        );
+      }
     };
 
     render();
@@ -312,8 +356,34 @@ const Minimap = () => {
         <button type="button" onClick={resetCamera}>Home</button>
       </div>
       <div className="minimap__readout">
-        <span>X: {Math.round(camera.x)}</span>
-        <span>Y: {Math.round(camera.y)}</span>
+        <label>
+          X:
+          <input
+            type="number"
+            value={xInput}
+            onChange={(event) => setXInput(event.target.value)}
+            onBlur={commitPan}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                commitPan();
+              }
+            }}
+          />
+        </label>
+        <label>
+          Y:
+          <input
+            type="number"
+            value={yInput}
+            onChange={(event) => setYInput(event.target.value)}
+            onBlur={commitPan}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                commitPan();
+              }
+            }}
+          />
+        </label>
         <span>Zoom: {camera.zoom.toFixed(2)}</span>
       </div>
     </div>

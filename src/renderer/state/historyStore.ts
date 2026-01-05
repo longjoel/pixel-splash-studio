@@ -64,7 +64,7 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       pixelStore.setPixel(change.x, change.y, change.next);
     }
     set((storeState) => ({
-      undoStack: [...storeState.undoStack, batch],
+      undoStack: [...storeState.undoStack, batch].slice(-8),
       redoStack: storeState.redoStack.slice(0, -1),
     }));
   },

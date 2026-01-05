@@ -4,6 +4,7 @@ Canvas
  - infinite along the x axis in both positive and negitive
  - infinite along the y axis both positive and negitive
  - canvas render is always the bottom layer, with tools/windows/UI floating above it
+ - pixel rendering snaps to grid cells (pen draws continuous line segments between points)
  - pixels are written to the canvas as batches
  - these batches will be stored to handle undo / redo
  - pixels (x, y, color) are indexed against a Palette
@@ -81,8 +82,12 @@ Minimap [first tab]
  - anchored to the lower right of the screen
  - shows axis lines for x=0 and y=0
  - shows readout for camera x, camera y, and zoom
+ - camera x/y are editable inputs (enter/blur to warp)
  - scales to the full drawing bounds, with a minimum display size of 512 x 512 world units
  - viewport rectangle must always remain inside the minimap bounds
+ - panning behaves like an on-screen joystick (smoothed movement)
+ - minimap scale matches viewport world scale (uses the same grid cell units as the canvas)
+ - minimap rendering samples pixels more aggressively as zoom decreases
 
 Paste preview [second tab]
  - visible when there is something in the clipboard
@@ -92,6 +97,22 @@ UI layout
  - tools + tool options anchored at the top
  - palette bar anchored bottom center (full-width dock)
  - minimap anchored lower right
+ - header bar removed; file operations live in app menu/title bar
+ - help menu shows shortcut map in an in-app modal
+ - drawing tools are disabled below 0.6 zoom with a disabled cursor
+ - options menu includes a performance logging toggle
+
+File menu and persistence
+ - New/Open/Save/Save As live in the app menu (no header buttons)
+ - project file extension is .splash
+ - undo/redo history is persisted in project files, capped to last 8 actions
+
+Performance work log
+ - project saves are written in a worker thread to keep UI responsive
+ - pen stroke commits batch pixel writes (single version bump)
+ - viewport caches block canvases and refreshes only dirty blocks
+ - minimap downsampling increases as zoom decreases
+ - perf logging writes to OS temp file on pen end and slow renders, toggleable in Options
 
  
 Drawing Tools
@@ -112,7 +133,7 @@ Drawing Tools
  - restricted to the viewport and selection layer
 - Rectangle
  - draws a rectangle
- - can be an outline, or filled, or outlined filled
+ - can be filled, outlined, or primary outline with secondary fill
  - on hover: do nothing
  - on begin use: start tracking the first corner of the rectangle at cursor coordinates
  - on use tool: track the current cursor coordinates, write to the preview buffer.

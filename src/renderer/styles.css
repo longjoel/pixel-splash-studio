@@ -159,7 +159,7 @@ body {
 
 .app__minimap {
   position: absolute;
-  bottom: calc(var(--palette-bar-height) + 16px);
+  bottom: 16px;
   right: 16px;
   width: 260px;
 }
@@ -177,6 +177,54 @@ body {
   background: rgba(255, 255, 255, 0.06);
   border-radius: 10px;
   margin-bottom: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.panel__group {
+  display: grid;
+  gap: 8px;
+}
+
+.panel__label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.panel__row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.panel__radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.panel__radio input {
+  cursor: pointer;
+}
+
+.panel__item[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel__item[data-active='true'] {
+  border-color: rgba(245, 197, 66, 0.8);
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.2);
 }
 
 .minimap {
@@ -227,11 +275,27 @@ body {
   text-align: center;
 }
 
-.minimap__readout span {
+.minimap__readout span,
+.minimap__readout label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 6px 0;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.minimap__readout input {
+  width: 70px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  text-align: center;
+  font: inherit;
+  outline: none;
 }
 @media (max-width: 960px) {
   .app__toolbar {
@@ -259,11 +323,11 @@ body {
 
 .palette-bar__swatches {
   display: grid;
+  grid-template-rows: repeat(4, 16px);
   grid-auto-flow: column;
   grid-auto-columns: 16px;
-  grid-template-rows: repeat(2, 16px);
   gap: 4px;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .palette-bar__swatch {
