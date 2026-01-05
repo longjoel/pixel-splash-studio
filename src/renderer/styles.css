@@ -1,0 +1,337 @@
+:root {
+  color-scheme: light;
+  font-family: "Segoe UI", "Helvetica Neue", sans-serif;
+  background: #0f1115;
+  color: #f5f5f5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: radial-gradient(circle at 20% 20%, #1b1f2a, #0b0d11 55%);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  --palette-bar-height: 96px;
+}
+
+.app__canvas-layer,
+.app__ui-layer {
+  position: absolute;
+  inset: 0;
+}
+
+.app__canvas-layer {
+  z-index: 0;
+}
+
+.app__ui-layer {
+  z-index: 2;
+  pointer-events: none;
+}
+
+
+.modal {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  display: grid;
+  place-items: center;
+  pointer-events: auto;
+}
+
+.modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(7, 9, 12, 0.7);
+  backdrop-filter: blur(4px);
+}
+
+.modal__content {
+  position: relative;
+  z-index: 1;
+  width: min(480px, 90vw);
+  background: rgba(20, 24, 36, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal__header h2 {
+  margin: 0;
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.modal__header button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 6px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.modal__header button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.modal__body {
+  display: grid;
+  gap: 10px;
+}
+
+.modal__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+}
+
+.viewport {
+  width: 100%;
+  height: 100%;
+  background: #0e1118;
+  position: relative;
+  pointer-events: auto;
+}
+
+.viewport canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.panel {
+  border-radius: 16px;
+  background: rgba(20, 24, 36, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  pointer-events: auto;
+}
+
+.app__toolbar {
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.app__palette {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  border-radius: 0;
+  min-height: var(--palette-bar-height);
+  background: rgba(12, 14, 18, 0.96);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.app__minimap {
+  position: absolute;
+  bottom: calc(var(--palette-bar-height) + 16px);
+  right: 16px;
+  width: 260px;
+}
+
+.panel__section h2 {
+  margin: 0 0 12px;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.panel__item {
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.minimap {
+  display: grid;
+  gap: 12px;
+}
+
+.minimap__canvas {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  background: #0e1118;
+}
+
+.minimap__canvas canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.minimap__controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.minimap__controls button {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 8px 0;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.minimap__controls button:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.minimap__readout {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  text-align: center;
+}
+
+.minimap__readout span {
+  padding: 6px 0;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+@media (max-width: 960px) {
+  .app__toolbar {
+    top: 12px;
+    left: 12px;
+    right: 12px;
+  }
+
+  .app__palette {
+    min-height: 88px;
+  }
+
+  .app__minimap {
+    right: 12px;
+    width: 220px;
+  }
+}
+
+.palette-bar {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+}
+
+.palette-bar__swatches {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 16px;
+  grid-template-rows: repeat(2, 16px);
+  gap: 4px;
+  overflow: hidden;
+}
+
+.palette-bar__swatch {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid rgba(0, 0, 0, 0.4);
+  cursor: pointer;
+}
+
+.palette-bar__swatch--empty {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.35);
+  position: relative;
+}
+
+.palette-bar__swatch--empty::before,
+.palette-bar__swatch--empty::after {
+  content: '';
+  position: absolute;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.palette-bar__swatch--empty::before {
+  width: 2px;
+  height: 8px;
+  top: 4px;
+  left: 7px;
+}
+
+.palette-bar__swatch--empty::after {
+  width: 8px;
+  height: 2px;
+  top: 7px;
+  left: 4px;
+}
+
+.palette-bar__swatch[data-primary='true'] {
+  outline: 2px solid rgba(255, 255, 255, 0.9);
+  outline-offset: 1px;
+}
+
+.palette-bar__swatch[data-secondary='true'] {
+  outline: 2px solid rgba(245, 197, 66, 0.9);
+  outline-offset: 1px;
+}
+
+.palette-bar__colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 120px));
+  gap: 12px;
+  justify-content: end;
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.palette-bar__primary,
+.palette-bar__secondary {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+}
+
+.palette-bar__chip {
+  width: 32px;
+  height: 32px;
+  border: 2px solid rgba(255, 255, 255, 0.8);
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4);
+}

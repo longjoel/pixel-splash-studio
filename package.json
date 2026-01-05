@@ -1,0 +1,54 @@
+{
+  "name": "pixel-splash-studio",
+  "version": "0.1.0",
+  "description": "Pixel Splash Studio Electron app",
+  "main": "dist-electron/main.js",
+  "type": "commonjs",
+  "scripts": {
+    "dev": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 concurrently -k \"tsc -p electron -w\" \"vite\" \"wait-on http://localhost:5173 && electron .\"",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p electron",
+    "build": "npm run build:main && npm run build:renderer",
+    "start": "electron .",
+    "package": "npm run build && electron-builder",
+    "test": "vitest",
+    "test:watch": "vitest --watch",
+    "test:e2e": "npm run build:main && cross-env VITE_DEV_SERVER_URL=http://localhost:5173 concurrently -k \"vite\" \"wait-on http://localhost:5173 && playwright test\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.2",
+    "@playwright/test": "^1.46.0",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "cross-env": "^7.0.3",
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3",
+    "pngjs": "^7.0.0",
+    "playwright": "^1.46.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.0",
+    "vitest": "^1.6.0",
+    "wait-on": "^7.2.0"
+  },
+  "dependencies": {
+    "immer": "^10.0.4",
+    "nanoid": "^5.0.7",
+    "jszip": "^3.10.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zod": "^3.23.8",
+    "zustand": "^4.5.2"
+  },
+  "build": {
+    "appId": "studio.pixelsplash",
+    "files": [
+      "dist/**",
+      "dist-electron/**"
+    ],
+    "directories": {
+      "buildResources": "build"
+    }
+  }
+}
