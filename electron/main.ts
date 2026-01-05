@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions } from 'electron';
+import type { MenuItem } from 'electron';
 import { join } from 'path';
 import { appendFile, readFile } from 'fs/promises';
 import { tmpdir } from 'os';
