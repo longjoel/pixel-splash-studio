@@ -141,7 +141,7 @@ Drawing Tools
  - restricted to the viewport and selection layer
 - Oval
  - draws an oval
- - can be an outline, or filled, or outlined filled
+ - can be filled, outlined, or primary outline with secondary fill
  - on hover: do nothing
  - on begin use: start tracking the first corner of the oval at cursor coordinates
  - on use tool: track the current cursor coordinates, write to the preview buffer.

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type ToolId = 'pen' | 'line' | 'rectangle';
+export type ToolId = 'pen' | 'line' | 'rectangle' | 'oval';
 
 type ToolState = {
   activeTool: ToolId;

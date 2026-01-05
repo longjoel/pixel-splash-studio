@@ -8,6 +8,7 @@ import { useProjectStore, getProjectTitle } from './state/projectStore';
 import { useToolStore } from './state/toolStore';
 import { useBrushStore } from './state/brushStore';
 import { useRectangleStore } from './state/rectangleStore';
+import { useOvalStore } from './state/ovalStore';
 
 const App = () => {
   const undo = useHistoryStore((state) => state.undo);
@@ -21,6 +22,8 @@ const App = () => {
   const brushShape = useBrushStore((state) => state.shape);
   const rectangleMode = useRectangleStore((state) => state.mode);
   const setRectangleMode = useRectangleStore((state) => state.setMode);
+  const ovalMode = useOvalStore((state) => state.mode);
+  const setOvalMode = useOvalStore((state) => state.setMode);
   const setBrushSize = useBrushStore((state) => state.setSize);
   const setBrushShape = useBrushStore((state) => state.setShape);
 
@@ -157,6 +160,14 @@ const App = () => {
             >
               Rectangle
             </button>
+            <button
+              type="button"
+              className="panel__item"
+              data-active={activeTool === 'oval'}
+              onClick={() => setActiveTool('oval')}
+            >
+              Oval
+            </button>
           </div>
           <div className="panel__section">
             <h2>Options</h2>
@@ -233,6 +244,42 @@ const App = () => {
                       value="outline-fill"
                       checked={rectangleMode === 'outline-fill'}
                       onChange={() => setRectangleMode('outline-fill')}
+                    />
+                    Outline + Fill
+                  </label>
+                </div>
+              </div>
+            ) : activeTool === 'oval' ? (
+              <div className="panel__group">
+                <span className="panel__label">Mode</span>
+                <div className="panel__row">
+                  <label className="panel__radio">
+                    <input
+                      type="radio"
+                      name="oval-mode"
+                      value="filled"
+                      checked={ovalMode === 'filled'}
+                      onChange={() => setOvalMode('filled')}
+                    />
+                    Filled
+                  </label>
+                  <label className="panel__radio">
+                    <input
+                      type="radio"
+                      name="oval-mode"
+                      value="outlined"
+                      checked={ovalMode === 'outlined'}
+                      onChange={() => setOvalMode('outlined')}
+                    />
+                    Outlined
+                  </label>
+                  <label className="panel__radio">
+                    <input
+                      type="radio"
+                      name="oval-mode"
+                      value="outline-fill"
+                      checked={ovalMode === 'outline-fill'}
+                      onChange={() => setOvalMode('outline-fill')}
                     />
                     Outline + Fill
                   </label>

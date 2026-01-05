@@ -9,6 +9,7 @@ import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { LineTool } from '@/tools/lineTool';
 import { RectangleTool } from '@/tools/rectangleTool';
+import { OvalTool } from '@/tools/ovalTool';
 import { useToolStore } from '@/state/toolStore';
 
 const GRID_COLOR = 'rgba(255, 255, 255, 0.08)';
@@ -203,6 +204,7 @@ const ViewportCanvas = () => {
       pen: new PenTool(),
       line: new LineTool(),
       rectangle: new RectangleTool(),
+      oval: new OvalTool(),
     };
     controllerRef.current.setTool(tools.pen);
 
