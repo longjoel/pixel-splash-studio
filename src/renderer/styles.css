@@ -134,13 +134,59 @@ body {
   pointer-events: auto;
 }
 
+.panel--collapsed {
+  gap: 0;
+  padding: 10px 12px;
+}
+
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.panel__header h2 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.panel__toggle {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.panel__toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .app__toolbar {
   position: absolute;
   top: 16px;
   left: 16px;
   right: 16px;
   display: grid;
+}
+
+.app__toolbar--collapsed {
+  right: auto;
+  width: max-content;
+}
+
+.toolbar__sections {
+  display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
 }
 
 .app__palette {
@@ -162,6 +208,10 @@ body {
   bottom: 16px;
   right: 16px;
   width: 324px;
+}
+
+.app__minimap--collapsed {
+  width: 180px;
 }
 
 .panel__section h2 {
@@ -333,6 +383,10 @@ body {
     right: 12px;
   }
 
+  .app__toolbar--collapsed {
+    right: auto;
+  }
+
   .app__palette {
     min-height: 88px;
   }
@@ -340,6 +394,10 @@ body {
   .app__minimap {
     right: 12px;
     width: 284px;
+  }
+
+  .app__minimap--collapsed {
+    width: 160px;
   }
 }
 

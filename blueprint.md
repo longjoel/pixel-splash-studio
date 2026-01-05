@@ -100,12 +100,13 @@ Paste preview [second tab]
 
 UI layout
  - tools + tool options anchored at the top
+ - toolbar can be collapsed to reclaim space
  - actions panel anchored at the top with context-sensitive actions
   - show undo/redo only when available
   - show clear selection only when a selection exists
   - show copy/cut selection when a selection exists
  - palette bar anchored bottom center (full-width dock)
- - minimap anchored lower right
+ - minimap anchored lower right and can be collapsed
  - header bar removed; file operations live in app menu/title bar
  - help menu shows shortcut map in an in-app modal
  - drawing tools are disabled below 0.6 zoom with a disabled cursor
