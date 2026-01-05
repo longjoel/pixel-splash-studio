@@ -710,3 +710,124 @@ test('large pen circle draw stays responsive after fill', async () => {
 
   await app.close();
 });
+
+test('selection rectangle adds and removes selection mask', async () => {
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      VITE_DEV_SERVER_URL: process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173',
+    },
+  });
+
+  const window = await app.firstWindow();
+  await window.setViewportSize({ width: 1200, height: 800 });
+  await window.waitForSelector('canvas');
+
+  await window.locator('.app__toolbar button:has-text("Select")').click();
+  await window.evaluate(async () => {
+    const module = await import('/src/renderer/state/toolStore');
+    module.useToolStore.getState().setActiveTool('selection-rect');
+  });
+  await window.evaluate(async () => {
+    const module = await import('/src/renderer/state/viewportStore');
+    module.useViewportStore.getState().setCamera({ x: 0, y: 0, zoom: 1 });
+  });
+
+  const canvas = window.locator('.viewport canvas');
+  const canvasBox = await canvas.boundingBox();
+  if (!canvasBox) {
+    throw new Error('Viewport canvas not found');
+  }
+
+  const toScreen = (gridX: number, gridY: number) => ({
+    x: canvasBox.x + gridX * GRID_PIXEL_SIZE + GRID_PIXEL_SIZE / 2,
+    y: canvasBox.y + gridY * GRID_PIXEL_SIZE + GRID_PIXEL_SIZE / 2,
+  });
+
+  await window.evaluate(async () => {
+    const module = await import('/src/renderer/state/selectionStore');
+    (window as typeof window & { __selectionStore?: typeof module.useSelectionStore }).__selectionStore =
+      module.useSelectionStore;
+  });
+
+  const storeCheck = await window.evaluate(() => {
+    const store = (window as typeof window & { __selectionStore?: { getState: () => unknown } }).__selectionStore;
+    if (!store) {
+      throw new Error('Selection store helper not available');
+    }
+    const state = store.getState() as {
+      setSelections: (pixels: Array<{ x: number; y: number; selected: boolean }>) => void;
+      isSelected: (x: number, y: number) => boolean;
+      clear: () => void;
+    };
+    state.clear();
+    state.setSelections([{ x: 2, y: 2, selected: true }]);
+    return state.isSelected(2, 2);
+  });
+  expect(storeCheck).toBe(true);
+
+  const start = toScreen(6, 6);
+  const end = toScreen(14, 12);
+  await window.mouse.move(start.x, start.y);
+  await window.mouse.down();
+  await window.mouse.move(end.x, end.y, { steps: 4 });
+  await window.mouse.up();
+
+  await window.waitForFunction(() => {
+    const store = (window as typeof window & { __selectionStore?: { getState: () => unknown } }).__selectionStore;
+    if (!store) {
+      return false;
+    }
+    const state = store.getState() as { isSelected: (x: number, y: number) => boolean };
+    return state.isSelected(10, 9);
+  });
+
+  const addResult = await window.evaluate(() => {
+    const store = (window as typeof window & { __selectionStore?: { getState: () => unknown } }).__selectionStore;
+    if (!store) {
+      throw new Error('Selection store helper not available');
+    }
+    const state = store.getState() as { isSelected: (x: number, y: number) => boolean };
+    return {
+      inside: state.isSelected(10, 9),
+      outside: state.isSelected(4, 4),
+    };
+  });
+
+  expect(addResult.inside).toBe(true);
+  expect(addResult.outside).toBe(false);
+
+  const removeStart = toScreen(8, 8);
+  const removeEnd = toScreen(12, 10);
+  await window.mouse.move(removeStart.x, removeStart.y);
+  await window.mouse.down({ button: 'right' });
+  await window.mouse.move(removeEnd.x, removeEnd.y, { steps: 3 });
+  await window.mouse.up({ button: 'right' });
+
+  await window.waitForFunction(() => {
+    const store = (window as typeof window & { __selectionStore?: { getState: () => unknown } }).__selectionStore;
+    if (!store) {
+      return false;
+    }
+    const state = store.getState() as { isSelected: (x: number, y: number) => boolean };
+    return !state.isSelected(10, 9) && state.isSelected(13, 11);
+  });
+
+  const removeResult = await window.evaluate(() => {
+    const store = (window as typeof window & { __selectionStore?: { getState: () => unknown } }).__selectionStore;
+    if (!store) {
+      throw new Error('Selection store helper not available');
+    }
+    const state = store.getState() as { isSelected: (x: number, y: number) => boolean };
+    return {
+      removed: state.isSelected(10, 9),
+      stillSelected: state.isSelected(13, 11),
+    };
+  });
+
+  expect(removeResult.removed).toBe(false);
+  expect(removeResult.stillSelected).toBe(true);
+
+  await app.close();
+});

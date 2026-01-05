@@ -95,7 +95,7 @@ app.whenReady().then(() => {
           label: 'Performance Logging',
           type: 'checkbox' as const,
           checked: perfLoggingEnabled.value,
-          click: (menuItem) => {
+          click: (menuItem: Electron.MenuItem) => {
             perfLoggingEnabled.value = menuItem.checked;
           },
         },

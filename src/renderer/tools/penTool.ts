@@ -5,6 +5,7 @@ import { usePreviewStore } from '@/state/previewStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useBrushStore } from '@/state/brushStore';
+import { useSelectionStore } from '@/state/selectionStore';
 
 const getBrushOffsets = (radius: number, shape: 'square' | 'round') => {
   const offsets: Array<[number, number]> = [];
@@ -23,16 +24,23 @@ const getBrushOffsets = (radius: number, shape: 'square' | 'round') => {
   return offsets;
 };
 
+const setPreviewPixel = (x: number, y: number, paletteIndex: number) => {
+  const selection = useSelectionStore.getState();
+  if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
+    return;
+  }
+  usePreviewStore.getState().setPixel(x, y, paletteIndex);
+};
+
 const applyBrush = (x: number, y: number, paletteIndex: number) => {
   const { size, shape } = useBrushStore.getState();
-  const preview = usePreviewStore.getState();
   if (shape === 'point') {
-    preview.setPixel(x, y, paletteIndex);
+    setPreviewPixel(x, y, paletteIndex);
     return;
   }
   const offsets = getBrushOffsets(size, shape);
   for (const [dx, dy] of offsets) {
-    preview.setPixel(x + dx, y + dy, paletteIndex);
+    setPreviewPixel(x + dx, y + dy, paletteIndex);
   }
 };
 

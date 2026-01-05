@@ -5,6 +5,15 @@ import { usePreviewStore } from '@/state/previewStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useOvalStore } from '@/state/ovalStore';
+import { useSelectionStore } from '@/state/selectionStore';
+
+const setPreviewPixel = (x: number, y: number, paletteIndex: number) => {
+  const selection = useSelectionStore.getState();
+  if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
+    return;
+  }
+  usePreviewStore.getState().setPixel(x, y, paletteIndex);
+};
 
 const drawLine = (
   x0: number,
@@ -13,7 +22,6 @@ const drawLine = (
   y1: number,
   paletteIndex: number
 ) => {
-  const preview = usePreviewStore.getState();
   let dx = Math.abs(x1 - x0);
   let dy = Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1;
@@ -21,7 +29,7 @@ const drawLine = (
   let err = dx - dy;
 
   while (true) {
-    preview.setPixel(x0, y0, paletteIndex);
+    setPreviewPixel(x0, y0, paletteIndex);
     if (x0 === x1 && y0 === y1) {
       break;
     }
@@ -42,7 +50,6 @@ const drawFilledOval = (
   end: { x: number; y: number },
   paletteIndex: number
 ) => {
-  const preview = usePreviewStore.getState();
   const minX = Math.min(start.x, end.x);
   const maxX = Math.max(start.x, end.x);
   const minY = Math.min(start.y, end.y);
@@ -53,7 +60,7 @@ const drawFilledOval = (
   const centerY = (minY + maxY) / 2;
 
   if (rx === 0 && ry === 0) {
-    preview.setPixel(minX, minY, paletteIndex);
+    setPreviewPixel(minX, minY, paletteIndex);
     return;
   }
   if (rx === 0) {
@@ -73,7 +80,7 @@ const drawFilledOval = (
       const dx = x - centerX;
       const value = (dx * dx) / rxSq + (dy * dy) / rySq;
       if (value <= 1) {
-        preview.setPixel(x, y, paletteIndex);
+        setPreviewPixel(x, y, paletteIndex);
       }
     }
   }
@@ -84,7 +91,6 @@ const drawOutlineOval = (
   end: { x: number; y: number },
   paletteIndex: number
 ) => {
-  const preview = usePreviewStore.getState();
   const minX = Math.min(start.x, end.x);
   const maxX = Math.max(start.x, end.x);
   const minY = Math.min(start.y, end.y);
@@ -95,7 +101,7 @@ const drawOutlineOval = (
   const centerY = (minY + maxY) / 2;
 
   if (rx === 0 && ry === 0) {
-    preview.setPixel(minX, minY, paletteIndex);
+    setPreviewPixel(minX, minY, paletteIndex);
     return;
   }
   if (rx === 0) {
@@ -119,8 +125,8 @@ const drawOutlineOval = (
     const yOffset = Math.sqrt(value) * ry;
     const yTop = Math.round(centerY - yOffset);
     const yBottom = Math.round(centerY + yOffset);
-    preview.setPixel(x, yTop, paletteIndex);
-    preview.setPixel(x, yBottom, paletteIndex);
+    setPreviewPixel(x, yTop, paletteIndex);
+    setPreviewPixel(x, yBottom, paletteIndex);
   }
 
   for (let y = minY; y <= maxY; y += 1) {
@@ -132,8 +138,8 @@ const drawOutlineOval = (
     const xOffset = Math.sqrt(value) * rx;
     const xLeft = Math.round(centerX - xOffset);
     const xRight = Math.round(centerX + xOffset);
-    preview.setPixel(xLeft, y, paletteIndex);
-    preview.setPixel(xRight, y, paletteIndex);
+    setPreviewPixel(xLeft, y, paletteIndex);
+    setPreviewPixel(xRight, y, paletteIndex);
   }
 };
 

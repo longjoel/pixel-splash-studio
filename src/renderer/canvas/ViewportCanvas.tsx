@@ -10,7 +10,9 @@ import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { LineTool } from '@/tools/lineTool';
 import { RectangleTool } from '@/tools/rectangleTool';
 import { OvalTool } from '@/tools/ovalTool';
+import { SelectionRectangleTool } from '@/tools/selectionRectangleTool';
 import { useToolStore } from '@/state/toolStore';
+import { useSelectionStore } from '@/state/selectionStore';
 
 const GRID_COLOR = 'rgba(255, 255, 255, 0.08)';
 const TILE_GRID_COLOR = 'rgba(255, 255, 255, 0.18)';
@@ -93,6 +95,10 @@ type BlockCacheEntry = {
   pixels: number;
 };
 
+type SelectionCacheEntry = {
+  canvas: HTMLCanvasElement;
+};
+
 const buildBlockCanvas = (block: Uint8Array, palette: string[]) => {
   const canvas = document.createElement('canvas');
   canvas.width = BLOCK_SIZE * PIXEL_SIZE;
@@ -167,10 +173,164 @@ const drawPixelLayer = (
   return { blocksDrawn, pixelsDrawn };
 };
 
-const drawPreviewLayer = (context: CanvasRenderingContext2D, palette: string[]) => {
+const buildSelectionCanvas = (block: Uint8Array) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = BLOCK_SIZE * PIXEL_SIZE;
+  canvas.height = BLOCK_SIZE * PIXEL_SIZE;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return null;
+  }
+  context.imageSmoothingEnabled = false;
+  context.fillStyle = '#ffffff';
+
+  let hasSelection = false;
+  for (let y = 0; y < BLOCK_SIZE; y += 1) {
+    for (let x = 0; x < BLOCK_SIZE; x += 1) {
+      if (block[y * BLOCK_SIZE + x] === 1) {
+        context.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+        hasSelection = true;
+      }
+    }
+  }
+
+  if (!hasSelection) {
+    return null;
+  }
+
+  return { canvas };
+};
+
+const drawSelectionLayer = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number,
+  cache: Map<string, SelectionCacheEntry>,
+  hasSelection: boolean
+) => {
+  if (!hasSelection) {
+    return;
+  }
+
+  context.save();
+  context.fillStyle = 'rgba(0, 0, 0, 0.25)';
+  context.fillRect(viewX, viewY, viewWidth, viewHeight);
+  context.globalCompositeOperation = 'destination-out';
+
+  for (const [key, entry] of cache.entries()) {
+    const [rowText, colText] = key.split(':');
+    const row = Number(rowText);
+    const col = Number(colText);
+    const blockLeft = col * BLOCK_SIZE * PIXEL_SIZE;
+    const blockTop = row * BLOCK_SIZE * PIXEL_SIZE;
+    const blockRight = blockLeft + BLOCK_SIZE * PIXEL_SIZE;
+    const blockBottom = blockTop + BLOCK_SIZE * PIXEL_SIZE;
+    if (
+      blockRight < viewX ||
+      blockBottom < viewY ||
+      blockLeft > viewX + viewWidth ||
+      blockTop > viewY + viewHeight
+    ) {
+      continue;
+    }
+    context.drawImage(entry.canvas, blockLeft, blockTop);
+  }
+
+  context.globalCompositeOperation = 'source-over';
+  context.globalAlpha = 0.18;
+  context.fillStyle = '#ffffff';
+  for (const [key, entry] of cache.entries()) {
+    const [rowText, colText] = key.split(':');
+    const row = Number(rowText);
+    const col = Number(colText);
+    const blockLeft = col * BLOCK_SIZE * PIXEL_SIZE;
+    const blockTop = row * BLOCK_SIZE * PIXEL_SIZE;
+    const blockRight = blockLeft + BLOCK_SIZE * PIXEL_SIZE;
+    const blockBottom = blockTop + BLOCK_SIZE * PIXEL_SIZE;
+    if (
+      blockRight < viewX ||
+      blockBottom < viewY ||
+      blockLeft > viewX + viewWidth ||
+      blockTop > viewY + viewHeight
+    ) {
+      continue;
+    }
+    context.drawImage(entry.canvas, blockLeft, blockTop);
+  }
+  context.restore();
+};
+
+const drawSelectionOutline = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number
+) => {
+  const selection = useSelectionStore.getState();
+  if (selection.selectedCount === 0) {
+    return;
+  }
+  context.save();
+  context.fillStyle = 'rgba(245, 197, 66, 0.85)';
+
+  const blocks = selection.store.getBlocks();
+  for (const { row, col, block } of blocks) {
+    const blockX = col * BLOCK_SIZE;
+    const blockY = row * BLOCK_SIZE;
+    const blockLeft = blockX * PIXEL_SIZE;
+    const blockTop = blockY * PIXEL_SIZE;
+    const blockRight = blockLeft + BLOCK_SIZE * PIXEL_SIZE;
+    const blockBottom = blockTop + BLOCK_SIZE * PIXEL_SIZE;
+    if (
+      blockRight < viewX ||
+      blockBottom < viewY ||
+      blockLeft > viewX + viewWidth ||
+      blockTop > viewY + viewHeight
+    ) {
+      continue;
+    }
+
+    for (let y = 0; y < BLOCK_SIZE; y += 1) {
+      for (let x = 0; x < BLOCK_SIZE; x += 1) {
+        if (block[y * BLOCK_SIZE + x] !== 1) {
+          continue;
+        }
+        const worldX = blockX + x;
+        const worldY = blockY + y;
+        const hasNeighbor =
+          selection.isSelected(worldX - 1, worldY) &&
+          selection.isSelected(worldX + 1, worldY) &&
+          selection.isSelected(worldX, worldY - 1) &&
+          selection.isSelected(worldX, worldY + 1);
+        if (hasNeighbor) {
+          continue;
+        }
+        if ((worldX + worldY) % 2 !== 0) {
+          continue;
+        }
+        context.fillRect(
+          worldX * PIXEL_SIZE,
+          worldY * PIXEL_SIZE,
+          PIXEL_SIZE,
+          PIXEL_SIZE
+        );
+      }
+    }
+  }
+  context.restore();
+};
+
+const drawPreviewLayer = (
+  context: CanvasRenderingContext2D,
+  palette: string[],
+  previewColor?: string
+) => {
   const preview = usePreviewStore.getState();
   for (const pixel of preview.entries()) {
-    context.fillStyle = palette[pixel.paletteIndex] ?? palette[0];
+    context.fillStyle = previewColor ?? palette[pixel.paletteIndex] ?? palette[0];
     context.fillRect(
       pixel.x * PIXEL_SIZE,
       pixel.y * PIXEL_SIZE,
@@ -186,6 +346,7 @@ const ViewportCanvas = () => {
   const frameRef = useRef<number | null>(null);
   const controllerRef = useRef<ToolController | null>(null);
   const blockCacheRef = useRef<Map<string, BlockCacheEntry>>(new Map());
+  const selectionCacheRef = useRef<Map<string, SelectionCacheEntry>>(new Map());
   const lastPerfLogRef = useRef(0);
   const setSize = useViewportStore((state) => state.setSize);
   const zoom = useViewportStore((state) => state.camera.zoom);
@@ -205,14 +366,19 @@ const ViewportCanvas = () => {
       line: new LineTool(),
       rectangle: new RectangleTool(),
       oval: new OvalTool(),
+      'selection-rect': new SelectionRectangleTool(),
     };
-    controllerRef.current.setTool(tools.pen);
+    const initialTool = tools[useToolStore.getState().activeTool] ?? tools.pen;
+    controllerRef.current.setTool(initialTool);
 
     const unsubscribeTool = useToolStore.subscribe((state) => {
-      controllerRef.current?.setTool(tools[state.activeTool]);
+      controllerRef.current?.setTool(tools[state.activeTool] ?? tools.pen);
     });
     const unsubscribePalette = usePaletteStore.subscribe(() => {
       blockCacheRef.current.clear();
+    });
+    const unsubscribeSelection = useSelectionStore.subscribe(() => {
+      selectionCacheRef.current.clear();
     });
 
     const render = () => {
@@ -262,6 +428,26 @@ const ViewportCanvas = () => {
         }
       }
 
+      const selectionState = useSelectionStore.getState();
+      const selectionDirty = selectionState.consumeDirtyBlocks();
+      if (selectionDirty.dirtyAll) {
+        selectionCacheRef.current.clear();
+      }
+      for (const dirty of selectionDirty.blocks) {
+        const key = `${dirty.row}:${dirty.col}`;
+        const block = selectionState.store.getBlock(dirty.row, dirty.col);
+        if (!block) {
+          selectionCacheRef.current.delete(key);
+          continue;
+        }
+        const rebuilt = buildSelectionCanvas(block);
+        if (rebuilt) {
+          selectionCacheRef.current.set(key, rebuilt);
+        } else {
+          selectionCacheRef.current.delete(key);
+        }
+      }
+
       const { blocksDrawn, pixelsDrawn } = drawPixelLayer(
         context,
         state.camera.x,
@@ -270,6 +456,22 @@ const ViewportCanvas = () => {
         viewHeight,
         palette,
         blockCacheRef.current
+      );
+      drawSelectionLayer(
+        context,
+        state.camera.x,
+        state.camera.y,
+        viewWidth,
+        viewHeight,
+        selectionCacheRef.current,
+        selectionState.selectedCount > 0
+      );
+      drawSelectionOutline(
+        context,
+        state.camera.x,
+        state.camera.y,
+        viewWidth,
+        viewHeight
       );
       drawGrid(
         context,
@@ -291,7 +493,10 @@ const ViewportCanvas = () => {
       );
 
       drawAxes(context, state.camera.x, state.camera.y, viewWidth, viewHeight);
-      drawPreviewLayer(context, palette);
+      const activeTool = useToolStore.getState().activeTool;
+      const previewColor =
+        activeTool === 'selection-rect' ? 'rgba(245, 197, 66, 0.35)' : undefined;
+      drawPreviewLayer(context, palette, previewColor);
       context.restore();
 
       const frameEnd = performance.now();
@@ -326,6 +531,7 @@ const ViewportCanvas = () => {
     return () => {
       unsubscribeTool();
       unsubscribePalette();
+      unsubscribeSelection();
       resizeObserver.disconnect();
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);

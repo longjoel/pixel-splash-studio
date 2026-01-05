@@ -168,6 +168,14 @@ const App = () => {
             >
               Oval
             </button>
+            <button
+              type="button"
+              className="panel__item"
+              data-active={activeTool === 'selection-rect'}
+              onClick={() => setActiveTool('selection-rect')}
+            >
+              Select
+            </button>
           </div>
           <div className="panel__section">
             <h2>Options</h2>

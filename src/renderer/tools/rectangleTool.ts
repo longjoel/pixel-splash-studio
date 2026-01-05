@@ -5,12 +5,14 @@ import { usePreviewStore } from '@/state/previewStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useRectangleStore } from '@/state/rectangleStore';
+import { useSelectionStore } from '@/state/selectionStore';
 
 const drawFilledRect = (
   start: { x: number; y: number },
   end: { x: number; y: number },
   paletteIndex: number
 ) => {
+  const selection = useSelectionStore.getState();
   const preview = usePreviewStore.getState();
   const minX = Math.min(start.x, end.x);
   const maxX = Math.max(start.x, end.x);
@@ -19,6 +21,9 @@ const drawFilledRect = (
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
+      if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
+        continue;
+      }
       preview.setPixel(x, y, paletteIndex);
     }
   }
@@ -29,6 +34,7 @@ const drawOutlineRect = (
   end: { x: number; y: number },
   paletteIndex: number
 ) => {
+  const selection = useSelectionStore.getState();
   const preview = usePreviewStore.getState();
   const minX = Math.min(start.x, end.x);
   const maxX = Math.max(start.x, end.x);
@@ -36,12 +42,20 @@ const drawOutlineRect = (
   const maxY = Math.max(start.y, end.y);
 
   for (let x = minX; x <= maxX; x += 1) {
-    preview.setPixel(x, minY, paletteIndex);
-    preview.setPixel(x, maxY, paletteIndex);
+    if (selection.selectedCount === 0 || selection.isSelected(x, minY)) {
+      preview.setPixel(x, minY, paletteIndex);
+    }
+    if (selection.selectedCount === 0 || selection.isSelected(x, maxY)) {
+      preview.setPixel(x, maxY, paletteIndex);
+    }
   }
   for (let y = minY + 1; y <= maxY - 1; y += 1) {
-    preview.setPixel(minX, y, paletteIndex);
-    preview.setPixel(maxX, y, paletteIndex);
+    if (selection.selectedCount === 0 || selection.isSelected(minX, y)) {
+      preview.setPixel(minX, y, paletteIndex);
+    }
+    if (selection.selectedCount === 0 || selection.isSelected(maxX, y)) {
+      preview.setPixel(maxX, y, paletteIndex);
+    }
   }
 };
 

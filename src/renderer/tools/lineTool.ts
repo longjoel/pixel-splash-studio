@@ -4,6 +4,15 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
+import { useSelectionStore } from '@/state/selectionStore';
+
+const setPreviewPixel = (x: number, y: number, paletteIndex: number) => {
+  const selection = useSelectionStore.getState();
+  if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
+    return;
+  }
+  usePreviewStore.getState().setPixel(x, y, paletteIndex);
+};
 
 const drawLine = (
   x0: number,
@@ -12,7 +21,6 @@ const drawLine = (
   y1: number,
   paletteIndex: number
 ) => {
-  const preview = usePreviewStore.getState();
   let dx = Math.abs(x1 - x0);
   let dy = Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1;
@@ -20,7 +28,7 @@ const drawLine = (
   let err = dx - dy;
 
   while (true) {
-    preview.setPixel(x0, y0, paletteIndex);
+    setPreviewPixel(x0, y0, paletteIndex);
     if (x0 === x1 && y0 === y1) {
       break;
     }
@@ -51,7 +59,7 @@ export class LineTool implements Tool {
     const palette = usePaletteStore.getState();
     const gridX = Math.floor(cursor.canvasX / PIXEL_SIZE);
     const gridY = Math.floor(cursor.canvasY / PIXEL_SIZE);
-    preview.setPixel(gridX, gridY, palette.primaryIndex);
+    setPreviewPixel(gridX, gridY, palette.primaryIndex);
   };
 
   onBegin = (cursor: CursorState) => {

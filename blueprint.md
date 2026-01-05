@@ -19,6 +19,7 @@ Canvas
     - you can use the selection mask to restrict the use of tools, populate the clipboard stack
     - selected pixels are slightly brighter, unselected pixels are slightly darker.
     - dashed outlines along the boundary between selected and unselected.
+    - current implementation: darken full view then brighten selected pixels
  - Preview layer (layer 3)
     - this layer is used by to the tools to show 'where' it's going to draw. For example, using a pen, places the pixel immediately. a line tool should not finalize
       the line location until the mouse button is released. This will show even over the selection mask.
@@ -147,6 +148,7 @@ Drawing Tools
  - on use tool: track the current cursor coordinates, write to the preview buffer.
  - on relase: write the oval from the preview buffer to the canvas, clear the preview buffer.
  - restricted to the viewport and selection layer
+ - drawing tools are restricted to selected pixels when a selection exists
 Editing Tools
  - actions
   - copy to buffer
@@ -164,6 +166,7 @@ Editing Tools
  - on release: write a rectangle to the selection area (start, end), clear the preview buffer
  - restricted to the viewport, does not effect the pixel buffer, writes to the preview buffer / selection buffer
  - options: snap to pixel, snap to tile (8x8, 16x16, 24x24, 32x32)
+ - current implementation: left click adds, ctrl subtracts, right click clears selection
 
 - Selection oval
  - for a given oval either add it or remove it from the selection layer
