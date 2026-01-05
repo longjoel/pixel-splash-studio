@@ -39,8 +39,8 @@ export const useViewportStore = create<ViewportState>((set, get) => ({
     }
 
     const zoomRatio = nextZoom / camera.zoom;
-    const nextX = anchor.x - (anchor.x - camera.x) * zoomRatio;
-    const nextY = anchor.y - (anchor.y - camera.y) * zoomRatio;
+    const nextX = anchor.x - (anchor.x - camera.x) / zoomRatio;
+    const nextY = anchor.y - (anchor.y - camera.y) / zoomRatio;
     set({ camera: { x: nextX, y: nextY, zoom: nextZoom } });
   },
   panTo: (x, y) =>

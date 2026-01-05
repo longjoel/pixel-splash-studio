@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useViewportStore } from '@/state/viewportStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
@@ -7,17 +7,21 @@ import { CursorState, ToolController } from '@/core/tools';
 import { PenTool } from '@/tools/penTool';
 import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
+import { ensureContrast, getComplement, hexToRgb, toRgba } from '@/core/colorUtils';
 import { LineTool } from '@/tools/lineTool';
 import { RectangleTool } from '@/tools/rectangleTool';
 import { OvalTool } from '@/tools/ovalTool';
 import { SelectionRectangleTool } from '@/tools/selectionRectangleTool';
+import { SelectionOvalTool } from '@/tools/selectionOvalTool';
+import { FillBucketTool } from '@/tools/fillBucketTool';
+import { StampTool } from '@/tools/stampTool';
+import { EyeDropperTool } from '@/tools/eyeDropperTool';
 import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
 
-const GRID_COLOR = 'rgba(255, 255, 255, 0.08)';
-const TILE_GRID_COLOR = 'rgba(255, 255, 255, 0.18)';
-const AXIS_COLOR = 'rgba(245, 197, 66, 0.5)';
 const MIN_TOOL_ZOOM = 0.6;
+const WHEEL_ZOOM_SCALE = 0.002;
+const WHEEL_ZOOM_MAX_STEP = 0.6;
 
 
 const drawGrid = (
@@ -56,9 +60,10 @@ const drawAxes = (
   viewX: number,
   viewY: number,
   viewWidth: number,
-  viewHeight: number
+  viewHeight: number,
+  color: string
 ) => {
-  context.strokeStyle = AXIS_COLOR;
+  context.strokeStyle = color;
   context.lineWidth = 2;
 
   context.beginPath();
@@ -350,6 +355,14 @@ const ViewportCanvas = () => {
   const lastPerfLogRef = useRef(0);
   const setSize = useViewportStore((state) => state.setSize);
   const zoom = useViewportStore((state) => state.camera.zoom);
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef<{
+    screenX: number;
+    screenY: number;
+    cameraX: number;
+    cameraY: number;
+    zoom: number;
+  } | null>(null);
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -366,7 +379,11 @@ const ViewportCanvas = () => {
       line: new LineTool(),
       rectangle: new RectangleTool(),
       oval: new OvalTool(),
+      'fill-bucket': new FillBucketTool(),
+      eyedropper: new EyeDropperTool(),
+      stamp: new StampTool(),
       'selection-rect': new SelectionRectangleTool(),
+      'selection-oval': new SelectionOvalTool(),
     };
     const initialTool = tools[useToolStore.getState().activeTool] ?? tools.pen;
     controllerRef.current.setTool(initialTool);
@@ -394,7 +411,15 @@ const ViewportCanvas = () => {
       }
 
       context.clearRect(0, 0, state.width, state.height);
-      context.fillStyle = '#141824';
+      const palette = usePaletteStore.getState().colors;
+      const bgHex = palette[0] ?? '#000000';
+      const bgRgb = hexToRgb(bgHex) ?? { r: 0, g: 0, b: 0 };
+      const accent = ensureContrast(bgRgb, getComplement(bgRgb));
+      const gridColor = toRgba(accent, 0.08);
+      const tileGridColor = toRgba(accent, 0.18);
+      const axisColor = toRgba(accent, 0.5);
+
+      context.fillStyle = bgHex;
       context.fillRect(0, 0, state.width, state.height);
 
       context.save();
@@ -410,7 +435,6 @@ const ViewportCanvas = () => {
       const viewWidth = state.width / state.camera.zoom;
       const viewHeight = state.height / state.camera.zoom;
 
-      const palette = usePaletteStore.getState().colors;
       const { dirtyAll, blocks: dirtyBlocks } = usePixelStore.getState().consumeDirtyBlocks();
       if (dirtyAll) {
         blockCacheRef.current.clear();
@@ -480,7 +504,7 @@ const ViewportCanvas = () => {
         viewWidth,
         viewHeight,
         PIXEL_SIZE,
-        GRID_COLOR
+        gridColor
       );
       drawGrid(
         context,
@@ -489,13 +513,15 @@ const ViewportCanvas = () => {
         viewWidth,
         viewHeight,
         PIXEL_SIZE * TILE_SIZE,
-        TILE_GRID_COLOR
+        tileGridColor
       );
 
-      drawAxes(context, state.camera.x, state.camera.y, viewWidth, viewHeight);
+      drawAxes(context, state.camera.x, state.camera.y, viewWidth, viewHeight, axisColor);
       const activeTool = useToolStore.getState().activeTool;
       const previewColor =
-        activeTool === 'selection-rect' ? 'rgba(245, 197, 66, 0.35)' : undefined;
+        activeTool === 'selection-rect' || activeTool === 'selection-oval'
+          ? 'rgba(245, 197, 66, 0.35)'
+          : undefined;
       drawPreviewLayer(context, palette, previewColor);
       context.restore();
 
@@ -557,7 +583,44 @@ const ViewportCanvas = () => {
     };
   };
 
+  const startPan = (event: React.PointerEvent) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const state = useViewportStore.getState();
+    panStartRef.current = {
+      screenX: event.clientX,
+      screenY: event.clientY,
+      cameraX: state.camera.x,
+      cameraY: state.camera.y,
+      zoom: state.camera.zoom,
+    };
+    setIsPanning(true);
+    usePreviewStore.getState().clear();
+  };
+
+  const updatePan = (event: React.PointerEvent) => {
+    const panStart = panStartRef.current;
+    if (!panStart) {
+      return;
+    }
+    const dx = event.clientX - panStart.screenX;
+    const dy = event.clientY - panStart.screenY;
+    const nextX = panStart.cameraX - dx / panStart.zoom;
+    const nextY = panStart.cameraY - dy / panStart.zoom;
+    useViewportStore.getState().panTo(nextX, nextY);
+  };
+
+  const stopPan = (event: React.PointerEvent) => {
+    panStartRef.current = null;
+    setIsPanning(false);
+    event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
   const handlePointerDown = (event: React.PointerEvent) => {
+    if (event.button === 1) {
+      startPan(event);
+      return;
+    }
     const state = useViewportStore.getState();
     if (state.camera.zoom < MIN_TOOL_ZOOM) {
       usePreviewStore.getState().clear();
@@ -569,6 +632,10 @@ const ViewportCanvas = () => {
   };
 
   const handlePointerMove = (event: React.PointerEvent) => {
+    if (panStartRef.current) {
+      updatePan(event);
+      return;
+    }
     const state = useViewportStore.getState();
     if (state.camera.zoom < MIN_TOOL_ZOOM) {
       usePreviewStore.getState().clear();
@@ -580,6 +647,10 @@ const ViewportCanvas = () => {
   };
 
   const handlePointerUp = (event: React.PointerEvent) => {
+    if (panStartRef.current) {
+      stopPan(event);
+      return;
+    }
     const state = useViewportStore.getState();
     if (state.camera.zoom < MIN_TOOL_ZOOM) {
       usePreviewStore.getState().clear();
@@ -592,6 +663,10 @@ const ViewportCanvas = () => {
   };
 
   const handlePointerLeave = (event: React.PointerEvent) => {
+    if (panStartRef.current) {
+      stopPan(event);
+      return;
+    }
     const state = useViewportStore.getState();
     if (state.camera.zoom < MIN_TOOL_ZOOM) {
       usePreviewStore.getState().clear();
@@ -599,6 +674,28 @@ const ViewportCanvas = () => {
     }
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('cancel', cursor);
+  };
+
+  const handleWheel = (event: React.WheelEvent) => {
+    if (event.deltaY === 0) {
+      return;
+    }
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const screenX = event.clientX - rect.left;
+    const screenY = event.clientY - rect.top;
+    const state = useViewportStore.getState();
+    const anchor = {
+      x: screenX / state.camera.zoom + state.camera.x,
+      y: screenY / state.camera.zoom + state.camera.y,
+    };
+    let zoomDelta = -event.deltaY * WHEEL_ZOOM_SCALE;
+    if (zoomDelta > WHEEL_ZOOM_MAX_STEP) {
+      zoomDelta = WHEEL_ZOOM_MAX_STEP;
+    } else if (zoomDelta < -WHEEL_ZOOM_MAX_STEP) {
+      zoomDelta = -WHEEL_ZOOM_MAX_STEP;
+    }
+    useViewportStore.getState().zoomBy(zoomDelta, anchor);
   };
 
   return (
@@ -609,7 +706,10 @@ const ViewportCanvas = () => {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
-        style={{ cursor: zoom < MIN_TOOL_ZOOM ? 'not-allowed' : 'crosshair' }}
+        onWheel={handleWheel}
+        style={{
+          cursor: isPanning ? 'grabbing' : zoom < MIN_TOOL_ZOOM ? 'not-allowed' : 'crosshair',
+        }}
       />
     </div>
   );

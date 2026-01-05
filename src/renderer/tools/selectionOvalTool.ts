@@ -6,6 +6,13 @@ import { useSelectionRectangleStore, SelectionSnap } from '@/state/selectionRect
 
 type GridPoint = { x: number; y: number };
 
+type PixelBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+};
+
 const toGridPoint = (cursor: CursorState): GridPoint => ({
   x: Math.floor(cursor.canvasX / PIXEL_SIZE),
   y: Math.floor(cursor.canvasY / PIXEL_SIZE),
@@ -24,7 +31,7 @@ const snapPoint = (point: GridPoint, snap: SelectionSnap): GridPoint => {
 const toSnappedPoint = (cursor: CursorState, snap: SelectionSnap) =>
   snapPoint(toGridPoint(cursor), snap);
 
-const toPixelBounds = (start: GridPoint, end: GridPoint, snap: SelectionSnap) => {
+const toPixelBounds = (start: GridPoint, end: GridPoint, snap: SelectionSnap): PixelBounds => {
   const minX = Math.min(start.x, end.x);
   const maxX = Math.max(start.x, end.x);
   const minY = Math.min(start.y, end.y);
@@ -42,25 +49,46 @@ const toPixelBounds = (start: GridPoint, end: GridPoint, snap: SelectionSnap) =>
   return { minX, maxX, minY, maxY };
 };
 
-const drawFilledRect = (
-  start: { x: number; y: number },
-  end: { x: number; y: number }
-) => {
-  const preview = usePreviewStore.getState();
-  const minX = Math.min(start.x, end.x);
-  const maxX = Math.max(start.x, end.x);
-  const minY = Math.min(start.y, end.y);
-  const maxY = Math.max(start.y, end.y);
+const forEachOvalPixel = (bounds: PixelBounds, handler: (x: number, y: number) => void) => {
+  const { minX, maxX, minY, maxY } = bounds;
+  const rx = (maxX - minX) / 2;
+  const ry = (maxY - minY) / 2;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
 
-  for (let y = minY; y <= maxY; y += 1) {
+  if (rx === 0 && ry === 0) {
+    handler(minX, minY);
+    return;
+  }
+  if (rx === 0) {
+    for (let y = minY; y <= maxY; y += 1) {
+      handler(minX, y);
+    }
+    return;
+  }
+  if (ry === 0) {
     for (let x = minX; x <= maxX; x += 1) {
-      preview.setPixel(x, y, 1);
+      handler(x, minY);
+    }
+    return;
+  }
+
+  const rxSq = rx * rx;
+  const rySq = ry * ry;
+  for (let y = minY; y <= maxY; y += 1) {
+    const dy = y - centerY;
+    for (let x = minX; x <= maxX; x += 1) {
+      const dx = x - centerX;
+      const value = (dx * dx) / rxSq + (dy * dy) / rySq;
+      if (value <= 1) {
+        handler(x, y);
+      }
     }
   }
 };
 
-export class SelectionRectangleTool implements Tool {
-  id = 'selection-rect';
+export class SelectionOvalTool implements Tool {
+  id = 'selection-oval';
   private start: GridPoint | null = null;
   private last: GridPoint | null = null;
   private isRemoving = false;
@@ -91,7 +119,7 @@ export class SelectionRectangleTool implements Tool {
     const end = toSnappedPoint(cursor, this.snap);
     this.last = end;
     const bounds = toPixelBounds(this.start, end, this.snap);
-    drawFilledRect({ x: bounds.minX, y: bounds.minY }, { x: bounds.maxX, y: bounds.maxY });
+    forEachOvalPixel(bounds, (x, y) => preview.setPixel(x, y, 1));
   };
 
   onEnd = (cursor?: CursorState) => {
@@ -100,17 +128,13 @@ export class SelectionRectangleTool implements Tool {
     }
     const preview = usePreviewStore.getState();
     const selection = useSelectionStore.getState();
-    const end = cursor
-      ? toSnappedPoint(cursor, this.snap)
-      : this.last ?? this.start;
+    const end = cursor ? toSnappedPoint(cursor, this.snap) : this.last ?? this.start;
     const bounds = toPixelBounds(this.start, end, this.snap);
     const selected = !this.isRemoving;
     const pixels: Array<{ x: number; y: number; selected: boolean }> = [];
-    for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
-      for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
-        pixels.push({ x, y, selected });
-      }
-    }
+    forEachOvalPixel(bounds, (x, y) => {
+      pixels.push({ x, y, selected });
+    });
     selection.setSelections(pixels);
     preview.clear();
     this.start = null;

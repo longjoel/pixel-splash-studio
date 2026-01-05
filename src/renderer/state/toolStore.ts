@@ -1,6 +1,15 @@
 import { create } from 'zustand';
 
-export type ToolId = 'pen' | 'line' | 'rectangle' | 'oval' | 'selection-rect';
+export type ToolId =
+  | 'pen'
+  | 'line'
+  | 'rectangle'
+  | 'oval'
+  | 'fill-bucket'
+  | 'eyedropper'
+  | 'stamp'
+  | 'selection-rect'
+  | 'selection-oval';
 
 type ToolState = {
   activeTool: ToolId;

@@ -4,9 +4,9 @@ import { usePixelStore } from '@/state/pixelStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE } from '@/core/grid';
+import { ensureContrast, getComplement, hexToRgb, mix, toRgb, toRgba } from '@/core/colorUtils';
 
 const MIN_WORLD_SIZE = 512 * PIXEL_SIZE;
-const AXIS_COLOR = '#f5c542';
 
 const getPixelBounds = () => {
   const pixelStore = usePixelStore.getState();
@@ -94,15 +94,22 @@ const drawMinimap = (
 ) => {
   const state = useViewportStore.getState();
   const palette = usePaletteStore.getState().colors;
+  const bgHex = palette[0] ?? '#000000';
+  const bgRgb = hexToRgb(bgHex) ?? { r: 0, g: 0, b: 0 };
+  const accent = ensureContrast(bgRgb, getComplement(bgRgb));
+  const surfaceColor = toRgb(mix(bgRgb, accent, 0.08));
+  const borderColor = toRgba(accent, 0.12);
+  const axisColor = toRgba(accent, 0.6);
+  const viewColor = toRgba(accent, 0.8);
   const { bounds, scale, offsetX, offsetY } = getWorldTransform(width, height);
   const worldWidth = bounds.maxX - bounds.minX;
   const worldHeight = bounds.maxY - bounds.minY;
 
   context.clearRect(0, 0, width, height);
-  context.fillStyle = '#0e1118';
+  context.fillStyle = bgHex;
   context.fillRect(0, 0, width, height);
 
-  context.fillStyle = '#141824';
+  context.fillStyle = surfaceColor;
   context.fillRect(
     offsetX + bounds.minX * scale,
     offsetY + bounds.minY * scale,
@@ -110,7 +117,7 @@ const drawMinimap = (
     worldHeight * scale
   );
 
-  context.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  context.strokeStyle = borderColor;
   context.strokeRect(
     offsetX + bounds.minX * scale,
     offsetY + bounds.minY * scale,
@@ -120,7 +127,7 @@ const drawMinimap = (
 
   const originX = offsetX;
   const originY = offsetY;
-  context.strokeStyle = AXIS_COLOR;
+  context.strokeStyle = axisColor;
   context.lineWidth = 2;
   context.beginPath();
   context.moveTo(originX + 0.5, offsetY + bounds.minY * scale);
@@ -170,7 +177,7 @@ const drawMinimap = (
     const viewW = viewWidth * scale;
     const viewH = viewHeight * scale;
 
-    context.strokeStyle = '#f5c542';
+    context.strokeStyle = viewColor;
     context.lineWidth = 2;
     context.strokeRect(viewX, viewY, viewW, viewH);
   }

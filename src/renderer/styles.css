@@ -161,7 +161,7 @@ body {
   position: absolute;
   bottom: 16px;
   right: 16px;
-  width: 260px;
+  width: 324px;
 }
 
 .panel__section h2 {
@@ -230,6 +230,35 @@ body {
 .minimap {
   display: grid;
   gap: 12px;
+}
+
+.minimap-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.minimap__tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.minimap__tab {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.75);
+  padding: 6px 0;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.minimap__tab[data-active='true'] {
+  border-color: rgba(245, 197, 66, 0.8);
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.2);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .minimap__canvas {
@@ -310,15 +339,13 @@ body {
 
   .app__minimap {
     right: 12px;
-    width: 220px;
+    width: 284px;
   }
 }
 
 .palette-bar {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 16px;
-  align-items: center;
+  justify-content: center;
 }
 
 .palette-bar__swatches {
@@ -375,27 +402,86 @@ body {
   outline-offset: 1px;
 }
 
-.palette-bar__colors {
+
+.palette-bar__menu {
+  position: fixed;
+  z-index: 10;
+  min-width: 160px;
+  padding: 10px;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 120px));
-  gap: 12px;
-  justify-content: end;
+  gap: 8px;
+  background: rgba(17, 20, 28, 0.98);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.palette-bar__menu-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.88);
+  border-radius: 8px;
+  padding: 6px 10px;
+  text-align: left;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.palette-bar__menu-item:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.palette-bar__menu-item[disabled] {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.palette-bar__menu-label {
+  font-size: 10px;
   text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.palette-bar__menu-options {
+  display: grid;
+  gap: 8px;
+}
+
+.palette-bar__menu-option {
+  display: grid;
+  gap: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 8px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.palette-bar__menu-option:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.palette-bar__menu-option-label {
   font-size: 11px;
-  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.7);
 }
 
-.palette-bar__primary,
-.palette-bar__secondary {
+.palette-bar__menu-preview {
   display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 16px;
   gap: 6px;
-  justify-items: start;
+  justify-content: start;
 }
 
-.palette-bar__chip {
-  width: 32px;
-  height: 32px;
-  border: 2px solid rgba(255, 255, 255, 0.8);
-  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.4);
+.palette-bar__menu-chip {
+  width: 16px;
+  height: 16px;
+  border-radius: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
 }

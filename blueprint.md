@@ -43,6 +43,8 @@ Viewport
  - acts as a natural bounds for tools.
  - acts as a workspace, caches clean tiles
  - caches canvas at that location.
+ - middle mouse drag pans the camera
+ - mouse wheel zooms toward the cursor position
  - ruler along the top and left
  - pixel grid color 
  - pixel grid vanish distance
@@ -63,10 +65,12 @@ Palette
  - if there isn't a copy of it locally, you will be given the option to import it from the file.
  - palette bar UI is docked to the bottom of the screen (full width), showing all colors at once
  - primary color = left click on a swatch
- - secondary color = right click on a swatch
+ - secondary color = ctrl + left click on a swatch
+ - right click opens a context menu: set color, remove color, add color, add swatch
+ - add swatch offers preset palettes (complementary, analogous, split complementary, triad, tetrad, tints + shades, pastel, muted, vibrant, monochrome ramp, hue sweep)
+ - set color and add color open a color picker dialog
  - primary/secondary indicators shown on the lower left of the palette bar (DOS Paint style)
  - palette shows current palette size, with an empty swatch at the end for quick add
- - ctrl + click on a swatch opens a color picker dialog
 
 Cursor
  - connects a tool to a viewport
@@ -96,6 +100,10 @@ Paste preview [second tab]
 
 UI layout
  - tools + tool options anchored at the top
+ - actions panel anchored at the top with context-sensitive actions
+  - show undo/redo only when available
+  - show clear selection only when a selection exists
+  - show copy/cut selection when a selection exists
  - palette bar anchored bottom center (full-width dock)
  - minimap anchored lower right
  - header bar removed; file operations live in app menu/title bar
@@ -149,6 +157,21 @@ Drawing Tools
  - on relase: write the oval from the preview buffer to the canvas, clear the preview buffer.
  - restricted to the viewport and selection layer
  - drawing tools are restricted to selected pixels when a selection exists
+- Fill Bucket
+ - flood fills a region with the primary color.
+ - flood fill can either fill based on source color, or fill based on selection area
+ - if it's the selection area, it's the entire selection area, regardless of if it's continuous or not.
+ - you are not allowed to flood fill in an unbounded area.
+ - on hover: do nothing,
+ - on begin use, determine the volume that needs to be filled, and fill that space.
+ - on use tool: do nothing
+ - on release: do nothing.
+ - restricted to the viewport, the selection area or pixels bound to the current selected shape of a matching color.
+- Eyedropper
+ - selects the palette index under the cursor
+ - left click sets the primary color, ctrl + left click or right click sets the secondary color
+ - on hover: clear the preview layer
+ - on begin use: read the pixel at cursor position and set the palette index
 Editing Tools
  - actions
   - copy to buffer
@@ -192,5 +215,6 @@ Editing Tools
  - there is a hard stamp option, overwriting the destination pixel with the source pixel, regardless if 's transparent
  - you can paste the contents rotated 90, 180, 270 degrees, flipped horizontally or vertically, and scaled 2x, 4x, 8x
  - can snap to pixel or tile (8x8, 16x16, 24x24, 32x32)
+ - optional drag mode stamps repeatedly while dragging to leave a trail
  - on hover: display a preview of the selection buffer as an image over the canvas, through the viewport.
   - cache the bitmap, and draw this until it's time to commit the pixels.
