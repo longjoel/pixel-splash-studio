@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions } from 'electron';
 import type { MenuItem } from 'electron';
 import { join } from 'path';
-import { appendFile, readFile } from 'fs/promises';
+import { appendFile, readFile, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
@@ -66,6 +66,14 @@ app.whenReady().then(() => {
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
             window?.webContents.send('menu:action', 'saveAs');
+          },
+        },
+        {
+          label: 'Export PNG...',
+          accelerator: 'CmdOrCtrl+Shift+E',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'exportPng');
           },
         },
       ],
@@ -342,6 +350,30 @@ ipcMain.handle('project:load', async (_event, existingPath?: string) => {
   const buffer = await readFile(filePaths[0]);
   const payload = await readProjectZip(buffer);
   return { path: filePaths[0], ...payload };
+});
+
+ipcMain.handle('export:png', async (_event, data: Uint8Array, suggestedName?: string) => {
+  const e2ePath = process.env.PIXEL_SPLASH_E2E_EXPORT_PATH;
+  if (e2ePath) {
+    await writeFile(e2ePath, Buffer.from(data));
+    return e2ePath;
+  }
+
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions = {
+    filters: [{ name: 'PNG Image', extensions: ['png'] }],
+    defaultPath: suggestedName ?? 'pixel-splash-selection.png',
+  };
+  const { filePath, canceled } = window
+    ? await dialog.showSaveDialog(window, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+
+  if (canceled || !filePath) {
+    return null;
+  }
+
+  await writeFile(filePath, Buffer.from(data));
+  return filePath;
 });
 
 ipcMain.handle('debug:perf-log', async (_event, message: string) => {

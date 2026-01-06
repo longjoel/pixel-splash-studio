@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('projectApi', {
     ipcRenderer.invoke('project:save', payload, existingPath),
   load: (existingPath?: string) =>
     ipcRenderer.invoke('project:load', existingPath),
+  exportPng: (data: Uint8Array, suggestedName?: string) =>
+    ipcRenderer.invoke('export:png', data, suggestedName),
 });
 
 contextBridge.exposeInMainWorld('menuApi', {

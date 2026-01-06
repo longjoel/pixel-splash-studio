@@ -13,6 +13,7 @@ import { useSelectionRectangleStore } from './state/selectionRectangleStore';
 import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
+import { exportSelectionAsPng } from './services/selectionExport';
 import { useStampStore } from './state/stampStore';
 import { usePixelStore } from './state/pixelStore';
 import { usePreviewStore } from './state/previewStore';
@@ -465,6 +466,9 @@ const App = () => {
           break;
         case 'saveAs':
           handleSaveAs();
+          break;
+        case 'exportPng':
+          void exportSelectionAsPng();
           break;
         case 'undo':
           undo();
@@ -1209,6 +1213,15 @@ const App = () => {
                     </button>
                   )}
                   {selectionCount > 0 && (
+                    <button
+                      type="button"
+                      className="panel__item"
+                      onClick={() => void exportSelectionAsPng()}
+                    >
+                      Export PNG
+                    </button>
+                  )}
+                  {selectionCount > 0 && (
                     <button type="button" className="panel__item" onClick={clearSelection}>
                       Clear Selection
                     </button>
@@ -1263,6 +1276,10 @@ const App = () => {
               <div className="modal__row">
                 <span>Save As</span>
                 <span>Ctrl+Shift+S</span>
+              </div>
+              <div className="modal__row">
+                <span>Export PNG</span>
+                <span>Ctrl+Shift+E</span>
               </div>
               <div className="modal__row">
                 <span>Undo</span>
