@@ -53,6 +53,12 @@ This runs:
 npm run build
 ```
 
+### Build (Docker/CI)
+
+```bash
+./scripts/docker-make.sh
+```
+
 ### Run (built)
 
 ```bash
@@ -112,4 +118,3 @@ Pixel Splash Studio is actively evolving; contributions are welcome.
 ## Roadmap (partial)
 
 See `blueprint.md` for the evolving design notes and planned features.
-

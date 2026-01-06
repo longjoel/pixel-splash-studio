@@ -1,0 +1,9 @@
+node_modules
+dist
+dist-electron
+out
+test-results
+.git
+.DS_Store
+npm-debug.log
+yarn-error.log
