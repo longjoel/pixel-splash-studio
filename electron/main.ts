@@ -7,6 +7,7 @@ import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
 
 const perfLoggingEnabled = { value: false };
+const memoryUsageEnabled = { value: false };
 
 const createWindow = () => {
   const win = new BrowserWindow({
@@ -93,6 +94,19 @@ app.whenReady().then(() => {
       label: 'Options',
       submenu: [
         {
+          label: 'Memory Usage',
+          type: 'checkbox' as const,
+          checked: memoryUsageEnabled.value,
+          click: (menuItem: Electron.MenuItem) => {
+            memoryUsageEnabled.value = menuItem.checked;
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send(
+              'menu:action',
+              menuItem.checked ? 'memory:on' : 'memory:off'
+            );
+          },
+        },
+        {
           label: 'Performance Logging',
           type: 'checkbox' as const,
           checked: perfLoggingEnabled.value,
@@ -153,8 +167,37 @@ export type ProjectPayload = {
       undoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
       redoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
     };
+    references?: Array<{
+      id: string;
+      filename: string;
+      type: string;
+      width: number;
+      height: number;
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+      flipX: boolean;
+      flipY: boolean;
+      opacity: number;
+    }>;
   };
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
+  referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
+};
+
+const EXTENSION_MIME_MAP: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  webp: 'image/webp',
+  gif: 'image/gif',
+  bmp: 'image/bmp',
+};
+
+const getMimeTypeFromFilename = (filename: string) => {
+  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
+  return EXTENSION_MIME_MAP[ext] ?? '';
 };
 
 const writeProjectToPath = (payload: ProjectPayload, filePath: string) =>
@@ -163,6 +206,13 @@ const writeProjectToPath = (payload: ProjectPayload, filePath: string) =>
     const seenBuffers = new Set<ArrayBuffer>();
     for (const block of payload.blocks) {
       const buffer = block.data.buffer;
+      if (buffer instanceof ArrayBuffer && !seenBuffers.has(buffer)) {
+        seenBuffers.add(buffer);
+        transferList.push(buffer);
+      }
+    }
+    for (const reference of payload.referenceFiles ?? []) {
+      const buffer = reference.data.buffer;
       if (buffer instanceof ArrayBuffer && !seenBuffers.has(buffer)) {
         seenBuffers.add(buffer);
         transferList.push(buffer);
@@ -227,7 +277,30 @@ const readProjectZip = async (buffer: Buffer) => {
       blocks.push({ row, col, data: dataBuffer });
     }
   }
-  return { data, blocks };
+  const referenceFiles: Array<{ filename: string; data: Uint8Array; type: string }> = [];
+  const referenceTypes = new Map<string, string>();
+  for (const reference of data.references ?? []) {
+    if (reference?.filename) {
+      referenceTypes.set(reference.filename, reference.type);
+    }
+  }
+  for (const filename of Object.keys(zip.files)) {
+    if (!filename.startsWith('references/') || filename.endsWith('/')) {
+      continue;
+    }
+    const basename = filename.slice('references/'.length);
+    if (!basename) {
+      continue;
+    }
+    const dataBuffer = await zip.file(filename)?.async('uint8array');
+    if (!dataBuffer) {
+      continue;
+    }
+    const type =
+      referenceTypes.get(basename) || getMimeTypeFromFilename(basename) || 'image/png';
+    referenceFiles.push({ filename: basename, data: dataBuffer, type });
+  }
+  return { data, blocks, referenceFiles };
 };
 
 ipcMain.handle('project:save', async (_event, payload: ProjectPayload, existingPath?: string) => {

@@ -174,19 +174,112 @@ body {
   position: absolute;
   top: 16px;
   left: 16px;
-  right: 16px;
+  right: auto;
   display: grid;
+  padding: 12px;
+  gap: 10px;
+  width: max-content;
+  max-width: calc(100vw - 32px);
 }
 
 .app__toolbar--collapsed {
-  right: auto;
   width: max-content;
 }
 
-.toolbar__sections {
+.app__toolbar.panel--collapsed {
+  gap: 0;
+  padding: 10px 12px;
+}
+
+.toolbar__tools {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 16px;
+  grid-auto-flow: column;
+  gap: 12px;
+  align-items: start;
+}
+
+.toolbar__tools-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  max-width: 160px;
+}
+
+.toolbar__tool-group {
+  display: grid;
+  gap: 6px;
+}
+
+.toolbar__tool-button {
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.toolbar__tool-icon {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.toolbar__body {
+  display: grid;
+  gap: 8px;
+}
+
+.app__toolbar .panel__section {
+  display: grid;
+  gap: 8px;
+}
+
+.app__toolbar .panel__section h2 {
+  margin-bottom: 0;
+  font-size: 12px;
+}
+
+.app__toolbar .panel__label {
+  font-size: 10px;
+}
+
+.app__toolbar .panel__item {
+  margin-bottom: 0;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.app__toolbar .toolbar__tool-button.panel__item {
+  padding: 0;
+}
+
+.app__toolbar .panel__select {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.app__toolbar .panel__range {
+  height: 16px;
+}
+
+.app__toolbar .panel__number {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.app__toolbar .panel__radio {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.app__toolbar .panel__group {
+  gap: 6px;
+}
+
+.app__toolbar .panel__row {
+  gap: 6px;
 }
 
 .app__palette {
@@ -237,6 +330,11 @@ body {
   gap: 8px;
 }
 
+.panel__stack {
+  display: grid;
+  gap: 6px;
+}
+
 .panel__label {
   font-size: 12px;
   color: rgba(255, 255, 255, 0.6);
@@ -248,6 +346,45 @@ body {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
   gap: 8px;
+}
+
+.panel__row--dual {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+}
+
+.panel__toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.panel__toggle input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.panel__toggle[data-active='true'] {
+  background: rgba(255, 255, 255, 0.16);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: rgba(255, 255, 255, 0.98);
 }
 
 .panel__radio {
@@ -267,7 +404,52 @@ body {
   cursor: pointer;
 }
 
+.panel__select {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.panel__range {
+  width: 100%;
+  accent-color: rgba(245, 197, 66, 0.85);
+  cursor: pointer;
+}
+
+.panel__number {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+}
+
+.panel__select:focus-visible {
+  outline: 2px solid rgba(245, 197, 66, 0.8);
+  outline-offset: 2px;
+}
+
+.panel__number:focus-visible,
+.panel__range:focus-visible {
+  outline: 2px solid rgba(245, 197, 66, 0.8);
+  outline-offset: 2px;
+}
+
 .panel__item[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.panel__toggle:disabled,
+.panel__number:disabled,
+.panel__range:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
@@ -380,11 +562,12 @@ body {
   .app__toolbar {
     top: 12px;
     left: 12px;
-    right: 12px;
+    right: auto;
+    max-width: calc(100vw - 24px);
   }
 
   .app__toolbar--collapsed {
-    right: auto;
+    left: 12px;
   }
 
   .app__palette {

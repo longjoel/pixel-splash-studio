@@ -5,7 +5,7 @@ import PaletteBar from './ui/PaletteBar';
 import { loadProject, newProject, saveProject } from './services/project';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
-import { useToolStore } from './state/toolStore';
+import { useToolStore, type ToolId } from './state/toolStore';
 import { useBrushStore } from './state/brushStore';
 import { useRectangleStore } from './state/rectangleStore';
 import { useOvalStore } from './state/ovalStore';
@@ -14,6 +14,178 @@ import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
 import { useStampStore } from './state/stampStore';
+import { usePixelStore } from './state/pixelStore';
+import { usePreviewStore } from './state/previewStore';
+import { useClipboardStore } from './state/clipboardStore';
+import { usePaletteStore } from './state/paletteStore';
+import { useViewportStore } from './state/viewportStore';
+import { addReferenceFromFile } from './services/references';
+import { useReferenceStore } from './state/referenceStore';
+import { useReferenceHandleStore } from './state/referenceHandleStore';
+
+const BYTES_PER_NUMBER = 8;
+const PIXEL_RECORD_BYTES = BYTES_PER_NUMBER * 3;
+const HISTORY_CHANGE_BYTES = BYTES_PER_NUMBER * 4;
+const MEMORY_SAMPLE_INTERVAL = 1000;
+const REFERENCE_ROTATION_MIN = -180;
+const REFERENCE_ROTATION_MAX = 180;
+const REFERENCE_SCALE_MIN = 0.25;
+const REFERENCE_SCALE_MAX = 5;
+const REFERENCE_OPACITY_MIN = 0;
+const REFERENCE_OPACITY_MAX = 1;
+
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const bytesFromJson = (value: unknown) => {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+  } catch {
+    return 0;
+  }
+};
+
+const stripFunctions = (value: Record<string, unknown>) =>
+  Object.fromEntries(Object.entries(value).filter(([, entry]) => typeof entry !== 'function'));
+
+const formatBytes = (bytes: number) => {
+  if (bytes < 1024) {
+    return `${bytes}B`;
+  }
+  const kb = bytes / 1024;
+  if (kb < 1024) {
+    return `${kb.toFixed(kb < 10 ? 1 : 0)}KB`;
+  }
+  const mb = kb / 1024;
+  if (mb < 1024) {
+    return `${mb.toFixed(mb < 10 ? 1 : 0)}MB`;
+  }
+  const gb = mb / 1024;
+  return `${gb.toFixed(1)}GB`;
+};
+
+const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
+  blocks.reduce((total, entry) => total + entry.block.byteLength, 0);
+
+const openImageFilePicker = () =>
+  new Promise<File | null>((resolve) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.style.position = 'fixed';
+    input.style.left = '-1000px';
+    input.style.opacity = '0';
+    input.setAttribute('aria-hidden', 'true');
+    let settled = false;
+    const cleanup = () => {
+      if (input.isConnected) {
+        input.remove();
+      }
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+    const finalize = (file: File | null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      cleanup();
+      resolve(file);
+    };
+    const handleWindowFocus = () => {
+      window.setTimeout(() => {
+        if (settled) {
+          return;
+        }
+        if (!input.files?.length) {
+          finalize(null);
+        }
+      }, 0);
+    };
+    input.addEventListener('change', () => {
+      const file = input.files?.[0] ?? null;
+      finalize(file);
+    });
+    window.addEventListener('focus', handleWindowFocus);
+    document.body.appendChild(input);
+    input.click();
+  });
+
+const isEditableTarget = (target: EventTarget | null) => {
+  if (!(target instanceof HTMLElement)) {
+    return false;
+  }
+  const tag = target.tagName.toLowerCase();
+  if (tag === 'input' || tag === 'textarea') {
+    return true;
+  }
+  return target.isContentEditable;
+};
+
+const buildMemorySummary = () => {
+  const pixelBytes = sumBlockBytes(usePixelStore.getState().store.getBlocks());
+  const selectionBytes = sumBlockBytes(useSelectionStore.getState().store.getBlocks());
+  const previewBytes = usePreviewStore.getState().pixels.size * PIXEL_RECORD_BYTES;
+  const clipboardBytes = useClipboardStore.getState().pixels.length * PIXEL_RECORD_BYTES;
+  const referenceBytes = useReferenceStore
+    .getState()
+    .items.reduce((total, reference) => total + reference.width * reference.height * 4, 0);
+  const history = useHistoryStore.getState();
+  let changeCount = 0;
+  for (const batch of history.undoStack) {
+    changeCount += batch.changes.length;
+  }
+  for (const batch of history.redoStack) {
+    changeCount += batch.changes.length;
+  }
+  const historyBytes = changeCount * HISTORY_CHANGE_BYTES;
+  const palette = usePaletteStore.getState();
+  const paletteBytes =
+    palette.colors.reduce((total, color) => total + color.length * 2, 0) +
+    BYTES_PER_NUMBER * 2;
+
+  const uiState = {
+    tool: stripFunctions(useToolStore.getState() as Record<string, unknown>),
+    brush: stripFunctions(useBrushStore.getState() as Record<string, unknown>),
+    rectangle: stripFunctions(useRectangleStore.getState() as Record<string, unknown>),
+    oval: stripFunctions(useOvalStore.getState() as Record<string, unknown>),
+    selection: stripFunctions(useSelectionRectangleStore.getState() as Record<string, unknown>),
+    fill: stripFunctions(useFillBucketStore.getState() as Record<string, unknown>),
+    stamp: stripFunctions(useStampStore.getState() as Record<string, unknown>),
+    viewport: stripFunctions(useViewportStore.getState() as Record<string, unknown>),
+    project: stripFunctions(useProjectStore.getState() as Record<string, unknown>),
+    referenceHandle: stripFunctions(useReferenceHandleStore.getState() as Record<string, unknown>),
+  };
+  const uiBytes = bytesFromJson(uiState);
+
+  const stats = [
+    { label: 'px', bytes: pixelBytes },
+    { label: 'sel', bytes: selectionBytes },
+    { label: 'prev', bytes: previewBytes },
+    { label: 'clip', bytes: clipboardBytes },
+    { label: 'ref', bytes: referenceBytes },
+    { label: 'hist', bytes: historyBytes },
+    { label: 'pal', bytes: paletteBytes },
+    { label: 'ui', bytes: uiBytes },
+  ];
+  const total = stats.reduce((sum, entry) => sum + entry.bytes, 0);
+  const parts = stats
+    .filter((entry) => entry.bytes > 0)
+    .map((entry) => `${entry.label} ${formatBytes(entry.bytes)}`);
+  return `Mem ${formatBytes(total)}${parts.length ? ` • ${parts.join(' • ')}` : ''}`;
+};
+
+const TOOL_LABELS: Record<ToolId, string> = {
+  pen: 'Pen',
+  line: 'Line',
+  rectangle: 'Rectangle',
+  oval: 'Oval',
+  'fill-bucket': 'Fill',
+  eyedropper: 'Eyedropper',
+  'reference-handle': 'Reference',
+  stamp: 'Stamp',
+  'selection-rect': 'Select',
+  'selection-oval': 'Select Oval',
+};
 
 const App = () => {
   const undo = useHistoryStore((state) => state.undo);
@@ -27,6 +199,8 @@ const App = () => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState(false);
+  const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
+  const [memoryLabel, setMemoryLabel] = useState('');
   const activeTool = useToolStore((state) => state.activeTool);
   const setActiveTool = useToolStore((state) => state.setActiveTool);
   const brushSize = useBrushStore((state) => state.size);
@@ -55,6 +229,14 @@ const App = () => {
   const setStampDrag = useStampStore((state) => state.setDrag);
   const setBrushSize = useBrushStore((state) => state.setSize);
   const setBrushShape = useBrushStore((state) => state.setShape);
+  const referenceSnap = useReferenceHandleStore((state) => state.snap);
+  const setReferenceSnap = useReferenceHandleStore((state) => state.setSnap);
+  const selectedReference = useReferenceStore((state) =>
+    state.selectedId ? state.items.find((item) => item.id === state.selectedId) ?? null : null
+  );
+  const updateReference = useReferenceStore((state) => state.updateReference);
+  const projectTitle = getProjectTitle();
+  const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -135,9 +317,97 @@ const App = () => {
     setShowShortcuts(true);
   };
 
+  const handleAddReference = async () => {
+    const file = await openImageFilePicker();
+    if (!file) {
+      return;
+    }
+    void addReferenceFromFile(file);
+  };
+
+  const updateSelectedReference = (patch: Parameters<typeof updateReference>[1]) => {
+    if (!selectedReference) {
+      return;
+    }
+    updateReference(selectedReference.id, patch);
+  };
+
+  const handleReferenceRotation = (value: number) => {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    updateSelectedReference({
+      rotation: clamp(value, REFERENCE_ROTATION_MIN, REFERENCE_ROTATION_MAX),
+    });
+  };
+
+  const handleReferenceScale = (value: number) => {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    updateSelectedReference({
+      scale: clamp(value, REFERENCE_SCALE_MIN, REFERENCE_SCALE_MAX),
+    });
+  };
+
+  const handleReferenceOpacity = (value: number) => {
+    if (!Number.isFinite(value)) {
+      return;
+    }
+    updateSelectedReference({
+      opacity: clamp(value, REFERENCE_OPACITY_MIN, REFERENCE_OPACITY_MAX),
+    });
+  };
+
+  const referenceRotation = selectedReference?.rotation ?? 0;
+  const referenceScale = selectedReference?.scale ?? 1;
+  const referenceOpacity = selectedReference?.opacity ?? 0.7;
+  const referenceFlipX = selectedReference?.flipX ?? false;
+  const referenceFlipY = selectedReference?.flipY ?? false;
+  const referenceDisabled = !selectedReference;
+
   useEffect(() => {
-    window.appApi.setTitle(getProjectTitle());
-  }, [dirty, projectPath]);
+    if (!memoryInfoEnabled) {
+      setMemoryLabel('');
+      return undefined;
+    }
+    const update = () => {
+      const nextLabel = buildMemorySummary();
+      setMemoryLabel((prev) => (prev === nextLabel ? prev : nextLabel));
+    };
+    update();
+    const intervalId = window.setInterval(update, MEMORY_SAMPLE_INTERVAL);
+    return () => window.clearInterval(intervalId);
+  }, [memoryInfoEnabled]);
+
+  useEffect(() => {
+    const title =
+      memoryInfoEnabled && memoryLabel
+        ? `${projectTitle} • ${memoryLabel}`
+        : projectTitle;
+    window.appApi.setTitle(title);
+  }, [projectTitle, memoryInfoEnabled, memoryLabel]);
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
+      const items = Array.from(event.clipboardData?.items ?? []);
+      const imageItem = items.find((item) => item.type.startsWith('image/'));
+      if (!imageItem) {
+        return;
+      }
+      const file = imageItem.getAsFile();
+      if (!file) {
+        return;
+      }
+      event.preventDefault();
+      void addReferenceFromFile(file);
+    };
+    window.addEventListener('paste', handlePaste);
+    return () => window.removeEventListener('paste', handlePaste);
+  }, []);
 
   useEffect(() => {
     const unsubscribe = window.menuApi.onAction((action) => {
@@ -160,6 +430,12 @@ const App = () => {
         case 'redo':
           redo();
           break;
+        case 'memory:on':
+          setMemoryInfoEnabled(true);
+          break;
+        case 'memory:off':
+          setMemoryInfoEnabled(false);
+          break;
         case 'shortcuts':
           handleShortcuts();
           break;
@@ -180,7 +456,7 @@ const App = () => {
           className={`app__toolbar panel${toolbarCollapsed ? ' app__toolbar--collapsed panel--collapsed' : ''}`}
         >
           <div className="panel__header">
-            <h2>Toolbar</h2>
+            <h2>{toolbarTitle}</h2>
             <button
               type="button"
               className="panel__toggle"
@@ -190,390 +466,604 @@ const App = () => {
             </button>
           </div>
           {!toolbarCollapsed && (
-            <div className="toolbar__sections">
-              <div className="panel__section">
-                <h2>Tools</h2>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'pen'}
-                  onClick={() => setActiveTool('pen')}
-                >
-                  Pen
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'line'}
-                  onClick={() => setActiveTool('line')}
-                >
-                  Line
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'rectangle'}
-                  onClick={() => setActiveTool('rectangle')}
-                >
-                  Rectangle
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'oval'}
-                  onClick={() => setActiveTool('oval')}
-                >
-                  Oval
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'fill-bucket'}
-                  onClick={() => setActiveTool('fill-bucket')}
-                >
-                  Fill
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'eyedropper'}
-                  onClick={() => setActiveTool('eyedropper')}
-                >
-                  Eyedropper
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'stamp'}
-                  onClick={() => setActiveTool('stamp')}
-                >
-                  Stamp
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'selection-rect'}
-                  onClick={() => setActiveTool('selection-rect')}
-                >
-                  Select
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  data-active={activeTool === 'selection-oval'}
-                  onClick={() => setActiveTool('selection-oval')}
-                >
-                  Select Oval
-                </button>
+            <>
+              <div className="toolbar__tools">
+                <div className="toolbar__tool-group">
+                  <span className="panel__label">Drawing</span>
+                  <div className="toolbar__tools-grid">
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'pen'}
+                      onClick={() => setActiveTool('pen')}
+                      title="Pen"
+                      aria-label="Pen"
+                    >
+                      <span className="toolbar__tool-icon">Pn</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'line'}
+                      onClick={() => setActiveTool('line')}
+                      title="Line"
+                      aria-label="Line"
+                    >
+                      <span className="toolbar__tool-icon">Ln</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'rectangle'}
+                      onClick={() => setActiveTool('rectangle')}
+                      title="Rectangle"
+                      aria-label="Rectangle"
+                    >
+                      <span className="toolbar__tool-icon">Rc</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'oval'}
+                      onClick={() => setActiveTool('oval')}
+                      title="Oval"
+                      aria-label="Oval"
+                    >
+                      <span className="toolbar__tool-icon">Ov</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'fill-bucket'}
+                      onClick={() => setActiveTool('fill-bucket')}
+                      title="Fill"
+                      aria-label="Fill"
+                    >
+                      <span className="toolbar__tool-icon">Fl</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="toolbar__tool-group">
+                  <span className="panel__label">Editing</span>
+                  <div className="toolbar__tools-grid">
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'reference-handle'}
+                      onClick={() => setActiveTool('reference-handle')}
+                      title="Reference Handle"
+                      aria-label="Reference Handle"
+                    >
+                      <span className="toolbar__tool-icon">Rf</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'eyedropper'}
+                      onClick={() => setActiveTool('eyedropper')}
+                      title="Eyedropper"
+                      aria-label="Eyedropper"
+                    >
+                      <span className="toolbar__tool-icon">Ed</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'stamp'}
+                      onClick={() => setActiveTool('stamp')}
+                      title="Stamp"
+                      aria-label="Stamp"
+                    >
+                      <span className="toolbar__tool-icon">St</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'selection-rect'}
+                      onClick={() => setActiveTool('selection-rect')}
+                      title="Selection Rectangle"
+                      aria-label="Selection Rectangle"
+                    >
+                      <span className="toolbar__tool-icon">Se</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'selection-oval'}
+                      onClick={() => setActiveTool('selection-oval')}
+                      title="Selection Oval"
+                      aria-label="Selection Oval"
+                    >
+                      <span className="toolbar__tool-icon">So</span>
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="panel__section">
-                <h2>Options</h2>
-                {activeTool === 'pen' ? (
-                  <>
-                    <div className="panel__group">
-                      <span className="panel__label">Size</span>
-                      <div className="panel__row">
-                        {[1, 4, 8].map((size) => (
-                          <button
-                            key={size}
-                            type="button"
-                            className="panel__item"
-                            data-active={brushSize === size}
-                            disabled={brushShape === 'point'}
-                            onClick={() => setBrushSize(size)}
-                          >
-                            {size}px
-                          </button>
-                        ))}
+              <div className="toolbar__body">
+                <div className="panel__section">
+                  {activeTool === 'pen' ? (
+                    <>
+                      <div className="panel__group">
+                        <span className="panel__label">Size</span>
+                        <div className="panel__row">
+                          {[1, 4, 8].map((size) => (
+                            <button
+                              key={size}
+                              type="button"
+                              className="panel__item"
+                              data-active={brushSize === size}
+                              disabled={brushShape === 'point'}
+                              onClick={() => setBrushSize(size)}
+                            >
+                              {size}px
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                    <div className="panel__group">
-                      <span className="panel__label">Brush</span>
-                      <div className="panel__row">
-                        {([
-                          { id: 'point', label: 'fine-point' },
-                          { id: 'square', label: 'rectangle' },
-                          { id: 'round', label: 'circle' },
-                        ] as const).map((shape) => (
-                          <button
-                            key={shape.id}
-                            type="button"
-                            className="panel__item"
-                            data-active={brushShape === shape.id}
-                            onClick={() => setBrushShape(shape.id)}
-                          >
-                            <span className="tool-label" aria-label={shape.label}>
-                              {shape.label}
-                            </span>
-                          </button>
-                        ))}
+                      <div className="panel__group">
+                        <span className="panel__label">Brush</span>
+                        <div className="panel__row">
+                          {([
+                            { id: 'point', label: 'fine-point' },
+                            { id: 'square', label: 'rectangle' },
+                            { id: 'round', label: 'circle' },
+                          ] as const).map((shape) => (
+                            <button
+                              key={shape.id}
+                              type="button"
+                              className="panel__item"
+                              data-active={brushShape === shape.id}
+                              onClick={() => setBrushShape(shape.id)}
+                            >
+                              <span className="tool-label" aria-label={shape.label}>
+                                {shape.label}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  </>
-                ) : activeTool === 'rectangle' ? (
-                  <div className="panel__group">
-                    <span className="panel__label">Mode</span>
-                    <div className="panel__row">
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="rectangle-mode"
-                          value="filled"
-                          checked={rectangleMode === 'filled'}
-                          onChange={() => setRectangleMode('filled')}
-                        />
-                        Filled
-                      </label>
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="rectangle-mode"
-                          value="outlined"
-                          checked={rectangleMode === 'outlined'}
-                          onChange={() => setRectangleMode('outlined')}
-                        />
-                        Outlined
-                      </label>
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="rectangle-mode"
-                          value="outline-fill"
-                          checked={rectangleMode === 'outline-fill'}
-                          onChange={() => setRectangleMode('outline-fill')}
-                        />
-                        Outline + Fill
-                      </label>
-                    </div>
-                  </div>
-                ) : activeTool === 'oval' ? (
-                  <div className="panel__group">
-                    <span className="panel__label">Mode</span>
-                    <div className="panel__row">
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="oval-mode"
-                          value="filled"
-                          checked={ovalMode === 'filled'}
-                          onChange={() => setOvalMode('filled')}
-                        />
-                        Filled
-                      </label>
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="oval-mode"
-                          value="outlined"
-                          checked={ovalMode === 'outlined'}
-                          onChange={() => setOvalMode('outlined')}
-                        />
-                        Outlined
-                      </label>
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="oval-mode"
-                          value="outline-fill"
-                          checked={ovalMode === 'outline-fill'}
-                          onChange={() => setOvalMode('outline-fill')}
-                        />
-                        Outline + Fill
-                      </label>
-                    </div>
-                  </div>
-                ) : activeTool === 'fill-bucket' ? (
-                  <div className="panel__group">
-                    <span className="panel__label">Mode</span>
-                    <div className="panel__row">
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="fill-mode"
-                          value="color"
-                          checked={fillMode === 'color'}
-                          onChange={() => setFillMode('color')}
-                        />
-                        Color
-                      </label>
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="fill-mode"
-                          value="selection"
-                          checked={fillMode === 'selection'}
-                          onChange={() => setFillMode('selection')}
-                        />
-                        Selection
-                      </label>
-                    </div>
-                  </div>
-                ) : activeTool === 'stamp' ? (
-                  <>
+                    </>
+                  ) : activeTool === 'rectangle' ? (
                     <div className="panel__group">
                       <span className="panel__label">Mode</span>
                       <div className="panel__row">
                         <label className="panel__radio">
                           <input
                             type="radio"
-                            name="stamp-mode"
-                            value="soft"
-                            checked={stampMode === 'soft'}
-                            onChange={() => setStampMode('soft')}
+                            name="rectangle-mode"
+                            value="filled"
+                            checked={rectangleMode === 'filled'}
+                            onChange={() => setRectangleMode('filled')}
                           />
-                          Soft
+                          Filled
                         </label>
                         <label className="panel__radio">
                           <input
                             type="radio"
-                            name="stamp-mode"
-                            value="hard"
-                            checked={stampMode === 'hard'}
-                            onChange={() => setStampMode('hard')}
+                            name="rectangle-mode"
+                            value="outlined"
+                            checked={rectangleMode === 'outlined'}
+                            onChange={() => setRectangleMode('outlined')}
                           />
-                          Hard
+                          Outlined
+                        </label>
+                        <label className="panel__radio">
+                          <input
+                            type="radio"
+                            name="rectangle-mode"
+                            value="outline-fill"
+                            checked={rectangleMode === 'outline-fill'}
+                            onChange={() => setRectangleMode('outline-fill')}
+                          />
+                          Outline + Fill
                         </label>
                       </div>
                     </div>
+                  ) : activeTool === 'oval' ? (
+                    <div className="panel__group">
+                      <span className="panel__label">Mode</span>
+                      <div className="panel__row">
+                        <label className="panel__radio">
+                          <input
+                            type="radio"
+                            name="oval-mode"
+                            value="filled"
+                            checked={ovalMode === 'filled'}
+                            onChange={() => setOvalMode('filled')}
+                          />
+                          Filled
+                        </label>
+                        <label className="panel__radio">
+                          <input
+                            type="radio"
+                            name="oval-mode"
+                            value="outlined"
+                            checked={ovalMode === 'outlined'}
+                            onChange={() => setOvalMode('outlined')}
+                          />
+                          Outlined
+                        </label>
+                        <label className="panel__radio">
+                          <input
+                            type="radio"
+                            name="oval-mode"
+                            value="outline-fill"
+                            checked={ovalMode === 'outline-fill'}
+                            onChange={() => setOvalMode('outline-fill')}
+                          />
+                          Outline + Fill
+                        </label>
+                      </div>
+                    </div>
+                  ) : activeTool === 'fill-bucket' ? (
+                    <div className="panel__group">
+                      <span className="panel__label">Mode</span>
+                      <div className="panel__row">
+                        <label className="panel__radio">
+                          <input
+                            type="radio"
+                            name="fill-mode"
+                            value="color"
+                            checked={fillMode === 'color'}
+                            onChange={() => setFillMode('color')}
+                          />
+                          Color
+                        </label>
+                        <label className="panel__radio">
+                          <input
+                            type="radio"
+                            name="fill-mode"
+                            value="selection"
+                            checked={fillMode === 'selection'}
+                            onChange={() => setFillMode('selection')}
+                          />
+                          Selection
+                        </label>
+                      </div>
+                    </div>
+                  ) : activeTool === 'stamp' ? (
+                    <>
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Mode</span>
+                          <div className="panel__toggle-group">
+                            <label className="panel__toggle" data-active={stampMode === 'soft'}>
+                              <input
+                                type="radio"
+                                name="stamp-mode"
+                                value="soft"
+                                checked={stampMode === 'soft'}
+                                onChange={() => setStampMode('soft')}
+                              />
+                              Soft
+                            </label>
+                            <label className="panel__toggle" data-active={stampMode === 'hard'}>
+                              <input
+                                type="radio"
+                                name="stamp-mode"
+                                value="hard"
+                                checked={stampMode === 'hard'}
+                                onChange={() => setStampMode('hard')}
+                              />
+                              Hard
+                            </label>
+                          </div>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Drag</span>
+                          <div className="panel__toggle-group">
+                            <label className="panel__toggle" data-active={!stampDrag}>
+                              <input
+                                type="radio"
+                                name="stamp-drag"
+                                value="off"
+                                checked={!stampDrag}
+                                onChange={() => setStampDrag(false)}
+                              />
+                              Off
+                            </label>
+                            <label className="panel__toggle" data-active={stampDrag}>
+                              <input
+                                type="radio"
+                                name="stamp-drag"
+                                value="on"
+                                checked={stampDrag}
+                                onChange={() => setStampDrag(true)}
+                              />
+                              On
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Snap</span>
+                          <div className="panel__toggle-group">
+                            <label className="panel__toggle" data-active={stampSnap === 'pixel'}>
+                              <input
+                                type="radio"
+                                name="stamp-snap"
+                                value="pixel"
+                                checked={stampSnap === 'pixel'}
+                                onChange={() => setStampSnap('pixel')}
+                              />
+                              Pixel
+                            </label>
+                            <label className="panel__toggle" data-active={stampSnap === 'tile'}>
+                              <input
+                                type="radio"
+                                name="stamp-snap"
+                                value="tile"
+                                checked={stampSnap === 'tile'}
+                                onChange={() => setStampSnap('tile')}
+                              />
+                              Tile
+                            </label>
+                          </div>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Flip</span>
+                          <div className="panel__toggle-group">
+                            <button
+                              type="button"
+                              className="panel__toggle"
+                              data-active={stampFlipX}
+                              onClick={() => setStampFlipX(!stampFlipX)}
+                            >
+                              Flip X
+                            </button>
+                            <button
+                              type="button"
+                              className="panel__toggle"
+                              data-active={stampFlipY}
+                              onClick={() => setStampFlipY(!stampFlipY)}
+                            >
+                              Flip Y
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Scale</span>
+                          <select
+                            className="panel__select"
+                            aria-label="Scale"
+                            value={stampScale}
+                            onChange={(event) =>
+                              setStampScale(Number(event.target.value) as 1 | 2 | 4 | 8)
+                            }
+                          >
+                            {[1, 2, 4, 8].map((scale) => (
+                              <option key={scale} value={scale}>
+                                {scale}x
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Rotate</span>
+                          <select
+                            className="panel__select"
+                            aria-label="Rotate"
+                            value={stampRotation}
+                            onChange={(event) =>
+                              setStampRotation(
+                                Number(event.target.value) as 0 | 90 | 180 | 270
+                              )
+                            }
+                          >
+                            {[0, 90, 180, 270].map((rotation) => (
+                              <option key={rotation} value={rotation}>
+                                {rotation}deg
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    </>
+                  ) : activeTool === 'reference-handle' ? (
+                    <div className="panel__group">
+                      {referenceDisabled && (
+                        <div className="panel__item" aria-disabled="true">
+                          Select a reference
+                        </div>
+                      )}
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Rotation</span>
+                          <div className="panel__stack">
+                            <input
+                              type="range"
+                              className="panel__range"
+                              aria-label="Rotation"
+                              min={REFERENCE_ROTATION_MIN}
+                              max={REFERENCE_ROTATION_MAX}
+                              step={1}
+                              value={referenceRotation}
+                              disabled={referenceDisabled}
+                              onChange={(event) =>
+                                handleReferenceRotation(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Rotation"
+                              min={REFERENCE_ROTATION_MIN}
+                              max={REFERENCE_ROTATION_MAX}
+                              step={1}
+                              value={referenceRotation}
+                              disabled={referenceDisabled}
+                              onChange={(event) =>
+                                handleReferenceRotation(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Scale</span>
+                          <div className="panel__stack">
+                            <input
+                              type="range"
+                              className="panel__range"
+                              aria-label="Scale"
+                              min={REFERENCE_SCALE_MIN}
+                              max={REFERENCE_SCALE_MAX}
+                              step={0.05}
+                              value={referenceScale}
+                              disabled={referenceDisabled}
+                              onChange={(event) =>
+                                handleReferenceScale(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Scale"
+                              min={REFERENCE_SCALE_MIN}
+                              max={REFERENCE_SCALE_MAX}
+                              step={0.05}
+                              value={referenceScale}
+                              disabled={referenceDisabled}
+                              onChange={(event) =>
+                                handleReferenceScale(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="panel__row">
+                        <div className="panel__group">
+                          <span className="panel__label">Opacity</span>
+                          <div className="panel__stack">
+                            <input
+                              type="range"
+                              className="panel__range"
+                              aria-label="Opacity"
+                              min={REFERENCE_OPACITY_MIN}
+                              max={REFERENCE_OPACITY_MAX}
+                              step={0.05}
+                              value={referenceOpacity}
+                              disabled={referenceDisabled}
+                              onChange={(event) =>
+                                handleReferenceOpacity(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Opacity"
+                              min={REFERENCE_OPACITY_MIN}
+                              max={REFERENCE_OPACITY_MAX}
+                              step={0.05}
+                              value={referenceOpacity}
+                              disabled={referenceDisabled}
+                              onChange={(event) =>
+                                handleReferenceOpacity(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Flip</span>
+                          <div className="panel__toggle-group">
+                            <button
+                              type="button"
+                              className="panel__toggle"
+                              data-active={referenceFlipX}
+                              disabled={referenceDisabled}
+                              onClick={() =>
+                                updateSelectedReference({ flipX: !referenceFlipX })
+                              }
+                            >
+                              Flip X
+                            </button>
+                            <button
+                              type="button"
+                              className="panel__toggle"
+                              data-active={referenceFlipY}
+                              disabled={referenceDisabled}
+                              onClick={() =>
+                                updateSelectedReference({ flipY: !referenceFlipY })
+                              }
+                            >
+                              Flip Y
+                            </button>
+                          </div>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Snap</span>
+                          <div className="panel__toggle-group">
+                            <label
+                              className="panel__toggle"
+                              data-active={referenceSnap === 'pixel'}
+                            >
+                              <input
+                                type="radio"
+                                name="reference-snap"
+                                value="pixel"
+                                checked={referenceSnap === 'pixel'}
+                                onChange={() => setReferenceSnap('pixel')}
+                              />
+                              Pixel
+                            </label>
+                            <label
+                              className="panel__toggle"
+                              data-active={referenceSnap === 'tile'}
+                            >
+                              <input
+                                type="radio"
+                                name="reference-snap"
+                                value="tile"
+                                checked={referenceSnap === 'tile'}
+                                onChange={() => setReferenceSnap('tile')}
+                              />
+                              Tile
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : activeTool === 'selection-rect' || activeTool === 'selection-oval' ? (
                     <div className="panel__group">
                       <span className="panel__label">Snap</span>
                       <div className="panel__row">
                         <label className="panel__radio">
                           <input
                             type="radio"
-                            name="stamp-snap"
+                            name="selection-snap"
                             value="pixel"
-                            checked={stampSnap === 'pixel'}
-                            onChange={() => setStampSnap('pixel')}
+                            checked={selectionSnap === 'pixel'}
+                            onChange={() => setSelectionSnap('pixel')}
                           />
                           Pixel
                         </label>
                         <label className="panel__radio">
                           <input
                             type="radio"
-                            name="stamp-snap"
+                            name="selection-snap"
                             value="tile"
-                            checked={stampSnap === 'tile'}
-                            onChange={() => setStampSnap('tile')}
+                            checked={selectionSnap === 'tile'}
+                            onChange={() => setSelectionSnap('tile')}
                           />
                           Tile
                         </label>
                       </div>
                     </div>
-                    <div className="panel__group">
-                      <span className="panel__label">Scale</span>
-                      <div className="panel__row">
-                        {[1, 2, 4, 8].map((scale) => (
-                          <button
-                            key={scale}
-                            type="button"
-                            className="panel__item"
-                            data-active={stampScale === scale}
-                            onClick={() => setStampScale(scale as 1 | 2 | 4 | 8)}
-                          >
-                            {scale}x
-                          </button>
-                        ))}
-                      </div>
+                  ) : (
+                    <div className="panel__item" aria-disabled="true">
+                      No options
                     </div>
-                    <div className="panel__group">
-                      <span className="panel__label">Rotate</span>
-                      <div className="panel__row">
-                        {[0, 90, 180, 270].map((rotation) => (
-                          <button
-                            key={rotation}
-                            type="button"
-                            className="panel__item"
-                            data-active={stampRotation === rotation}
-                            onClick={() => setStampRotation(rotation as 0 | 90 | 180 | 270)}
-                          >
-                            {rotation}deg
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="panel__group">
-                      <span className="panel__label">Flip</span>
-                      <div className="panel__row">
-                        <button
-                          type="button"
-                          className="panel__item"
-                          data-active={stampFlipX}
-                          onClick={() => setStampFlipX(!stampFlipX)}
-                        >
-                          Flip X
-                        </button>
-                        <button
-                          type="button"
-                          className="panel__item"
-                          data-active={stampFlipY}
-                          onClick={() => setStampFlipY(!stampFlipY)}
-                        >
-                          Flip Y
-                        </button>
-                      </div>
-                    </div>
-                    <div className="panel__group">
-                      <span className="panel__label">Drag</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="stamp-drag"
-                            value="off"
-                            checked={!stampDrag}
-                            onChange={() => setStampDrag(false)}
-                          />
-                          Off
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="stamp-drag"
-                            value="on"
-                            checked={stampDrag}
-                            onChange={() => setStampDrag(true)}
-                          />
-                          On
-                        </label>
-                      </div>
-                    </div>
-                  </>
-                ) : activeTool === 'selection-rect' || activeTool === 'selection-oval' ? (
-                  <div className="panel__group">
-                    <span className="panel__label">Snap</span>
-                    <div className="panel__row">
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="selection-snap"
-                          value="pixel"
-                          checked={selectionSnap === 'pixel'}
-                          onChange={() => setSelectionSnap('pixel')}
-                        />
-                        Pixel
-                      </label>
-                      <label className="panel__radio">
-                        <input
-                          type="radio"
-                          name="selection-snap"
-                          value="tile"
-                          checked={selectionSnap === 'tile'}
-                          onChange={() => setSelectionSnap('tile')}
-                        />
-                        Tile
-                      </label>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="panel__item" aria-disabled="true">
-                    No options
-                  </div>
-                )}
-              </div>
-              {(selectionCount > 0 || undoAvailable || redoAvailable) && (
+                  )}
+                </div>
                 <div className="panel__section">
-                  <h2>Actions</h2>
+                  <span className="panel__label">Actions</span>
+                  <button type="button" className="panel__item" onClick={handleAddReference}>
+                    Add Reference
+                  </button>
                   {undoAvailable && (
                     <button type="button" className="panel__item" onClick={undo}>
                       Undo
@@ -608,8 +1098,8 @@ const App = () => {
                     </button>
                   )}
                 </div>
-              )}
-            </div>
+              </div>
+            </>
           )}
         </div>
         <div className="app__palette panel">

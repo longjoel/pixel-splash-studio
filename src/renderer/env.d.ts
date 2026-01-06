@@ -16,8 +16,23 @@ type ProjectPayload = {
       undoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
       redoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
     };
+    references?: Array<{
+      id: string;
+      filename: string;
+      type: string;
+      width: number;
+      height: number;
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+      flipX: boolean;
+      flipY: boolean;
+      opacity: number;
+    }>;
   };
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
+  referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
 };
 
 type ProjectLoadResult = ProjectPayload & { path: string };

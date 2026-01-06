@@ -16,8 +16,16 @@ import { SelectionOvalTool } from '@/tools/selectionOvalTool';
 import { FillBucketTool } from '@/tools/fillBucketTool';
 import { StampTool } from '@/tools/stampTool';
 import { EyeDropperTool } from '@/tools/eyeDropperTool';
+import { ReferenceHandleTool } from '@/tools/referenceHandleTool';
 import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
+import { useReferenceStore } from '@/state/referenceStore';
+import { addReferencesFromFiles } from '@/services/references';
+import {
+  getReferenceBounds,
+  getReferenceTransform,
+  getReferenceWorldCorners,
+} from '@/core/referenceTransforms';
 
 const MIN_TOOL_ZOOM = 0.6;
 const WHEEL_ZOOM_SCALE = 0.002;
@@ -345,6 +353,91 @@ const drawPreviewLayer = (
   }
 };
 
+const drawReferenceLayer = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number
+) => {
+  const references = useReferenceStore.getState().items;
+  if (references.length === 0) {
+    return;
+  }
+  for (const reference of references) {
+    const bounds = getReferenceBounds(reference);
+    if (
+      bounds.maxX < viewX ||
+      bounds.maxY < viewY ||
+      bounds.minX > viewX + viewWidth ||
+      bounds.minY > viewY + viewHeight
+    ) {
+      continue;
+    }
+    const transform = getReferenceTransform(reference);
+    context.save();
+    context.globalAlpha = reference.opacity;
+    context.translate(transform.centerX, transform.centerY);
+    context.rotate(transform.rotationRad);
+    context.scale(transform.scale * transform.flipX, transform.scale * transform.flipY);
+    context.drawImage(
+      reference.image,
+      -transform.baseWidth / 2,
+      -transform.baseHeight / 2,
+      transform.baseWidth,
+      transform.baseHeight
+    );
+    context.restore();
+  }
+};
+
+const drawReferenceHandles = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number
+) => {
+  const { items, selectedId } = useReferenceStore.getState();
+  if (!selectedId) {
+    return;
+  }
+  const reference = items.find((item) => item.id === selectedId);
+  if (!reference) {
+    return;
+  }
+  const bounds = getReferenceBounds(reference);
+  if (
+    bounds.maxX < viewX ||
+    bounds.maxY < viewY ||
+    bounds.minX > viewX + viewWidth ||
+    bounds.minY > viewY + viewHeight
+  ) {
+    return;
+  }
+
+  const handleSize = PIXEL_SIZE * 0.6;
+  const handleHalf = handleSize / 2;
+  const corners = getReferenceWorldCorners(reference);
+  const handles = Object.values(corners);
+
+  context.save();
+  context.strokeStyle = 'rgba(245, 197, 66, 0.85)';
+  context.lineWidth = Math.max(1, PIXEL_SIZE * 0.08);
+  context.beginPath();
+  context.moveTo(corners.nw.x, corners.nw.y);
+  context.lineTo(corners.ne.x, corners.ne.y);
+  context.lineTo(corners.se.x, corners.se.y);
+  context.lineTo(corners.sw.x, corners.sw.y);
+  context.closePath();
+  context.stroke();
+  context.fillStyle = 'rgba(245, 197, 66, 0.9)';
+  for (const handle of handles) {
+    context.fillRect(handle.x - handleHalf, handle.y - handleHalf, handleSize, handleSize);
+  }
+  context.restore();
+};
+
 const ViewportCanvas = () => {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -381,6 +474,7 @@ const ViewportCanvas = () => {
       oval: new OvalTool(),
       'fill-bucket': new FillBucketTool(),
       eyedropper: new EyeDropperTool(),
+      'reference-handle': new ReferenceHandleTool(),
       stamp: new StampTool(),
       'selection-rect': new SelectionRectangleTool(),
       'selection-oval': new SelectionOvalTool(),
@@ -472,6 +566,13 @@ const ViewportCanvas = () => {
         }
       }
 
+      drawReferenceLayer(
+        context,
+        state.camera.x,
+        state.camera.y,
+        viewWidth,
+        viewHeight
+      );
       const { blocksDrawn, pixelsDrawn } = drawPixelLayer(
         context,
         state.camera.x,
@@ -523,6 +624,15 @@ const ViewportCanvas = () => {
           ? 'rgba(245, 197, 66, 0.35)'
           : undefined;
       drawPreviewLayer(context, palette, previewColor);
+      if (activeTool === 'reference-handle') {
+        drawReferenceHandles(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight
+        );
+      }
       context.restore();
 
       const frameEnd = performance.now();
@@ -676,6 +786,29 @@ const ViewportCanvas = () => {
     controllerRef.current?.handleEvent('cancel', cursor);
   };
 
+  const handleDragOver = (event: React.DragEvent) => {
+    if (event.dataTransfer?.types.includes('Files')) {
+      event.preventDefault();
+      event.dataTransfer.dropEffect = 'copy';
+    }
+  };
+
+  const handleDrop = (event: React.DragEvent) => {
+    if (!event.dataTransfer?.files?.length) {
+      return;
+    }
+    event.preventDefault();
+    const rect = event.currentTarget.getBoundingClientRect();
+    const screenX = event.clientX - rect.left;
+    const screenY = event.clientY - rect.top;
+    const state = useViewportStore.getState();
+    const worldPosition = {
+      x: screenX / state.camera.zoom + state.camera.x,
+      y: screenY / state.camera.zoom + state.camera.y,
+    };
+    void addReferencesFromFiles(Array.from(event.dataTransfer.files), worldPosition);
+  };
+
   const handleWheel = (event: React.WheelEvent) => {
     if (event.deltaY === 0) {
       return;
@@ -706,6 +839,8 @@ const ViewportCanvas = () => {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
         onWheel={handleWheel}
         style={{
           cursor: isPanning ? 'grabbing' : zoom < MIN_TOOL_ZOOM ? 'not-allowed' : 'crosshair',

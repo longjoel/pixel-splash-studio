@@ -14,6 +14,9 @@ const writeProjectZip = async (payload: ProjectPayload) => {
   for (const block of payload.blocks) {
     zip.file(`pixels/${block.row}-${block.col}.bin`, block.data);
   }
+  for (const reference of payload.referenceFiles ?? []) {
+    zip.file(`references/${reference.filename}`, reference.data);
+  }
   return zip.generateAsync({ type: 'nodebuffer' });
 };
 

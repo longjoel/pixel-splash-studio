@@ -31,6 +31,7 @@ Canvas
     - objects in this layer can be translated, rotated, scaled, pinched, tilted, etc.
     - objects have selectable opacity
     - behind the reference layer is a background color that matches the 0th palette color.
+    - drag/drop or paste images to add references
    
  
 Viewport
@@ -101,21 +102,28 @@ Paste preview [second tab]
 UI layout
  - tools + tool options anchored at the top
  - toolbar can be collapsed to reclaim space
+ - tools are grouped into drawing and editing sections
+ - tools are always visible in the toolbar, actions follow options when available
+ - toolbar header shows the active tool name
+ - tool buttons use compact icon labels with tooltips
  - actions panel anchored at the top with context-sensitive actions
   - show undo/redo only when available
   - show clear selection only when a selection exists
   - show copy/cut selection when a selection exists
+  - add reference from file is always available
  - palette bar anchored bottom center (full-width dock)
  - minimap anchored lower right and can be collapsed
  - header bar removed; file operations live in app menu/title bar
  - help menu shows shortcut map in an in-app modal
  - drawing tools are disabled below 0.6 zoom with a disabled cursor
  - options menu includes a performance logging toggle
+ - options menu includes a memory usage toggle that reports state sizes in the window bar
 
 File menu and persistence
  - New/Open/Save/Save As live in the app menu (no header buttons)
  - project file extension is .splash
  - undo/redo history is persisted in project files, capped to last 8 actions
+ - reference images are stored inside the project zip under references/
 
 Performance work log
  - project saves are written in a worker thread to keep UI responsive
@@ -181,6 +189,17 @@ Editing Tools
    - switches to the stamp tool.
   - cut to buffer
    - same as copy, but sets the pixel where the buffer was to index 0
+
+- Reference Handle
+ - select a reference image by clicking it
+ - drag inside the bounds to move it
+ - drag corner handles to scale uniformly
+ - options: snap to pixel, snap to tile
+ - options: rotation -180 to +180
+ - options: scale 0.25x to 5x
+ - options: flip x, flip y
+ - options: opacity 0 to 1
+ - adding a reference (paste, drop, file) switches to the reference tool
 
 - Selection Rectangle
  - for a given rectangle either add it or remove it from the selection layer

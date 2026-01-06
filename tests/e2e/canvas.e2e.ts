@@ -7,6 +7,7 @@ import { join } from 'path';
 
 const BACKGROUND = [20, 24, 36, 255];
 const PEN_COLOR = [255, 74, 100, 255];
+const REFERENCE_COLOR = [236, 190, 82, 255];
 const GRID_PIXEL_SIZE = 12;
 
 const isNear = (value: number, target: number, tolerance: number) =>
@@ -398,6 +399,100 @@ test.skip('saves and restores a project from disk', async () => {
   expect(pixelsEqual(png1, png3)).toBe(true);
   expect(pixelsEqual(png1, png2)).toBe(false);
   expect(pixelsEqual(png2, png3)).toBe(false);
+
+  await app.close();
+  await rm(tempDir, { recursive: true, force: true });
+});
+
+test('saves and restores references from disk', async () => {
+  const app = await electron.launch({
+    args: ['.'],
+    env: {
+      ...process.env,
+      VITE_DEV_SERVER_URL: process.env.VITE_DEV_SERVER_URL ?? 'http://localhost:5173',
+    },
+  });
+
+  const window = await app.firstWindow();
+  await window.waitForSelector('canvas');
+
+  const tempDir = join(tmpdir(), `pixel-splash-${Date.now()}`);
+  await mkdir(tempDir, { recursive: true });
+  const projectPath = join(tempDir, 'reference-test.splash');
+
+  const referencePng = new PNG({ width: 4, height: 4 });
+  for (let y = 0; y < referencePng.height; y += 1) {
+    for (let x = 0; x < referencePng.width; x += 1) {
+      const index = (referencePng.width * y + x) * 4;
+      referencePng.data[index] = REFERENCE_COLOR[0];
+      referencePng.data[index + 1] = REFERENCE_COLOR[1];
+      referencePng.data[index + 2] = REFERENCE_COLOR[2];
+      referencePng.data[index + 3] = REFERENCE_COLOR[3];
+    }
+  }
+  const referenceBase64 = PNG.sync.write(referencePng).toString('base64');
+  const referenceGridX = 6;
+  const referenceGridY = 6;
+
+  await window.evaluate(
+    async ({ base64, gridX, gridY }) => {
+      const { addReferenceFromFile } = await import('/src/renderer/services/references');
+      const { useReferenceStore } = await import('/src/renderer/state/referenceStore');
+      const { PIXEL_SIZE } = await import('/src/renderer/core/grid');
+      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+      const file = new File([bytes], 'reference.png', { type: 'image/png' });
+      await addReferenceFromFile(file, { x: gridX * PIXEL_SIZE, y: gridY * PIXEL_SIZE });
+      const state = useReferenceStore.getState();
+      if (state.selectedId) {
+        state.updateReference(state.selectedId, { opacity: 1 });
+      }
+    },
+    { base64: referenceBase64, gridX: referenceGridX, gridY: referenceGridY }
+  );
+
+  await window.waitForTimeout(200);
+
+  await window.evaluate(async (path) => {
+    const module = await import('/src/renderer/services/project');
+    const payload = module.buildProjectPayload();
+    await window.projectApi.save(payload, path);
+  }, projectPath);
+
+  await window.evaluate(async () => {
+    const { useReferenceStore } = await import('/src/renderer/state/referenceStore');
+    useReferenceStore.getState().clear();
+  });
+
+  await window.evaluate(async (path) => {
+    const module = await import('/src/renderer/services/project');
+    await module.loadProject(path);
+  }, projectPath);
+
+  await window.waitForTimeout(200);
+
+  const canvas = window.locator('.viewport canvas');
+  const canvasBox = await canvas.boundingBox();
+  if (!canvasBox) {
+    throw new Error('Viewport canvas not found');
+  }
+
+  const shot = await window.screenshot({
+    clip: {
+      x: Math.floor(canvasBox.x),
+      y: Math.floor(canvasBox.y),
+      width: Math.floor(canvasBox.width),
+      height: Math.floor(canvasBox.height),
+    },
+  });
+
+  const png = PNG.sync.read(shot);
+  const screenX = canvasBox.x + (referenceGridX + 1) * GRID_PIXEL_SIZE + GRID_PIXEL_SIZE / 2;
+  const screenY = canvasBox.y + (referenceGridY + 1) * GRID_PIXEL_SIZE + GRID_PIXEL_SIZE / 2;
+  const localX = Math.floor(screenX - canvasBox.x);
+  const localY = Math.floor(screenY - canvasBox.y);
+  const index = (png.width * localY + localX) * 4;
+
+  expect(isApproxColor(png.data, index, REFERENCE_COLOR, 14)).toBe(true);
 
   await app.close();
   await rm(tempDir, { recursive: true, force: true });

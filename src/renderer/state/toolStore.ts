@@ -7,6 +7,7 @@ export type ToolId =
   | 'oval'
   | 'fill-bucket'
   | 'eyedropper'
+  | 'reference-handle'
   | 'stamp'
   | 'selection-rect'
   | 'selection-oval';
