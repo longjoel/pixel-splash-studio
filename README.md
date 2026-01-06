@@ -17,11 +17,10 @@ It focuses on a responsive “infinite canvas” workflow: paint pixels in block
 
 ## Screenshots
 
-These are currently placeholders. Replace the files under `docs/assets/` with real screenshots when available.
-
-![Viewport](docs/assets/screenshot-viewport.svg)
-![Reference Tool](docs/assets/screenshot-reference.svg)
-![Minimap](docs/assets/screenshot-minimap.svg)
+![Canvas + tools](docs/000-new%20canvas%20-%20all%20tools.png)
+![Minimap + drawing](docs/001-%20hidden%20mini%20map%20-%20drawing%20in%20progress.png)
+![Tracing references](docs/003-%20tracing%20references.png)
+![Example art](docs/marty%20the%20wizzard.png)
 
 ## Getting Started
 
