@@ -20,6 +20,10 @@ import { useClipboardStore } from './state/clipboardStore';
 import { usePaletteStore } from './state/paletteStore';
 import { useViewportStore } from './state/viewportStore';
 import { addReferenceFromFile } from './services/references';
+import {
+  traceReferenceWithMaxColors,
+  traceReferenceWithPaletteRange,
+} from './services/referenceTrace';
 import { useReferenceStore } from './state/referenceStore';
 import { useReferenceHandleStore } from './state/referenceHandleStore';
 import {
@@ -33,6 +37,9 @@ import {
   REFERENCE_ROTATION_MIN,
   REFERENCE_SCALE_MAX,
   REFERENCE_SCALE_MIN,
+  TRACE_DEFAULT_MAX_COLORS,
+  TRACE_MAX_COLORS_MAX,
+  TRACE_MAX_COLORS_MIN,
   TOOL_LABELS,
 } from '../constants';
 
@@ -218,14 +225,31 @@ const App = () => {
   const setStampDrag = useStampStore((state) => state.setDrag);
   const setBrushSize = useBrushStore((state) => state.setSize);
   const setBrushShape = useBrushStore((state) => state.setShape);
+  const paletteColors = usePaletteStore((state) => state.colors);
   const referenceSnap = useReferenceHandleStore((state) => state.snap);
   const setReferenceSnap = useReferenceHandleStore((state) => state.setSnap);
+  const setSelectedReference = useReferenceStore((state) => state.setSelected);
   const selectedReference = useReferenceStore((state) =>
     state.selectedId ? state.items.find((item) => item.id === state.selectedId) ?? null : null
   );
   const updateReference = useReferenceStore((state) => state.updateReference);
+  const paletteMaxIndex = Math.max(0, paletteColors.length - 1);
+  const [tracePaletteStart, setTracePaletteStart] = useState(0);
+  const [tracePaletteEnd, setTracePaletteEnd] = useState(paletteMaxIndex);
+  const [traceMaxColors, setTraceMaxColors] = useState(TRACE_DEFAULT_MAX_COLORS);
   const projectTitle = getProjectTitle();
   const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
+
+  useEffect(() => {
+    setTracePaletteStart((value) => clamp(value, 0, paletteMaxIndex));
+    setTracePaletteEnd((value) => clamp(value, 0, paletteMaxIndex));
+  }, [paletteMaxIndex]);
+
+  useEffect(() => {
+    if (activeTool !== 'reference-handle') {
+      setSelectedReference(null);
+    }
+  }, [activeTool, setSelectedReference]);
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
@@ -346,6 +370,35 @@ const App = () => {
     updateSelectedReference({
       opacity: clamp(value, REFERENCE_OPACITY_MIN, REFERENCE_OPACITY_MAX),
     });
+  };
+
+  const handleTracePaletteRange = () => {
+    if (!selectedReference || paletteColors.length === 0) {
+      return;
+    }
+    const minIndex = clamp(
+      Math.round(Math.min(tracePaletteStart, tracePaletteEnd)),
+      0,
+      paletteMaxIndex
+    );
+    const maxIndex = clamp(
+      Math.round(Math.max(tracePaletteStart, tracePaletteEnd)),
+      0,
+      paletteMaxIndex
+    );
+    traceReferenceWithPaletteRange(selectedReference, minIndex, maxIndex);
+  };
+
+  const handleTraceMaxColors = () => {
+    if (!selectedReference || !Number.isFinite(traceMaxColors)) {
+      return;
+    }
+    const maxColors = clamp(
+      Math.round(traceMaxColors),
+      TRACE_MAX_COLORS_MIN,
+      TRACE_MAX_COLORS_MAX
+    );
+    traceReferenceWithMaxColors(selectedReference, maxColors);
   };
 
   const referenceRotation = selectedReference?.rotation ?? 0;
@@ -1013,6 +1066,80 @@ const App = () => {
                               Tile
                             </label>
                           </div>
+                        </div>
+                      </div>
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Auto Trace (Palette)</span>
+                          <div className="panel__row">
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Trace palette start index"
+                              min={0}
+                              max={paletteMaxIndex}
+                              step={1}
+                              value={tracePaletteStart}
+                              disabled={referenceDisabled}
+                              onChange={(event) => {
+                                const next = event.currentTarget.valueAsNumber;
+                                if (Number.isFinite(next)) {
+                                  setTracePaletteStart(Math.round(next));
+                                }
+                              }}
+                            />
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Trace palette end index"
+                              min={0}
+                              max={paletteMaxIndex}
+                              step={1}
+                              value={tracePaletteEnd}
+                              disabled={referenceDisabled}
+                              onChange={(event) => {
+                                const next = event.currentTarget.valueAsNumber;
+                                if (Number.isFinite(next)) {
+                                  setTracePaletteEnd(Math.round(next));
+                                }
+                              }}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            className="panel__item"
+                            disabled={referenceDisabled || paletteColors.length === 0}
+                            onClick={handleTracePaletteRange}
+                          >
+                            Trace Range
+                          </button>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Auto Trace (Max Colors)</span>
+                          <input
+                            type="number"
+                            className="panel__number"
+                            aria-label="Trace max colors"
+                            min={TRACE_MAX_COLORS_MIN}
+                            max={TRACE_MAX_COLORS_MAX}
+                            step={1}
+                            value={traceMaxColors}
+                            disabled={referenceDisabled}
+                            onChange={(event) => {
+                              const next = event.currentTarget.valueAsNumber;
+                              if (Number.isFinite(next)) {
+                                setTraceMaxColors(Math.round(next));
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            className="panel__item"
+                            disabled={referenceDisabled}
+                            onClick={handleTraceMaxColors}
+                          >
+                            Trace Max Colors
+                          </button>
                         </div>
                       </div>
                     </div>

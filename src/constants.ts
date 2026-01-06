@@ -11,7 +11,7 @@ export const DEFAULT_CAMERA = {
 
 export const CAMERA_ZOOM_MIN = 0.02;
 export const CAMERA_ZOOM_MAX = 16;
-export const MIN_TOOL_ZOOM = 0.6;
+export const MIN_TOOL_ZOOM = 0.2;
 export const WHEEL_ZOOM_SCALE = 0.002;
 export const WHEEL_ZOOM_MAX_STEP = 0.6;
 
@@ -27,8 +27,14 @@ export const REFERENCE_SCALE_MIN = 0.25;
 export const REFERENCE_SCALE_MAX = 5;
 export const REFERENCE_OPACITY_MIN = 0;
 export const REFERENCE_OPACITY_MAX = 1;
-export const HANDLE_SIZE = PIXEL_SIZE * 0.6;
+export const HANDLE_SIZE = PIXEL_SIZE * 0.9;
 export const HANDLE_HALF = HANDLE_SIZE / 2;
+
+export const TRACE_ALPHA_THRESHOLD = 16;
+export const TRACE_COLOR_BUCKET_STEP = 8;
+export const TRACE_DEFAULT_MAX_COLORS = 8;
+export const TRACE_MAX_COLORS_MIN = 1;
+export const TRACE_MAX_COLORS_MAX = 64;
 
 export const BYTES_PER_NUMBER = 8;
 export const PIXEL_RECORD_BYTES = BYTES_PER_NUMBER * 3;

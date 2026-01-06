@@ -5,6 +5,7 @@ import { appendFile, readFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
+import { EXTENSION_MIME_MAP } from '../src/constants';
 
 const perfLoggingEnabled = { value: false };
 const memoryUsageEnabled = { value: false };
@@ -23,7 +24,7 @@ const createWindow = () => {
   if (devServerUrl) {
     win.loadURL(devServerUrl);
   } else {
-    win.loadFile(join(__dirname, '../dist/index.html'));
+    win.loadFile(join(app.getAppPath(), 'dist', 'index.html'));
   }
 };
 
@@ -184,15 +185,6 @@ export type ProjectPayload = {
   };
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
   referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
-};
-
-const EXTENSION_MIME_MAP: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  gif: 'image/gif',
-  bmp: 'image/bmp',
 };
 
 const getMimeTypeFromFilename = (filename: string) => {

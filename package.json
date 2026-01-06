@@ -2,7 +2,7 @@
   "name": "pixel-splash-studio",
   "version": "0.1.0",
   "description": "Pixel Splash Studio Electron app",
-  "main": "dist-electron/main.js",
+  "main": "dist-electron/electron/main.js",
   "type": "commonjs",
   "scripts": {
     "dev": "cross-env VITE_DEV_SERVER_URL=http://localhost:5173 concurrently -k \"tsc -p electron -w\" \"vite\" \"wait-on http://localhost:5173 && electron .\"",
