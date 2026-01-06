@@ -1272,6 +1272,14 @@ const App = () => {
                 <span>Redo</span>
                 <span>Ctrl+Y / Ctrl+Shift+Z</span>
               </div>
+              <div className="modal__row">
+                <span>Trace Palette Range</span>
+                <span>Reference panel button</span>
+              </div>
+              <div className="modal__row">
+                <span>Trace Max Colors</span>
+                <span>Reference panel button</span>
+              </div>
             </div>
           </div>
         </div>

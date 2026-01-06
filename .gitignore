@@ -7,3 +7,5 @@ yarn-error.log*
 test-results/
 dist-electron/
 *.splash
+
+out/
