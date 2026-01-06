@@ -1,4 +1,6 @@
-export const BLOCK_SIZE = 64;
+import { BLOCK_SIZE } from '../../constants';
+
+export { BLOCK_SIZE };
 
 export type BlockAddress = {
   row: number;

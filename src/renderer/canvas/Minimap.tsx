@@ -5,8 +5,7 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE } from '@/core/grid';
 import { ensureContrast, getComplement, hexToRgb, mix, toRgb, toRgba } from '@/core/colorUtils';
-
-const MIN_WORLD_SIZE = 512 * PIXEL_SIZE;
+import { MIN_WORLD_SIZE } from '../../constants';
 
 const getPixelBounds = () => {
   const pixelStore = usePixelStore.getState();
@@ -391,7 +390,7 @@ const Minimap = () => {
             }}
           />
         </label>
-        <span>Zoom: {camera.zoom.toFixed(2)}</span>
+        <span>Zoom: {camera.zoom.toFixed(3)}</span>
       </div>
     </div>
   );

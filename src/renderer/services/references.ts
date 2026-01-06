@@ -2,24 +2,7 @@ import { PIXEL_SIZE } from '@/core/grid';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useViewportStore } from '@/state/viewportStore';
 import { useToolStore } from '@/state/toolStore';
-
-const MIME_EXTENSION_MAP: Record<string, string> = {
-  'image/png': 'png',
-  'image/jpeg': 'jpg',
-  'image/jpg': 'jpg',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-  'image/bmp': 'bmp',
-};
-
-const EXTENSION_MIME_MAP: Record<string, string> = {
-  png: 'image/png',
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  webp: 'image/webp',
-  gif: 'image/gif',
-  bmp: 'image/bmp',
-};
+import { EXTENSION_MIME_MAP, MIME_EXTENSION_MAP } from '../../constants';
 
 const readFileAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {

@@ -1,3 +1,5 @@
+import { DEFAULT_CAMERA } from '../../constants';
+
 export type Point = {
   x: number;
   y: number;
@@ -17,7 +19,7 @@ export class Viewport {
   constructor(width: number, height: number) {
     this.width = width;
     this.height = height;
-    this.camera = { x: 0, y: 0, zoom: 1 };
+    this.camera = { ...DEFAULT_CAMERA };
   }
 
   setSize(width: number, height: number) {

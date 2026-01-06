@@ -26,11 +26,7 @@ import {
   getReferenceTransform,
   getReferenceWorldCorners,
 } from '@/core/referenceTransforms';
-
-const MIN_TOOL_ZOOM = 0.6;
-const WHEEL_ZOOM_SCALE = 0.002;
-const WHEEL_ZOOM_MAX_STEP = 0.6;
-
+import { MIN_TOOL_ZOOM, WHEEL_ZOOM_MAX_STEP, WHEEL_ZOOM_SCALE } from '../../constants';
 
 const drawGrid = (
   context: CanvasRenderingContext2D,

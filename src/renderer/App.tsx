@@ -5,7 +5,7 @@ import PaletteBar from './ui/PaletteBar';
 import { loadProject, newProject, saveProject } from './services/project';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
-import { useToolStore, type ToolId } from './state/toolStore';
+import { useToolStore } from './state/toolStore';
 import { useBrushStore } from './state/brushStore';
 import { useRectangleStore } from './state/rectangleStore';
 import { useOvalStore } from './state/ovalStore';
@@ -22,17 +22,19 @@ import { useViewportStore } from './state/viewportStore';
 import { addReferenceFromFile } from './services/references';
 import { useReferenceStore } from './state/referenceStore';
 import { useReferenceHandleStore } from './state/referenceHandleStore';
-
-const BYTES_PER_NUMBER = 8;
-const PIXEL_RECORD_BYTES = BYTES_PER_NUMBER * 3;
-const HISTORY_CHANGE_BYTES = BYTES_PER_NUMBER * 4;
-const MEMORY_SAMPLE_INTERVAL = 1000;
-const REFERENCE_ROTATION_MIN = -180;
-const REFERENCE_ROTATION_MAX = 180;
-const REFERENCE_SCALE_MIN = 0.25;
-const REFERENCE_SCALE_MAX = 5;
-const REFERENCE_OPACITY_MIN = 0;
-const REFERENCE_OPACITY_MAX = 1;
+import {
+  BYTES_PER_NUMBER,
+  HISTORY_CHANGE_BYTES,
+  MEMORY_SAMPLE_INTERVAL,
+  PIXEL_RECORD_BYTES,
+  REFERENCE_OPACITY_MAX,
+  REFERENCE_OPACITY_MIN,
+  REFERENCE_ROTATION_MAX,
+  REFERENCE_ROTATION_MIN,
+  REFERENCE_SCALE_MAX,
+  REFERENCE_SCALE_MIN,
+  TOOL_LABELS,
+} from '../constants';
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
@@ -172,19 +174,6 @@ const buildMemorySummary = () => {
     .filter((entry) => entry.bytes > 0)
     .map((entry) => `${entry.label} ${formatBytes(entry.bytes)}`);
   return `Mem ${formatBytes(total)}${parts.length ? ` • ${parts.join(' • ')}` : ''}`;
-};
-
-const TOOL_LABELS: Record<ToolId, string> = {
-  pen: 'Pen',
-  line: 'Line',
-  rectangle: 'Rectangle',
-  oval: 'Oval',
-  'fill-bucket': 'Fill',
-  eyedropper: 'Eyedropper',
-  'reference-handle': 'Reference',
-  stamp: 'Stamp',
-  'selection-rect': 'Select',
-  'selection-oval': 'Select Oval',
 };
 
 const App = () => {

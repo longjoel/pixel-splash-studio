@@ -1,4 +1,10 @@
 import { create } from 'zustand';
+import {
+  CAMERA_ZOOM_MAX,
+  CAMERA_ZOOM_MIN,
+  DEFAULT_CAMERA,
+  DEFAULT_VIEWPORT_SIZE,
+} from '../../constants';
 
 export type CameraState = {
   x: number;
@@ -21,18 +27,17 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(Math.max(value, min), max);
 
 export const useViewportStore = create<ViewportState>((set, get) => ({
-  width: 0,
-  height: 0,
-  camera: { x: 0, y: 0, zoom: 1 },
+  ...DEFAULT_VIEWPORT_SIZE,
+  camera: { ...DEFAULT_CAMERA },
   setSize: (width, height) => set({ width, height }),
   setCamera: (camera) =>
     set((state) => ({
       camera: { ...state.camera, ...camera },
     })),
-  resetCamera: () => set({ camera: { x: 0, y: 0, zoom: 1 } }),
+  resetCamera: () => set({ camera: { ...DEFAULT_CAMERA } }),
   zoomBy: (delta, anchor) => {
     const { camera } = get();
-    const nextZoom = clamp(camera.zoom + delta, 0.2, 16);
+    const nextZoom = clamp(camera.zoom + delta, CAMERA_ZOOM_MIN, CAMERA_ZOOM_MAX);
     if (!anchor) {
       set({ camera: { ...camera, zoom: nextZoom } });
       return;

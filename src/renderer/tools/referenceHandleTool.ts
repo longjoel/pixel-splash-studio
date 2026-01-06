@@ -11,6 +11,7 @@ import {
   pointInReference,
   type ReferenceCorner,
 } from '@/core/referenceTransforms';
+import { HANDLE_HALF, REFERENCE_SCALE_MAX, REFERENCE_SCALE_MIN } from '../../constants';
 
 type DragState =
   | {
@@ -33,10 +34,6 @@ type DragState =
       flipY: number;
     };
 
-const HANDLE_SIZE = PIXEL_SIZE * 0.6;
-const HANDLE_HALF = HANDLE_SIZE / 2;
-const MIN_SCALE = 0.25;
-const MAX_SCALE = 5;
 const snapValue = (value: number, step: number) => Math.round(value / step) * step;
 
 const getSnapStep = (snap: ReferenceSnapMode) => (snap === 'tile' ? TILE_SIZE : 1);
@@ -180,7 +177,7 @@ export class ReferenceHandleTool implements Tool {
     const scaleX = diagX !== 0 ? Math.abs(localX / diagX) : 0;
     const scaleY = diagY !== 0 ? Math.abs(localY / diagY) : 0;
     const rawScale = Math.max(scaleX, scaleY);
-    const safeScale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : MIN_SCALE;
+    const safeScale = Number.isFinite(rawScale) && rawScale > 0 ? rawScale : REFERENCE_SCALE_MIN;
     const snapStepWorld = getSnapStep(snapMode) * PIXEL_SIZE;
     const snappedWidth = Math.max(
       snapStepWorld,
@@ -191,10 +188,10 @@ export class ReferenceHandleTool implements Tool {
       snapValue(this.drag.baseHeight * safeScale, snapStepWorld)
     );
     let nextScale = Math.max(
-      MIN_SCALE,
+      REFERENCE_SCALE_MIN,
       Math.max(snappedWidth / this.drag.baseWidth, snappedHeight / this.drag.baseHeight)
     );
-    nextScale = Math.min(nextScale, MAX_SCALE);
+    nextScale = Math.min(nextScale, REFERENCE_SCALE_MAX);
     const width = this.drag.baseWidth * nextScale;
     const height = this.drag.baseHeight * nextScale;
     const scaledAnchorX = this.drag.anchorLocal.x * nextScale * this.drag.flipX;

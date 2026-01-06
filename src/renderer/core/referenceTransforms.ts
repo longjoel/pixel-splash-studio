@@ -1,9 +1,10 @@
 import { PIXEL_SIZE } from '@/core/grid';
+import { REFERENCE_CORNERS } from '../../constants';
 import type { ReferenceImage } from '@/state/referenceStore';
 
-export type ReferenceCorner = 'nw' | 'ne' | 'se' | 'sw';
+export type ReferenceCorner = (typeof REFERENCE_CORNERS)[number];
 
-export const REFERENCE_CORNERS: ReferenceCorner[] = ['nw', 'ne', 'se', 'sw'];
+export { REFERENCE_CORNERS };
 
 export type ReferenceTransform = {
   centerX: number;

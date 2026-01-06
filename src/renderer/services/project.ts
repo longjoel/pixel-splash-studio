@@ -1,6 +1,7 @@
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useViewportStore } from '@/state/viewportStore';
+import { DEFAULT_CAMERA } from '../../constants';
 import { usePreviewStore } from '@/state/previewStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useProjectStore } from '@/state/projectStore';
@@ -180,7 +181,7 @@ export const newProject = () => {
   const palette = usePaletteStore.getState();
   palette.reset();
   const viewport = useViewportStore.getState();
-  viewport.setCamera({ x: 0, y: 0, zoom: 1 });
+  viewport.setCamera({ ...DEFAULT_CAMERA });
   const pixelStore = usePixelStore.getState();
   pixelStore.clear();
   const preview = usePreviewStore.getState();

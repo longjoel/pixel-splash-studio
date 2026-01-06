@@ -1,2 +1,1 @@
-export const PIXEL_SIZE = 12;
-export const TILE_SIZE = 8;
+export { PIXEL_SIZE, TILE_SIZE } from '../../constants';
