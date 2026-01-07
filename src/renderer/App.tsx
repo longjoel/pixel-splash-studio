@@ -15,6 +15,7 @@ import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
+import { consolidatePalette } from './services/paletteConsolidate';
 import { useStampStore } from './state/stampStore';
 import { usePixelStore } from './state/pixelStore';
 import { usePreviewStore } from './state/previewStore';
@@ -47,6 +48,33 @@ import {
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const REFERENCE_SCALE_SLIDER_MIN = 0;
+const REFERENCE_SCALE_SLIDER_MAX = 100;
+const REFERENCE_SCALE_LOG_MIN = Math.log10(REFERENCE_SCALE_MIN);
+const REFERENCE_SCALE_LOG_MAX = Math.log10(REFERENCE_SCALE_MAX);
+const REFERENCE_SCALE_LOG_RANGE = REFERENCE_SCALE_LOG_MAX - REFERENCE_SCALE_LOG_MIN;
+
+const scaleToSlider = (scale: number) => {
+  const clamped = clamp(scale, REFERENCE_SCALE_MIN, REFERENCE_SCALE_MAX);
+  const ratio =
+    REFERENCE_SCALE_LOG_RANGE === 0
+      ? 0
+      : (Math.log10(clamped) - REFERENCE_SCALE_LOG_MIN) / REFERENCE_SCALE_LOG_RANGE;
+  return Math.round(
+    REFERENCE_SCALE_SLIDER_MIN +
+      ratio * (REFERENCE_SCALE_SLIDER_MAX - REFERENCE_SCALE_SLIDER_MIN)
+  );
+};
+
+const sliderToScale = (value: number) => {
+  const ratio =
+    (clamp(value, REFERENCE_SCALE_SLIDER_MIN, REFERENCE_SCALE_SLIDER_MAX) -
+      REFERENCE_SCALE_SLIDER_MIN) /
+    (REFERENCE_SCALE_SLIDER_MAX - REFERENCE_SCALE_SLIDER_MIN);
+  const logValue = REFERENCE_SCALE_LOG_MIN + ratio * REFERENCE_SCALE_LOG_RANGE;
+  return Math.pow(10, logValue);
+};
 
 const bytesFromJson = (value: unknown) => {
   try {
@@ -195,6 +223,8 @@ const App = () => {
   const projectPath = useProjectStore((state) => state.path);
   const dirty = useProjectStore((state) => state.dirty);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showLicense, setShowLicense] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState(false);
   const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
@@ -218,6 +248,15 @@ const App = () => {
   const stampFlipX = useStampStore((state) => state.flipX);
   const stampFlipY = useStampStore((state) => state.flipY);
   const stampDrag = useStampStore((state) => state.drag);
+  const removeReference = useReferenceStore((state) => state.removeReference);
+  const pasteShortcutRef = React.useRef(false);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -270,11 +309,30 @@ const App = () => {
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
+      if (isEditableTarget(event.target)) {
+        return;
+      }
       const isCommand = event.ctrlKey || event.metaKey;
       if (!isCommand) {
+        const key = event.key.toLowerCase();
+        if (
+          (key === 'delete' || key === 'backspace') &&
+          activeTool === 'reference-handle' &&
+          selectedReference
+        ) {
+          event.preventDefault();
+          removeReference(selectedReference.id);
+        }
         return;
       }
       const key = event.key.toLowerCase();
+      if (key === 'v') {
+        pasteShortcutRef.current = true;
+        window.setTimeout(() => {
+          pasteShortcutRef.current = false;
+        }, 200);
+        return;
+      }
       if (key === '+' || key === '=') {
         event.preventDefault();
         window.uiScaleApi?.stepScale?.(1.1);
@@ -335,7 +393,7 @@ const App = () => {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [redo, undo, projectPath, dirty]);
+  }, [redo, undo, projectPath, dirty, activeTool, selectedReference, removeReference]);
 
   const handleSave = async () => {
     await saveProject(projectPath ?? undefined);
@@ -436,6 +494,7 @@ const App = () => {
 
   const referenceRotation = selectedReference?.rotation ?? 0;
   const referenceScale = selectedReference?.scale ?? 1;
+  const referenceScaleSlider = scaleToSlider(referenceScale);
   const referenceOpacity = selectedReference?.opacity ?? 0.7;
   const referenceFlipX = selectedReference?.flipX ?? false;
   const referenceFlipY = selectedReference?.flipY ?? false;
@@ -468,6 +527,10 @@ const App = () => {
       if (isEditableTarget(event.target)) {
         return;
       }
+      if (!pasteShortcutRef.current) {
+        return;
+      }
+      pasteShortcutRef.current = false;
       const items = Array.from(event.clipboardData?.items ?? []);
       const imageItem = items.find((item) => item.type.startsWith('image/'));
       if (!imageItem) {
@@ -520,6 +583,12 @@ const App = () => {
         case 'shortcuts':
           handleShortcuts();
           break;
+        case 'palette:consolidate':
+          consolidatePalette();
+          break;
+        case 'license':
+          setShowLicense(true);
+          break;
         case 'uiScale:reset':
           window.uiScaleApi?.resetScale?.();
           break;
@@ -536,6 +605,11 @@ const App = () => {
         <ViewportCanvas />
       </div>
       <div className="app__ui-layer">
+        {showSplash && (
+          <div className="app__splash" aria-hidden="true">
+            <img src="/pss-logo.png" alt="" />
+          </div>
+        )}
         <div
           className={`app__toolbar panel${toolbarCollapsed ? ' app__toolbar--collapsed panel--collapsed' : ''}`}
         >
@@ -992,13 +1066,15 @@ const App = () => {
                               type="range"
                               className="panel__range"
                               aria-label="Scale"
-                              min={REFERENCE_SCALE_MIN}
-                              max={REFERENCE_SCALE_MAX}
-                              step={0.05}
-                              value={referenceScale}
+                              min={REFERENCE_SCALE_SLIDER_MIN}
+                              max={REFERENCE_SCALE_SLIDER_MAX}
+                              step={1}
+                              value={referenceScaleSlider}
                               disabled={referenceDisabled}
                               onChange={(event) =>
-                                handleReferenceScale(event.currentTarget.valueAsNumber)
+                                handleReferenceScale(
+                                  sliderToScale(event.currentTarget.valueAsNumber)
+                                )
                               }
                             />
                             <input
@@ -1007,7 +1083,7 @@ const App = () => {
                               aria-label="Scale"
                               min={REFERENCE_SCALE_MIN}
                               max={REFERENCE_SCALE_MAX}
-                              step={0.05}
+                              step={0.01}
                               value={referenceScale}
                               disabled={referenceDisabled}
                               onChange={(event) =>
@@ -1109,6 +1185,20 @@ const App = () => {
                             </label>
                           </div>
                         </div>
+                      </div>
+                      <div className="panel__row">
+                        <button
+                          type="button"
+                          className="panel__item"
+                          disabled={referenceDisabled}
+                          onClick={() => {
+                            if (selectedReference) {
+                              removeReference(selectedReference.id);
+                            }
+                          }}
+                        >
+                          Delete Reference
+                        </button>
                       </div>
                       <div className="panel__row panel__row--dual">
                         <div className="panel__group">
@@ -1340,6 +1430,44 @@ const App = () => {
                 <span>Trace Max Colors</span>
                 <span>Reference panel button</span>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {showLicense && (
+        <div className="modal">
+          <div className="modal__backdrop" onClick={() => setShowLicense(false)} />
+          <div className="modal__content modal__content--license">
+            <div className="modal__header">
+              <h2>License</h2>
+              <button type="button" onClick={() => setShowLicense(false)}>
+                Close
+              </button>
+            </div>
+            <div className="modal__body modal__body--license">
+              <pre className="modal__license">
+MIT License
+
+Copyright (c) 2026 Joel Longanecker
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+              </pre>
             </div>
           </div>
         </div>

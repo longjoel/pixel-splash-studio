@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions, shell } from 'electron';
 import type { MenuItem } from 'electron';
 import { join } from 'path';
 import { appendFile, readFile, writeFile } from 'fs/promises';
@@ -125,6 +125,14 @@ app.whenReady().then(() => {
       label: 'Options',
       submenu: [
         {
+          label: 'Consolidate Palette',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'palette:consolidate');
+          },
+        },
+        { type: 'separator' as const },
+        {
           label: 'Memory Usage',
           type: 'checkbox' as const,
           checked: memoryUsageEnabled.value,
@@ -165,6 +173,20 @@ app.whenReady().then(() => {
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
             window?.webContents.send('menu:action', 'shortcuts');
+          },
+        },
+        { type: 'separator' as const },
+        {
+          label: 'LICENSE',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'license');
+          },
+        },
+        {
+          label: 'GitHub Repo',
+          click: async () => {
+            await shell.openExternal('https://github.com/longjoel/pixel-splash-studio');
           },
         },
       ],

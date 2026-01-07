@@ -46,6 +46,39 @@ body {
   height: calc(100% / var(--ui-scale));
 }
 
+.app__splash {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: radial-gradient(circle at 50% 40%, #1b1f2a, #0b0d11 60%);
+  z-index: 4;
+  opacity: 0.96;
+  animation: splash-fade 2s ease forwards;
+  pointer-events: none;
+}
+
+.app__splash img {
+  width: min(66vw, 66vh);
+  height: auto;
+  image-rendering: pixelated;
+}
+
+@keyframes splash-fade {
+  0% {
+    opacity: 0.98;
+    transform: scale(1);
+  }
+  70% {
+    opacity: 0.98;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.02);
+  }
+}
+
 
 .modal {
   position: absolute;
@@ -72,6 +105,13 @@ body {
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+}
+
+.modal__content--license {
+  width: min(720px, 92vw);
+  max-height: min(70vh, 720px);
+  display: flex;
+  flex-direction: column;
 }
 
 .modal__header {
@@ -103,6 +143,18 @@ body {
 .modal__body {
   display: grid;
   gap: 10px;
+}
+
+.modal__body--license {
+  overflow: auto;
+}
+
+.modal__license {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .modal__row {
@@ -652,7 +704,7 @@ body {
 .palette-bar__menu {
   position: fixed;
   z-index: 10;
-  min-width: 160px;
+  min-width: 260px;
   padding: 10px;
   display: grid;
   gap: 8px;
@@ -691,6 +743,7 @@ body {
 
 .palette-bar__menu-options {
   display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 

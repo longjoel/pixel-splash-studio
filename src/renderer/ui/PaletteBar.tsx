@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { usePaletteStore } from '@/state/paletteStore';
 import { hexToRgb, mix, type Rgb } from '@/core/colorUtils';
+import { consolidatePalette } from '@/services/paletteConsolidate';
 
 type MenuState = {
   open: boolean;
@@ -322,6 +323,8 @@ const PaletteBar = () => {
       ? colors[menu.index]
       : colors[primaryIndex] ?? '#ffffff';
   const swatchPresets = buildSwatchPresets(baseSwatchColor);
+  const hasDuplicates =
+    new Set(colors.map((color) => color.trim().toLowerCase())).size !== colors.length;
 
   const handleSetColor = () => {
     if (!canSetColor || menu.index === null) {
@@ -418,6 +421,18 @@ const PaletteBar = () => {
             onClick={handleAddColor}
           >
             Add Color
+          </button>
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            role="menuitem"
+            disabled={!hasDuplicates}
+            onClick={() => {
+              consolidatePalette();
+              closeMenu();
+            }}
+          >
+            Consolidate Duplicates
           </button>
           <div className="palette-bar__menu-label">Add Swatch</div>
           <div className="palette-bar__menu-options" role="group" aria-label="Add swatch">
