@@ -24,6 +24,7 @@ type ReferenceState = {
   addReference: (payload: Omit<ReferenceImage, 'id'> & { id?: string }) => string;
   setSelected: (id: string | null) => void;
   updateReference: (id: string, patch: Partial<Omit<ReferenceImage, 'id' | 'image'>>) => void;
+  removeReference: (id: string) => void;
   clear: () => void;
 };
 
@@ -50,6 +51,13 @@ export const useReferenceStore = create<ReferenceState>((set) => ({
     useProjectStore.getState().setDirty(true);
     set((state) => ({
       items: state.items.map((item) => (item.id === id ? { ...item, ...patch } : item)),
+    }));
+  },
+  removeReference: (id) => {
+    useProjectStore.getState().setDirty(true);
+    set((state) => ({
+      items: state.items.filter((item) => item.id !== id),
+      selectedId: state.selectedId === id ? null : state.selectedId,
     }));
   },
   clear: () => {

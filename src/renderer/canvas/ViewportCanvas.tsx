@@ -500,6 +500,7 @@ const ViewportCanvas = () => {
         return;
       }
 
+      const ratio = window.devicePixelRatio || 1;
       context.clearRect(0, 0, state.width, state.height);
       const palette = usePaletteStore.getState().colors;
       const bgHex = palette[0] ?? '#000000';
@@ -514,12 +515,12 @@ const ViewportCanvas = () => {
 
       context.save();
       context.setTransform(
-        state.camera.zoom,
+        state.camera.zoom * ratio,
         0,
         0,
-        state.camera.zoom,
-        -state.camera.x * state.camera.zoom,
-        -state.camera.y * state.camera.zoom
+        state.camera.zoom * ratio,
+        -state.camera.x * state.camera.zoom * ratio,
+        -state.camera.y * state.camera.zoom * ratio
       );
 
       const viewWidth = state.width / state.camera.zoom;

@@ -41,6 +41,8 @@ interface Window {
   projectApi: {
     save: (payload: ProjectPayload, existingPath?: string) => Promise<string | null>;
     load: (existingPath?: string) => Promise<ProjectLoadResult | null>;
+    exportPng: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
+    exportGbr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
   };
   menuApi: {
     onAction: (handler: (action: string) => void) => () => void;
@@ -50,5 +52,12 @@ interface Window {
   };
   debugApi: {
     logPerf: (message: string) => Promise<string | null>;
+  };
+  uiScaleApi: {
+    getScale: () => number;
+    resetScale: () => void;
+    setScale: (scale: number) => void;
+    stepScale: (factor: number) => void;
+    onScaleChange: (handler: (scale: number) => void) => () => void;
   };
 }

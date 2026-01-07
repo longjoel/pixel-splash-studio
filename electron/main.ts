@@ -1,7 +1,7 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions, shell } from 'electron';
 import type { MenuItem } from 'electron';
 import { join } from 'path';
-import { appendFile, readFile } from 'fs/promises';
+import { appendFile, readFile, writeFile } from 'fs/promises';
 import { tmpdir } from 'os';
 import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
@@ -26,6 +26,12 @@ const createWindow = () => {
   } else {
     win.loadFile(join(app.getAppPath(), 'dist', 'index.html'));
   }
+
+  win.webContents.on('zoom-changed', (_event, zoomDirection) => {
+    win.webContents.send('app:zoom-changed', zoomDirection, win.webContents.getZoomFactor());
+  });
+
+  return win;
 };
 
 app.whenReady().then(() => {
@@ -68,6 +74,30 @@ app.whenReady().then(() => {
             window?.webContents.send('menu:action', 'saveAs');
           },
         },
+        {
+          label: 'Export PNG...',
+          accelerator: 'CmdOrCtrl+Shift+E',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'exportPng');
+          },
+        },
+        {
+          label: 'Export Game Boy GBR...',
+          accelerator: 'CmdOrCtrl+Shift+G',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'exportGbr');
+          },
+        },
+        { type: 'separator' as const },
+        {
+          label: 'Exit',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            app.quit();
+          },
+        },
       ],
     },
     {
@@ -95,6 +125,14 @@ app.whenReady().then(() => {
       label: 'Options',
       submenu: [
         {
+          label: 'Consolidate Palette',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'palette:consolidate');
+          },
+        },
+        { type: 'separator' as const },
+        {
           label: 'Memory Usage',
           type: 'checkbox' as const,
           checked: memoryUsageEnabled.value,
@@ -115,6 +153,15 @@ app.whenReady().then(() => {
             perfLoggingEnabled.value = menuItem.checked;
           },
         },
+        { type: 'separator' as const },
+        {
+          label: 'Reset UI Scale',
+          accelerator: 'CmdOrCtrl+0',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'uiScale:reset');
+          },
+        },
       ],
     },
     {
@@ -126,6 +173,20 @@ app.whenReady().then(() => {
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
             window?.webContents.send('menu:action', 'shortcuts');
+          },
+        },
+        { type: 'separator' as const },
+        {
+          label: 'LICENSE',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'license');
+          },
+        },
+        {
+          label: 'GitHub Repo',
+          click: async () => {
+            await shell.openExternal('https://github.com/longjoel/pixel-splash-studio');
           },
         },
       ],
@@ -342,6 +403,48 @@ ipcMain.handle('project:load', async (_event, existingPath?: string) => {
   const buffer = await readFile(filePaths[0]);
   const payload = await readProjectZip(buffer);
   return { path: filePaths[0], ...payload };
+});
+
+ipcMain.handle('export:png', async (_event, data: Uint8Array, suggestedName?: string) => {
+  const e2ePath = process.env.PIXEL_SPLASH_E2E_EXPORT_PATH;
+  if (e2ePath) {
+    await writeFile(e2ePath, Buffer.from(data));
+    return e2ePath;
+  }
+
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions = {
+    filters: [{ name: 'PNG Image', extensions: ['png'] }],
+    defaultPath: suggestedName ?? 'pixel-splash-selection.png',
+  };
+  const { filePath, canceled } = window
+    ? await dialog.showSaveDialog(window, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+
+  if (canceled || !filePath) {
+    return null;
+  }
+
+  await writeFile(filePath, Buffer.from(data));
+  return filePath;
+});
+
+ipcMain.handle('export:gbr', async (_event, data: Uint8Array, suggestedName?: string) => {
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions = {
+    filters: [{ name: 'Game Boy Tile Set', extensions: ['gbr'] }],
+    defaultPath: suggestedName ?? 'pixel-splash-selection.gbr',
+  };
+  const { filePath, canceled } = window
+    ? await dialog.showSaveDialog(window, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+
+  if (canceled || !filePath) {
+    return null;
+  }
+
+  await writeFile(filePath, Buffer.from(data));
+  return filePath;
 });
 
 ipcMain.handle('debug:perf-log', async (_event, message: string) => {
