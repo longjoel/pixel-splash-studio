@@ -218,6 +218,21 @@ const App = () => {
   const stampFlipX = useStampStore((state) => state.flipX);
   const stampFlipY = useStampStore((state) => state.flipY);
   const stampDrag = useStampStore((state) => state.drag);
+
+  useEffect(() => {
+    const root = document.documentElement;
+    const applyScale = (scale: number) => {
+      const nextScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
+      root.style.setProperty('--ui-scale', String(nextScale));
+    };
+    applyScale(window.uiScaleApi?.getScale?.() ?? 1);
+    const unsubscribe = window.uiScaleApi?.onScaleChange?.(applyScale);
+    return () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    };
+  }, []);
   const setStampMode = useStampStore((state) => state.setMode);
   const setStampSnap = useStampStore((state) => state.setSnap);
   const setStampRotation = useStampStore((state) => state.setRotation);
@@ -255,10 +270,26 @@ const App = () => {
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
-      if (!event.ctrlKey) {
+      const isCommand = event.ctrlKey || event.metaKey;
+      if (!isCommand) {
         return;
       }
       const key = event.key.toLowerCase();
+      if (key === '+' || key === '=') {
+        event.preventDefault();
+        window.uiScaleApi?.stepScale?.(1.1);
+        return;
+      }
+      if (key === '-') {
+        event.preventDefault();
+        window.uiScaleApi?.stepScale?.(1 / 1.1);
+        return;
+      }
+      if (key === '0') {
+        event.preventDefault();
+        window.uiScaleApi?.resetScale?.();
+        return;
+      }
       if (key === 'z') {
         event.preventDefault();
         if (event.shiftKey) {
@@ -488,6 +519,9 @@ const App = () => {
           break;
         case 'shortcuts':
           handleShortcuts();
+          break;
+        case 'uiScale:reset':
+          window.uiScaleApi?.resetScale?.();
           break;
         default:
           break;

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webFrame } from 'electron';
 
 contextBridge.exposeInMainWorld('appInfo', {
   name: 'Pixel Splash Studio',
@@ -31,4 +31,81 @@ contextBridge.exposeInMainWorld('appApi', {
 
 contextBridge.exposeInMainWorld('debugApi', {
   logPerf: (message: string) => ipcRenderer.invoke('debug:perf-log', message),
+});
+
+const zoomListeners = new Set<(scale: number) => void>();
+let suppressZoom = false;
+let uiScale = 1;
+const UI_SCALE_MIN = 0.5;
+const UI_SCALE_MAX = 3;
+
+const notifyZoom = (scale: number) => {
+  zoomListeners.forEach((listener) => listener(scale));
+};
+
+const clampScale = (value: number) =>
+  Math.min(UI_SCALE_MAX, Math.max(UI_SCALE_MIN, value));
+
+const setUiScale = (value: number) => {
+  const nextScale = clampScale(value);
+  if (nextScale === uiScale) {
+    return;
+  }
+  uiScale = nextScale;
+  notifyZoom(uiScale);
+};
+
+const handleZoomChange = (
+  _event: Electron.IpcRendererEvent,
+  zoomDirection: string,
+  zoomFactor?: number
+) => {
+  if (suppressZoom) {
+    return;
+  }
+  if (zoomDirection === 'reset') {
+    setUiScale(1);
+    return;
+  }
+  const scale = typeof zoomFactor === 'number' ? zoomFactor : webFrame.getZoomFactor();
+  if (scale === 1) {
+    setUiScale(1);
+    return;
+  }
+  setUiScale(uiScale * scale);
+  if (scale !== 1) {
+    suppressZoom = true;
+    webFrame.setZoomFactor(1);
+    window.setTimeout(() => {
+      suppressZoom = false;
+    }, 0);
+  }
+};
+
+ipcRenderer.on('app:zoom-changed', handleZoomChange);
+
+contextBridge.exposeInMainWorld('uiScaleApi', {
+  getScale: () => uiScale,
+  resetScale: () => {
+    setUiScale(1);
+    suppressZoom = true;
+    webFrame.setZoomFactor(1);
+    window.setTimeout(() => {
+      suppressZoom = false;
+    }, 0);
+  },
+  setScale: (scale: number) => {
+    setUiScale(scale);
+  },
+  stepScale: (factor: number) => {
+    if (!Number.isFinite(factor) || factor === 0) {
+      return;
+    }
+    setUiScale(uiScale * factor);
+  },
+  onScaleChange: (handler: (scale: number) => void) => {
+    zoomListeners.add(handler);
+    handler(uiScale);
+    return () => zoomListeners.delete(handler);
+  },
 });

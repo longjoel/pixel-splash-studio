@@ -3,6 +3,7 @@
   font-family: "Segoe UI", "Helvetica Neue", sans-serif;
   background: #0f1115;
   color: #f5f5f5;
+  --ui-scale: 1;
 }
 
 * {
@@ -39,6 +40,10 @@ body {
 .app__ui-layer {
   z-index: 2;
   pointer-events: none;
+  transform: scale(var(--ui-scale));
+  transform-origin: top left;
+  width: calc(100% / var(--ui-scale));
+  height: calc(100% / var(--ui-scale));
 }
 
 

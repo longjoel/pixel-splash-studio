@@ -53,4 +53,11 @@ interface Window {
   debugApi: {
     logPerf: (message: string) => Promise<string | null>;
   };
+  uiScaleApi: {
+    getScale: () => number;
+    resetScale: () => void;
+    setScale: (scale: number) => void;
+    stepScale: (factor: number) => void;
+    onScaleChange: (handler: (scale: number) => void) => () => void;
+  };
 }

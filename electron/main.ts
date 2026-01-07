@@ -26,6 +26,12 @@ const createWindow = () => {
   } else {
     win.loadFile(join(app.getAppPath(), 'dist', 'index.html'));
   }
+
+  win.webContents.on('zoom-changed', (_event, zoomDirection) => {
+    win.webContents.send('app:zoom-changed', zoomDirection, win.webContents.getZoomFactor());
+  });
+
+  return win;
 };
 
 app.whenReady().then(() => {
@@ -84,6 +90,14 @@ app.whenReady().then(() => {
             window?.webContents.send('menu:action', 'exportGbr');
           },
         },
+        { type: 'separator' as const },
+        {
+          label: 'Exit',
+          accelerator: 'CmdOrCtrl+Q',
+          click: () => {
+            app.quit();
+          },
+        },
       ],
     },
     {
@@ -129,6 +143,15 @@ app.whenReady().then(() => {
           checked: perfLoggingEnabled.value,
           click: (menuItem: Electron.MenuItem) => {
             perfLoggingEnabled.value = menuItem.checked;
+          },
+        },
+        { type: 'separator' as const },
+        {
+          label: 'Reset UI Scale',
+          accelerator: 'CmdOrCtrl+0',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'uiScale:reset');
           },
         },
       ],
