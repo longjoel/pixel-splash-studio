@@ -42,6 +42,7 @@ interface Window {
     save: (payload: ProjectPayload, existingPath?: string) => Promise<string | null>;
     load: (existingPath?: string) => Promise<ProjectLoadResult | null>;
     exportPng: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
+    exportGbr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
   };
   menuApi: {
     onAction: (handler: (action: string) => void) => () => void;

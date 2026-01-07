@@ -76,6 +76,14 @@ app.whenReady().then(() => {
             window?.webContents.send('menu:action', 'exportPng');
           },
         },
+        {
+          label: 'Export Game Boy GBR...',
+          accelerator: 'CmdOrCtrl+Shift+G',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'exportGbr');
+          },
+        },
       ],
     },
     {
@@ -363,6 +371,24 @@ ipcMain.handle('export:png', async (_event, data: Uint8Array, suggestedName?: st
   const dialogOptions = {
     filters: [{ name: 'PNG Image', extensions: ['png'] }],
     defaultPath: suggestedName ?? 'pixel-splash-selection.png',
+  };
+  const { filePath, canceled } = window
+    ? await dialog.showSaveDialog(window, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+
+  if (canceled || !filePath) {
+    return null;
+  }
+
+  await writeFile(filePath, Buffer.from(data));
+  return filePath;
+});
+
+ipcMain.handle('export:gbr', async (_event, data: Uint8Array, suggestedName?: string) => {
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions = {
+    filters: [{ name: 'Game Boy Tile Set', extensions: ['gbr'] }],
+    defaultPath: suggestedName ?? 'pixel-splash-selection.gbr',
   };
   const { filePath, canceled } = window
     ? await dialog.showSaveDialog(window, dialogOptions)
