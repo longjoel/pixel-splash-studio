@@ -2,6 +2,7 @@ import { PIXEL_SIZE } from '@/core/grid';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useViewportStore } from '@/state/viewportStore';
 import { useToolStore } from '@/state/toolStore';
+import { REFERENCE_SCALE_MAX, REFERENCE_SCALE_MIN } from '../../constants';
 import { EXTENSION_MIME_MAP, MIME_EXTENSION_MAP } from '../../constants';
 
 const readFileAsDataUrl = (file: File) =>
@@ -68,6 +69,22 @@ const getViewportCenter = () => {
   };
 };
 
+const clamp = (value: number, min: number, max: number) =>
+  Math.min(max, Math.max(min, value));
+
+const getReferenceFitScale = (image: HTMLImageElement) => {
+  const viewport = useViewportStore.getState();
+  const viewWidth = viewport.width / viewport.camera.zoom;
+  const viewHeight = viewport.height / viewport.camera.zoom;
+  if (!image.naturalWidth || !image.naturalHeight) {
+    return 1;
+  }
+  const baseWidth = image.naturalWidth * PIXEL_SIZE;
+  const baseHeight = image.naturalHeight * PIXEL_SIZE;
+  const fitScale = Math.min(viewWidth / baseWidth, viewHeight / baseHeight) * 0.9;
+  return clamp(fitScale, REFERENCE_SCALE_MIN, REFERENCE_SCALE_MAX);
+};
+
 const toGrid = (world: { x: number; y: number }) => ({
   x: Math.floor(world.x / PIXEL_SIZE),
   y: Math.floor(world.y / PIXEL_SIZE),
@@ -87,6 +104,7 @@ export const addReferenceFromFile = async (
   const image = await loadImage(dataUrl);
   const position = worldPosition ?? getViewportCenter();
   const gridPosition = toGrid(position);
+  const scale = getReferenceFitScale(image);
   const assetFilename = createReferenceFilename(file, assetType);
   useReferenceStore.getState().addReference({
     image,
@@ -97,7 +115,7 @@ export const addReferenceFromFile = async (
     height: image.naturalHeight || image.height,
     x: gridPosition.x,
     y: gridPosition.y,
-    scale: 1,
+    scale,
     rotation: 0,
     flipX: false,
     flipY: false,
