@@ -48,6 +48,10 @@ export const MIME_EXTENSION_MAP: Record<string, string> = {
   'image/webp': 'webp',
   'image/gif': 'gif',
   'image/bmp': 'bmp',
+  'image/pcx': 'pcx',
+  'image/x-pcx': 'pcx',
+  'image/tga': 'tga',
+  'image/x-tga': 'tga',
 };
 
 export const EXTENSION_MIME_MAP: Record<string, string> = {
@@ -57,6 +61,8 @@ export const EXTENSION_MIME_MAP: Record<string, string> = {
   webp: 'image/webp',
   gif: 'image/gif',
   bmp: 'image/bmp',
+  pcx: 'image/x-pcx',
+  tga: 'image/x-tga',
 };
 
 export const DEFAULT_COLORS = [

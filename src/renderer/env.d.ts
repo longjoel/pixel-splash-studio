@@ -37,12 +37,42 @@ type ProjectPayload = {
 
 type ProjectLoadResult = ProjectPayload & { path: string };
 
+type ImportedImagePayload = {
+  width: number;
+  height: number;
+  colorType: 'indexed' | 'rgba';
+  pixels: Uint8Array;
+  palette?: Array<[number, number, number]>;
+  transparentIndex?: number;
+};
+
+type ExportImagePayload =
+  | {
+      kind: 'rgba';
+      width: number;
+      height: number;
+      data: Uint8Array;
+    }
+  | {
+      kind: 'indexed';
+      width: number;
+      height: number;
+      data: Uint8Array;
+      palette: Uint8Array;
+    };
+
 interface Window {
   projectApi: {
     save: (payload: ProjectPayload, existingPath?: string) => Promise<string | null>;
     load: (existingPath?: string) => Promise<ProjectLoadResult | null>;
     exportPng: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportGbr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
+    importImage: () => Promise<ImportedImagePayload | null>;
+    exportImage: (
+      format: string,
+      payload: ExportImagePayload,
+      suggestedName?: string
+    ) => Promise<string | null>;
   };
   menuApi: {
     onAction: (handler: (action: string) => void) => () => void;

@@ -15,7 +15,14 @@ import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
+import {
+  exportSelectionAsBmp,
+  exportSelectionAsGif,
+  exportSelectionAsPcx,
+  exportSelectionAsTga,
+} from './services/selectionExportImage';
 import { consolidatePalette } from './services/paletteConsolidate';
+import { importImageAsProject } from './services/importImageProject';
 import { useStampStore } from './state/stampStore';
 import { usePixelStore } from './state/pixelStore';
 import { usePreviewStore } from './state/previewStore';
@@ -562,8 +569,23 @@ const App = () => {
         case 'saveAs':
           handleSaveAs();
           break;
+        case 'importImage':
+          void importImageAsProject();
+          break;
         case 'exportPng':
           void exportSelectionAsPng();
+          break;
+        case 'exportBmp':
+          void exportSelectionAsBmp();
+          break;
+        case 'exportGif':
+          void exportSelectionAsGif();
+          break;
+        case 'exportPcx':
+          void exportSelectionAsPcx();
+          break;
+        case 'exportTga':
+          void exportSelectionAsTga();
           break;
         case 'exportGbr':
           void exportSelectionAsGbr();

@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('projectApi', {
     ipcRenderer.invoke('export:png', data, suggestedName),
   exportGbr: (data: Uint8Array, suggestedName?: string) =>
     ipcRenderer.invoke('export:gbr', data, suggestedName),
+  importImage: () => ipcRenderer.invoke('import:image'),
+  exportImage: (format: string, payload: unknown, suggestedName?: string) =>
+    ipcRenderer.invoke('export:image', format, payload, suggestedName),
 });
 
 contextBridge.exposeInMainWorld('menuApi', {
