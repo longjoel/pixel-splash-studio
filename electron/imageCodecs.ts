@@ -174,6 +174,93 @@ const decodeTga = (buffer: Buffer): DecodedImage => {
   };
 };
 
+const GAME_BOY_PALETTE: Array<[number, number, number]> = [
+  [224, 248, 208],
+  [136, 192, 112],
+  [52, 104, 86],
+  [8, 24, 32],
+];
+
+const decodeGbr = (buffer: Buffer): DecodedImage => {
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength
+  );
+  const signature = buffer.subarray(0, 4).toString('ascii');
+  if (signature !== 'GBO0') {
+    throw new Error('Unsupported GBR signature.');
+  }
+
+  const readWord = (offset: number, little: boolean) =>
+    view.getUint16(offset, little);
+  const readLong = (offset: number, little: boolean) =>
+    view.getUint32(offset, little);
+
+  const expectedLength = buffer.byteLength - 12;
+  let littleEndian = true;
+  if (readLong(8, true) !== expectedLength && readLong(8, false) === expectedLength) {
+    littleEndian = false;
+  }
+
+  let cursor = 12;
+  cursor += 30; // name
+  const tileWidth = readWord(cursor, littleEndian);
+  cursor += 2;
+  const tileHeight = readWord(cursor, littleEndian);
+  cursor += 2;
+  let tileCount = readWord(cursor, littleEndian);
+  cursor += 2;
+  const colorSet = [
+    view.getUint8(cursor),
+    view.getUint8(cursor + 1),
+    view.getUint8(cursor + 2),
+    view.getUint8(cursor + 3),
+  ];
+  cursor += 4;
+
+  const bytesPerTile = Math.ceil((tileWidth * tileHeight) / 4);
+  const remaining = buffer.byteLength - cursor;
+  const inferredTiles = bytesPerTile > 0 ? Math.floor(remaining / bytesPerTile) : 0;
+  if (!tileCount && inferredTiles > 0) {
+    tileCount = inferredTiles;
+  } else if (tileCount > inferredTiles) {
+    tileCount = inferredTiles;
+  }
+
+  const tilesAcross = tileCount > 0 ? Math.min(16, tileCount) : 1;
+  const tilesDown = tileCount > 0 ? Math.ceil(tileCount / tilesAcross) : 1;
+  const width = tilesAcross * tileWidth;
+  const height = tilesDown * tileHeight;
+  const pixels = new Uint8Array(width * height);
+
+  for (let tile = 0; tile < tileCount; tile += 1) {
+    const tileX = tile % tilesAcross;
+    const tileY = Math.floor(tile / tilesAcross);
+    for (let y = 0; y < tileHeight; y += 1) {
+      const low = view.getUint8(cursor);
+      const high = view.getUint8(cursor + 1);
+      cursor += 2;
+      for (let x = 0; x < tileWidth; x += 1) {
+        const bit = 7 - x;
+        const value = ((high >> bit) & 0x01) << 1 | ((low >> bit) & 0x01);
+        const mapped = colorSet[value] ?? value;
+        const px = tileX * tileWidth + x;
+        const py = tileY * tileHeight + y;
+        pixels[py * width + px] = mapped;
+      }
+    }
+  }
+
+  return {
+    width,
+    height,
+    colorType: 'indexed',
+    pixels,
+    palette: GAME_BOY_PALETTE,
+  };
+};
+
 export const decodeImageFile = async (filePath: string): Promise<DecodedImage> => {
   const buffer = await readFile(filePath);
   const extension = extname(filePath).toLowerCase().replace('.', '');
@@ -186,6 +273,8 @@ export const decodeImageFile = async (filePath: string): Promise<DecodedImage> =
       return decodePcx(buffer);
     case 'tga':
       return decodeTga(buffer);
+    case 'gbr':
+      return decodeGbr(buffer);
     default:
       throw new Error(`Unsupported import format: .${extension}`);
   }

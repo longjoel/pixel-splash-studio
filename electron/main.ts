@@ -495,7 +495,7 @@ ipcMain.handle('import:image', async () => {
     filters: [
       {
         name: 'Image Files',
-        extensions: ['bmp', 'gif', 'pcx', 'tga'],
+        extensions: ['bmp', 'gif', 'pcx', 'tga', 'gbr'],
       },
     ],
     properties: ['openFile'],
