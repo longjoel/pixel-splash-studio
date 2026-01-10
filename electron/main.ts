@@ -6,6 +6,7 @@ import { tmpdir } from 'os';
 import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
 import { EXTENSION_MIME_MAP } from '../src/constants';
+import { decodeImageFile, encodeImageBuffer, type ExportImagePayload } from './imageCodecs';
 
 const perfLoggingEnabled = { value: false };
 const memoryUsageEnabled = { value: false };
@@ -75,20 +76,61 @@ app.whenReady().then(() => {
           },
         },
         {
-          label: 'Export PNG...',
-          accelerator: 'CmdOrCtrl+Shift+E',
+          label: 'Import Image...',
+          accelerator: 'CmdOrCtrl+I',
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
-            window?.webContents.send('menu:action', 'exportPng');
+            window?.webContents.send('menu:action', 'importImage');
           },
         },
         {
-          label: 'Export Game Boy GBR...',
-          accelerator: 'CmdOrCtrl+Shift+G',
-          click: () => {
-            const window = BrowserWindow.getFocusedWindow();
-            window?.webContents.send('menu:action', 'exportGbr');
-          },
+          label: 'Export Selection',
+          submenu: [
+            {
+              label: 'PNG...',
+              accelerator: 'CmdOrCtrl+Shift+E',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportPng');
+              },
+            },
+            {
+              label: 'BMP...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportBmp');
+              },
+            },
+            {
+              label: 'GIF...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportGif');
+              },
+            },
+            {
+              label: 'PCX...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportPcx');
+              },
+            },
+            {
+              label: 'TGA...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportTga');
+              },
+            },
+            {
+              label: 'Game Boy GBR...',
+              accelerator: 'CmdOrCtrl+Shift+G',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportGbr');
+              },
+            },
+          ],
         },
         { type: 'separator' as const },
         {
@@ -446,6 +488,58 @@ ipcMain.handle('export:gbr', async (_event, data: Uint8Array, suggestedName?: st
   await writeFile(filePath, Buffer.from(data));
   return filePath;
 });
+
+ipcMain.handle('import:image', async () => {
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions: OpenDialogOptions = {
+    filters: [
+      {
+        name: 'Image Files',
+        extensions: ['bmp', 'gif', 'pcx', 'tga', 'gbr', 'nes'],
+      },
+    ],
+    properties: ['openFile'],
+  };
+  const { canceled, filePaths } = window
+    ? await dialog.showOpenDialog(window, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions);
+
+  if (canceled || filePaths.length === 0) {
+    return null;
+  }
+
+  try {
+    return await decodeImageFile(filePaths[0]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to import image.';
+    console.error('Failed to import image:', error);
+    dialog.showErrorBox('Import Failed', message);
+    return null;
+  }
+});
+
+ipcMain.handle(
+  'export:image',
+  async (_event, format: string, payload: ExportImagePayload, suggestedName?: string) => {
+    const buffer = await encodeImageBuffer(format, payload);
+    const window = BrowserWindow.getFocusedWindow();
+    const extension = format.toLowerCase();
+    const dialogOptions = {
+      filters: [{ name: `${extension.toUpperCase()} Image`, extensions: [extension] }],
+      defaultPath: suggestedName ?? `pixel-splash-selection.${extension}`,
+    };
+    const { filePath, canceled } = window
+      ? await dialog.showSaveDialog(window, dialogOptions)
+      : await dialog.showSaveDialog(dialogOptions);
+
+    if (canceled || !filePath) {
+      return null;
+    }
+
+    await writeFile(filePath, Buffer.from(buffer));
+    return filePath;
+  }
+);
 
 ipcMain.handle('debug:perf-log', async (_event, message: string) => {
   if (!perfLoggingEnabled.value) {

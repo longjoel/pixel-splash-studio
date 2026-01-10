@@ -15,7 +15,14 @@ import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
+import {
+  exportSelectionAsBmp,
+  exportSelectionAsGif,
+  exportSelectionAsPcx,
+  exportSelectionAsTga,
+} from './services/selectionExportImage';
 import { consolidatePalette } from './services/paletteConsolidate';
+import { importImageAsProject } from './services/importImageProject';
 import { useStampStore } from './state/stampStore';
 import { usePixelStore } from './state/pixelStore';
 import { usePreviewStore } from './state/previewStore';
@@ -248,6 +255,7 @@ const App = () => {
   const stampFlipX = useStampStore((state) => state.flipX);
   const stampFlipY = useStampStore((state) => state.flipY);
   const stampDrag = useStampStore((state) => state.drag);
+  const stampPasteDuplicateColors = useStampStore((state) => state.pasteDuplicateColors);
   const removeReference = useReferenceStore((state) => state.removeReference);
   const pasteShortcutRef = React.useRef(false);
 
@@ -279,6 +287,9 @@ const App = () => {
   const setStampFlipX = useStampStore((state) => state.setFlipX);
   const setStampFlipY = useStampStore((state) => state.setFlipY);
   const setStampDrag = useStampStore((state) => state.setDrag);
+  const setStampPasteDuplicateColors = useStampStore(
+    (state) => state.setPasteDuplicateColors
+  );
   const setBrushSize = useBrushStore((state) => state.setSize);
   const setBrushShape = useBrushStore((state) => state.setShape);
   const paletteColors = usePaletteStore((state) => state.colors);
@@ -295,6 +306,7 @@ const App = () => {
   const [traceMaxColors, setTraceMaxColors] = useState(TRACE_DEFAULT_MAX_COLORS);
   const projectTitle = getProjectTitle();
   const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
+  const paletteRightOffset = (minimapCollapsed ? 180 : 324) + 24;
 
   useEffect(() => {
     setTracePaletteStart((value) => clamp(value, 0, paletteMaxIndex));
@@ -562,8 +574,23 @@ const App = () => {
         case 'saveAs':
           handleSaveAs();
           break;
+        case 'importImage':
+          void importImageAsProject();
+          break;
         case 'exportPng':
           void exportSelectionAsPng();
+          break;
+        case 'exportBmp':
+          void exportSelectionAsBmp();
+          break;
+        case 'exportGif':
+          void exportSelectionAsGif();
+          break;
+        case 'exportPcx':
+          void exportSelectionAsPcx();
+          break;
+        case 'exportTga':
+          void exportSelectionAsTga();
           break;
         case 'exportGbr':
           void exportSelectionAsGbr();
@@ -1019,6 +1046,26 @@ const App = () => {
                           </select>
                         </div>
                       </div>
+                      <div className="panel__row">
+                        <div className="panel__group">
+                          <span className="panel__label">Paste</span>
+                          <div className="panel__toggle-group">
+                            <label
+                              className="panel__toggle"
+                              data-active={stampPasteDuplicateColors}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={stampPasteDuplicateColors}
+                                onChange={() =>
+                                  setStampPasteDuplicateColors(!stampPasteDuplicateColors)
+                                }
+                              />
+                              Duplicate Colors
+                            </label>
+                          </div>
+                        </div>
+                      </div>
                     </>
                   ) : activeTool === 'reference-handle' ? (
                     <div className="panel__group">
@@ -1360,7 +1407,10 @@ const App = () => {
             </>
           )}
         </div>
-        <div className="app__palette panel">
+        <div
+          className="app__palette panel"
+          style={{ '--palette-right-offset': `${paletteRightOffset}px` } as React.CSSProperties}
+        >
           <PaletteBar />
         </div>
         <div

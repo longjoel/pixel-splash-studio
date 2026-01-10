@@ -45,12 +45,18 @@
     "wait-on": "^7.2.0"
   },
   "dependencies": {
+    "bmp-js": "^0.1.0",
     "electron-squirrel-startup": "^1.0.1",
+    "elma-pcx": "^1.1.1",
+    "gif-encoder-2": "^1.0.5",
+    "gifuct-js": "^2.1.2",
     "immer": "^10.0.4",
     "jszip": "^3.10.1",
     "nanoid": "^5.0.7",
+    "pcx-js": "^1.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "tga": "^1.0.7",
     "zod": "^3.23.8",
     "zustand": "^4.5.2"
   },

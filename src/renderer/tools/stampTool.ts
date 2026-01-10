@@ -6,6 +6,7 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useStampStore, StampRotation, StampScale } from '@/state/stampStore';
+import { duplicateClipboardPalette } from '@/services/clipboardPaletteDuplicate';
 
 type TransformedPixel = { x: number; y: number; paletteIndex: number };
 
@@ -18,6 +19,8 @@ type TransformCache = {
   flipX: boolean;
   flipY: boolean;
   pixels: TransformedPixel[];
+  transformedWidth: number;
+  transformedHeight: number;
 };
 
 const toGridPoint = (cursor: CursorState) => ({
@@ -112,7 +115,11 @@ export class StampTool implements Tool {
       this.cache.flipX === stamp.flipX &&
       this.cache.flipY === stamp.flipY
     ) {
-      return { pixels: this.cache.pixels };
+      return {
+        pixels: this.cache.pixels,
+        width: this.cache.transformedWidth,
+        height: this.cache.transformedHeight,
+      };
     }
 
     const built = buildTransformedPixels(
@@ -133,9 +140,24 @@ export class StampTool implements Tool {
       flipX: stamp.flipX,
       flipY: stamp.flipY,
       pixels: built.pixels,
+      transformedWidth: built.width,
+      transformedHeight: built.height,
     };
-    return { pixels: built.pixels };
+    return { pixels: built.pixels, width: built.width, height: built.height };
   }
+
+  private getAnchor = (
+    point: { x: number; y: number },
+    width: number,
+    height: number
+  ) => {
+    const stamp = useStampStore.getState();
+    const snapped = snapPoint(point, stamp.snap);
+    return {
+      x: snapped.x - Math.floor(width / 2),
+      y: snapped.y - Math.floor(height / 2),
+    };
+  };
 
   private renderPreview = (cursor: CursorState) => {
     const preview = usePreviewStore.getState();
@@ -144,13 +166,16 @@ export class StampTool implements Tool {
     if (!transformed) {
       return;
     }
-    const stamp = useStampStore.getState();
-    const anchor = snapPoint(toGridPoint(cursor), stamp.snap);
+    const anchor = this.getAnchor(
+      toGridPoint(cursor),
+      transformed.width,
+      transformed.height
+    );
     const selection = useSelectionStore.getState();
     const restrictToSelection = selection.selectedCount > 0;
 
     for (const pixel of transformed.pixels) {
-      if (stamp.mode === 'soft' && pixel.paletteIndex === 0) {
+      if (useStampStore.getState().mode === 'soft' && pixel.paletteIndex === 0) {
         continue;
       }
       const worldX = anchor.x + pixel.x;
@@ -214,7 +239,6 @@ export class StampTool implements Tool {
   };
 
   private stampLine = (from: { x: number; y: number }, to: { x: number; y: number }) => {
-    const stamp = useStampStore.getState();
     let x = from.x;
     let y = from.y;
     const dx = Math.abs(to.x - from.x);
@@ -224,7 +248,11 @@ export class StampTool implements Tool {
     let err = dx - dy;
 
     while (true) {
-      const anchor = snapPoint({ x, y }, stamp.snap);
+      const transformed = this.getTransformed();
+      if (!transformed) {
+        return;
+      }
+      const anchor = this.getAnchor({ x, y }, transformed.width, transformed.height);
       if (
         !this.lastAnchor ||
         this.lastAnchor.x !== anchor.x ||
@@ -257,6 +285,9 @@ export class StampTool implements Tool {
     this.lastAnchor = null;
     const stamp = useStampStore.getState();
     const dragEnabled = stamp.drag;
+    if (!dragEnabled && stamp.pasteDuplicateColors) {
+      duplicateClipboardPalette();
+    }
     const point = toGridPoint(cursor);
     if (dragEnabled) {
       this.dragging = true;
@@ -265,8 +296,12 @@ export class StampTool implements Tool {
       this.renderPreview(cursor);
       return;
     }
-    const anchor = snapPoint(point, stamp.snap);
-    this.applyStampAt(anchor.x, anchor.y);
+    const transformed = this.getTransformed();
+    if (!transformed) {
+      return;
+    }
+    const centered = this.getAnchor(point, transformed.width, transformed.height);
+    this.applyStampAt(centered.x, centered.y);
     this.flushChanges();
     this.renderPreview(cursor);
   };

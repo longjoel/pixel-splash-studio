@@ -13,6 +13,7 @@ type StampState = {
   flipX: boolean;
   flipY: boolean;
   drag: boolean;
+  pasteDuplicateColors: boolean;
   setMode: (mode: StampMode) => void;
   setSnap: (snap: StampSnap) => void;
   setRotation: (rotation: StampRotation) => void;
@@ -20,6 +21,7 @@ type StampState = {
   setFlipX: (flip: boolean) => void;
   setFlipY: (flip: boolean) => void;
   setDrag: (drag: boolean) => void;
+  setPasteDuplicateColors: (value: boolean) => void;
 };
 
 export const useStampStore = create<StampState>((set) => ({
@@ -30,6 +32,7 @@ export const useStampStore = create<StampState>((set) => ({
   flipX: false,
   flipY: false,
   drag: false,
+  pasteDuplicateColors: false,
   setMode: (mode) => set({ mode }),
   setSnap: (snap) => set({ snap }),
   setRotation: (rotation) => set({ rotation }),
@@ -37,4 +40,5 @@ export const useStampStore = create<StampState>((set) => ({
   setFlipX: (flip) => set({ flipX: flip }),
   setFlipY: (flip) => set({ flipY: flip }),
   setDrag: (drag) => set({ drag }),
+  setPasteDuplicateColors: (value) => set({ pasteDuplicateColors: value }),
 }));

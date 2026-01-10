@@ -285,18 +285,25 @@ const buildTileBytes = (indices: Uint8Array, width: number, height: number) => {
   const tilesAcross = width / TILE_SIZE;
   const tilesDown = height / TILE_SIZE;
   const tileCount = tilesAcross * tilesDown;
-  const data = new Uint8Array(tileCount * TILE_SIZE * TILE_SIZE);
+  const data = new Uint8Array(tileCount * TILE_SIZE * 2);
   let offset = 0;
   for (let ty = 0; ty < tilesDown; ty += 1) {
     for (let tx = 0; tx < tilesAcross; tx += 1) {
       const baseX = tx * TILE_SIZE;
       const baseY = ty * TILE_SIZE;
       for (let y = 0; y < TILE_SIZE; y += 1) {
+        let low = 0;
+        let high = 0;
         for (let x = 0; x < TILE_SIZE; x += 1) {
           const srcIndex = (baseY + y) * width + (baseX + x);
-          data[offset] = indices[srcIndex];
-          offset += 1;
+          const color = indices[srcIndex] & 0x03;
+          const bit = 7 - x;
+          low |= (color & 0x01) << bit;
+          high |= ((color >> 1) & 0x01) << bit;
         }
+        data[offset] = low;
+        data[offset + 1] = high;
+        offset += 2;
       }
     }
   }
@@ -304,11 +311,11 @@ const buildTileBytes = (indices: Uint8Array, width: number, height: number) => {
 };
 
 const writeWord = (view: DataView, offset: number, value: number) => {
-  view.setUint16(offset, value, false);
+  view.setUint16(offset, value, true);
 };
 
 const writeLong = (view: DataView, offset: number, value: number) => {
-  view.setUint32(offset, value, false);
+  view.setUint32(offset, value, true);
 };
 
 const writeString = (view: DataView, offset: number, value: string, maxLength: number) => {

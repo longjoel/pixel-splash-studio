@@ -40,6 +40,11 @@ export const mix = (from: Rgb, to: Rgb, amount: number): Rgb => ({
   b: clampByte(from.b + (to.b - from.b) * amount),
 });
 
+const toHexByte = (value: number) => clampByte(value).toString(16).padStart(2, '0');
+
+export const rgbToHex = (rgb: Rgb) =>
+  `#${toHexByte(rgb.r)}${toHexByte(rgb.g)}${toHexByte(rgb.b)}`;
+
 export const getComplement = (rgb: Rgb): Rgb => ({
   r: 255 - rgb.r,
   g: 255 - rgb.g,
