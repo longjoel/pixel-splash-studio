@@ -15,12 +15,18 @@ import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
+import { exportSelectionAsChr } from './services/selectionExportChr';
 import {
   exportSelectionAsBmp,
   exportSelectionAsGif,
   exportSelectionAsPcx,
   exportSelectionAsTga,
 } from './services/selectionExportImage';
+import {
+  exportSelectionAsBsaveCga,
+  exportSelectionAsBsaveEga,
+  exportSelectionAsBsaveVga,
+} from './services/selectionExportBsave';
 import { consolidatePalette } from './services/paletteConsolidate';
 import { importImageAsProject } from './services/importImageProject';
 import { useStampStore } from './state/stampStore';
@@ -592,8 +598,20 @@ const App = () => {
         case 'exportTga':
           void exportSelectionAsTga();
           break;
+        case 'exportBsaveCga':
+          void exportSelectionAsBsaveCga();
+          break;
+        case 'exportBsaveEga':
+          void exportSelectionAsBsaveEga();
+          break;
+        case 'exportBsaveVga':
+          void exportSelectionAsBsaveVga();
+          break;
         case 'exportGbr':
           void exportSelectionAsGbr();
+          break;
+        case 'exportChr':
+          void exportSelectionAsChr();
           break;
         case 'undo':
           undo();

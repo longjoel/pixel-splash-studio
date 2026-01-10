@@ -115,7 +115,7 @@ const mapRgbaPixels = (payload: ImportedImagePayload) => {
 
 export const importImageAsProject = async () => {
   if (!window.projectApi?.importImage) {
-    window.alert('Image import is unavailable. Restart the app to load the latest import support.');
+    window.alert('Import is unavailable. Restart the app to load the latest import support.');
     return null;
   }
 

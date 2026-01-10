@@ -269,6 +269,149 @@ const decodeGbr = (buffer: Buffer): DecodedImage => {
   };
 };
 
+const readUint16BE = (buffer: Uint8Array, offset: number) =>
+  (buffer[offset] << 8) | buffer[offset + 1];
+
+const readUint32BE = (buffer: Uint8Array, offset: number) =>
+  (buffer[offset] << 24) |
+  (buffer[offset + 1] << 16) |
+  (buffer[offset + 2] << 8) |
+  buffer[offset + 3];
+
+const decodeByteRun1 = (input: Uint8Array, expectedLength: number) => {
+  const output = new Uint8Array(expectedLength);
+  let inOffset = 0;
+  let outOffset = 0;
+  while (inOffset < input.length && outOffset < expectedLength) {
+    const control = (input[inOffset] << 24) >> 24;
+    inOffset += 1;
+    if (control >= 0) {
+      const count = control + 1;
+      const end = Math.min(input.length, inOffset + count);
+      output.set(input.subarray(inOffset, end), outOffset);
+      outOffset += end - inOffset;
+      inOffset = end;
+    } else if (control >= -127) {
+      const count = -control + 1;
+      const value = input[inOffset];
+      inOffset += 1;
+      output.fill(value, outOffset, Math.min(expectedLength, outOffset + count));
+      outOffset += count;
+    }
+  }
+  return output;
+};
+
+const decodeIff = (buffer: Buffer): DecodedImage => {
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length < 12) {
+    throw new Error('IFF file is too small.');
+  }
+  const header = buffer.subarray(0, 4).toString('ascii');
+  if (header !== 'FORM') {
+    throw new Error('Invalid IFF header.');
+  }
+  const formType = buffer.subarray(8, 12).toString('ascii');
+  if (formType !== 'ILBM' && formType !== 'PBM ') {
+    throw new Error('Unsupported IFF form type.');
+  }
+
+  let width = 0;
+  let height = 0;
+  let planes = 0;
+  let masking = 0;
+  let compression = 0;
+  let transparentIndex: number | undefined;
+  let palette: Array<[number, number, number]> | undefined;
+  let body: Uint8Array | null = null;
+
+  let offset = 12;
+  while (offset + 8 <= bytes.length) {
+    const chunkId = buffer.subarray(offset, offset + 4).toString('ascii');
+    const chunkSize = readUint32BE(bytes, offset + 4);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + chunkSize;
+    if (dataEnd > bytes.length) {
+      break;
+    }
+    if (chunkId === 'BMHD' && chunkSize >= 20) {
+      width = readUint16BE(bytes, dataStart);
+      height = readUint16BE(bytes, dataStart + 2);
+      planes = bytes[dataStart + 8];
+      masking = bytes[dataStart + 9];
+      compression = bytes[dataStart + 10];
+      const transparent = readUint16BE(bytes, dataStart + 12);
+      if (masking === 2) {
+        transparentIndex = transparent;
+      }
+    } else if (chunkId === 'CMAP') {
+      const colors: Array<[number, number, number]> = [];
+      for (let i = 0; i + 2 < chunkSize; i += 3) {
+        colors.push([
+          bytes[dataStart + i],
+          bytes[dataStart + i + 1],
+          bytes[dataStart + i + 2],
+        ]);
+      }
+      palette = colors;
+    } else if (chunkId === 'BODY') {
+      body = bytes.subarray(dataStart, dataEnd);
+    }
+    offset = dataEnd + (chunkSize % 2);
+  }
+
+  if (!body || width <= 0 || height <= 0) {
+    throw new Error('IFF image data is missing.');
+  }
+
+  if (formType === 'PBM ') {
+    const expected = width * height;
+    const decoded =
+      compression === 1 ? decodeByteRun1(body, expected) : body.subarray(0, expected);
+    return {
+      format: 'iff',
+      width,
+      height,
+      colorType: 'indexed',
+      pixels: decoded,
+      palette,
+      transparentIndex,
+    };
+  }
+
+  const rowBytes = ((width + 15) >> 4) << 1;
+  const planesToRead = planes + (masking === 1 ? 1 : 0);
+  const expectedLength = rowBytes * height * planesToRead;
+  const decoded =
+    compression === 1 ? decodeByteRun1(body, expectedLength) : body.subarray(0, expectedLength);
+  const pixels = new Uint8Array(width * height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      let value = 0;
+      const bit = 7 - (x & 7);
+      const byteIndex = x >> 3;
+      for (let plane = 0; plane < planes; plane += 1) {
+        const planeOffset = (y * planesToRead + plane) * rowBytes;
+        const byte = decoded[planeOffset + byteIndex];
+        if (byte & (1 << bit)) {
+          value |= 1 << plane;
+        }
+      }
+      pixels[y * width + x] = value;
+    }
+  }
+
+  return {
+    format: 'iff',
+    width,
+    height,
+    colorType: 'indexed',
+    pixels,
+    palette,
+    transparentIndex,
+  };
+};
+
 const NES_GRAYSCALE_PALETTE: Array<[number, number, number]> = [
   [0, 0, 0],
   [85, 85, 85],
@@ -276,28 +419,7 @@ const NES_GRAYSCALE_PALETTE: Array<[number, number, number]> = [
   [255, 255, 255],
 ];
 
-const decodeNes = (buffer: Buffer): DecodedImage => {
-  if (buffer.subarray(0, 4).toString('ascii') !== 'NES\x1a') {
-    throw new Error('Invalid NES file header.');
-  }
-  const prgBanks = buffer[4];
-  const chrBanks = buffer[5];
-  const hasTrainer = (buffer[6] & 0x04) !== 0;
-  if (chrBanks === 0) {
-    throw new Error('NES file uses CHR RAM; no tile data to import.');
-  }
-
-  const headerSize = 16;
-  const trainerSize = hasTrainer ? 512 : 0;
-  const prgSize = prgBanks * 16384;
-  const chrSize = chrBanks * 8192;
-  const chrStart = headerSize + trainerSize + prgSize;
-  const chrEnd = chrStart + chrSize;
-  if (chrEnd > buffer.length) {
-    throw new Error('NES file is truncated.');
-  }
-
-  const chrData = buffer.subarray(chrStart, chrEnd);
+const decodeNesTiles = (chrData: Uint8Array) => {
   const tileCount = Math.floor(chrData.length / 16);
   const tilesAcross = Math.min(16, Math.max(1, tileCount));
   const tilesDown = Math.ceil(tileCount / tilesAcross);
@@ -322,6 +444,33 @@ const decodeNes = (buffer: Buffer): DecodedImage => {
     }
   }
 
+  return { width, height, pixels };
+};
+
+const decodeNes = (buffer: Buffer): DecodedImage => {
+  if (buffer.subarray(0, 4).toString('ascii') !== 'NES\x1a') {
+    throw new Error('Invalid NES file header.');
+  }
+  const prgBanks = buffer[4];
+  const chrBanks = buffer[5];
+  const hasTrainer = (buffer[6] & 0x04) !== 0;
+  if (chrBanks === 0) {
+    throw new Error('NES file uses CHR RAM; no tile data to import.');
+  }
+
+  const headerSize = 16;
+  const trainerSize = hasTrainer ? 512 : 0;
+  const prgSize = prgBanks * 16384;
+  const chrSize = chrBanks * 8192;
+  const chrStart = headerSize + trainerSize + prgSize;
+  const chrEnd = chrStart + chrSize;
+  if (chrEnd > buffer.length) {
+    throw new Error('NES file is truncated.');
+  }
+
+  const chrData = buffer.subarray(chrStart, chrEnd);
+  const { width, height, pixels } = decodeNesTiles(chrData);
+
   return {
     format: 'nes',
     width,
@@ -329,6 +478,42 @@ const decodeNes = (buffer: Buffer): DecodedImage => {
     colorType: 'indexed',
     pixels,
     palette: NES_GRAYSCALE_PALETTE,
+  };
+};
+
+const decodeChr = (buffer: Buffer): DecodedImage => {
+  if (buffer.length < 16) {
+    throw new Error('CHR file has no tile data.');
+  }
+  if (buffer.length % 16 !== 0) {
+    throw new Error('CHR data size must be a multiple of 16 bytes.');
+  }
+
+  const chrData = new Uint8Array(buffer);
+  const { width, height, pixels } = decodeNesTiles(chrData);
+  return {
+    format: 'chr',
+    width,
+    height,
+    colorType: 'indexed',
+    pixels,
+    palette: NES_GRAYSCALE_PALETTE,
+  };
+};
+
+const decodeGbRom = (buffer: Buffer): DecodedImage => {
+  if (buffer.length < 16) {
+    throw new Error('ROM file has no tile data.');
+  }
+  const romData = new Uint8Array(buffer);
+  const { width, height, pixels } = decodeNesTiles(romData);
+  return {
+    format: 'gb',
+    width,
+    height,
+    colorType: 'indexed',
+    pixels,
+    palette: GAME_BOY_PALETTE,
   };
 };
 
@@ -346,8 +531,18 @@ export const decodeImageFile = async (filePath: string): Promise<DecodedImage> =
       return decodeTga(buffer);
     case 'gbr':
       return decodeGbr(buffer);
+    case 'iff':
+    case 'ilbm':
+    case 'lbm':
+    case 'bbm':
+      return decodeIff(buffer);
     case 'nes':
       return decodeNes(buffer);
+    case 'chr':
+      return decodeChr(buffer);
+    case 'gb':
+    case 'gbc':
+      return decodeGbRom(buffer);
     default:
       throw new Error(`Unsupported import format: .${extension}`);
   }

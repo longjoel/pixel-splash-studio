@@ -13,6 +13,10 @@ contextBridge.exposeInMainWorld('projectApi', {
     ipcRenderer.invoke('export:png', data, suggestedName),
   exportGbr: (data: Uint8Array, suggestedName?: string) =>
     ipcRenderer.invoke('export:gbr', data, suggestedName),
+  exportChr: (data: Uint8Array, suggestedName?: string) =>
+    ipcRenderer.invoke('export:chr', data, suggestedName),
+  exportBsave: (data: Uint8Array, suggestedName?: string) =>
+    ipcRenderer.invoke('export:bsave', data, suggestedName),
   importImage: () => ipcRenderer.invoke('import:image'),
   exportImage: (format: string, payload: unknown, suggestedName?: string) =>
     ipcRenderer.invoke('export:image', format, payload, suggestedName),

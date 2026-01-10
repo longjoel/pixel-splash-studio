@@ -76,7 +76,7 @@ app.whenReady().then(() => {
           },
         },
         {
-          label: 'Import Image...',
+          label: 'Import ROMs...',
           accelerator: 'CmdOrCtrl+I',
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
@@ -123,11 +123,39 @@ app.whenReady().then(() => {
               },
             },
             {
+              label: 'BSAVE CGA 320x200...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportBsaveCga');
+              },
+            },
+            {
+              label: 'BSAVE EGA 320x200...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportBsaveEga');
+              },
+            },
+            {
+              label: 'BSAVE VGA 320x200...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportBsaveVga');
+              },
+            },
+            {
               label: 'Game Boy GBR...',
               accelerator: 'CmdOrCtrl+Shift+G',
               click: () => {
                 const window = BrowserWindow.getFocusedWindow();
                 window?.webContents.send('menu:action', 'exportGbr');
+              },
+            },
+            {
+              label: 'NES CHR...',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'exportChr');
               },
             },
           ],
@@ -489,13 +517,63 @@ ipcMain.handle('export:gbr', async (_event, data: Uint8Array, suggestedName?: st
   return filePath;
 });
 
+ipcMain.handle('export:chr', async (_event, data: Uint8Array, suggestedName?: string) => {
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions = {
+    filters: [{ name: 'NES CHR', extensions: ['chr'] }],
+    defaultPath: suggestedName ?? 'pixel-splash-selection.chr',
+  };
+  const { filePath, canceled } = window
+    ? await dialog.showSaveDialog(window, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+
+  if (canceled || !filePath) {
+    return null;
+  }
+
+  await writeFile(filePath, Buffer.from(data));
+  return filePath;
+});
+
+ipcMain.handle('export:bsave', async (_event, data: Uint8Array, suggestedName?: string) => {
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions = {
+    filters: [{ name: 'BSAVE', extensions: ['bsave', 'bsv'] }],
+    defaultPath: suggestedName ?? 'pixel-splash-selection.bsave',
+  };
+  const { filePath, canceled } = window
+    ? await dialog.showSaveDialog(window, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+
+  if (canceled || !filePath) {
+    return null;
+  }
+
+  await writeFile(filePath, Buffer.from(data));
+  return filePath;
+});
+
 ipcMain.handle('import:image', async () => {
   const window = BrowserWindow.getFocusedWindow();
   const dialogOptions: OpenDialogOptions = {
     filters: [
       {
-        name: 'Image Files',
-        extensions: ['bmp', 'gif', 'pcx', 'tga', 'gbr', 'nes'],
+        name: 'Image/ROM Files',
+        extensions: [
+          'bmp',
+          'gif',
+          'pcx',
+          'tga',
+          'gbr',
+          'nes',
+          'chr',
+          'gb',
+          'gbc',
+          'iff',
+          'ilbm',
+          'lbm',
+          'bbm',
+        ],
       },
     ],
     properties: ['openFile'],
@@ -511,8 +589,8 @@ ipcMain.handle('import:image', async () => {
   try {
     return await decodeImageFile(filePaths[0]);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unable to import image.';
-    console.error('Failed to import image:', error);
+    const message = error instanceof Error ? error.message : 'Unable to import file.';
+    console.error('Failed to import file:', error);
     dialog.showErrorBox('Import Failed', message);
     return null;
   }

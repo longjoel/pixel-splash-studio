@@ -68,6 +68,8 @@ interface Window {
     load: (existingPath?: string) => Promise<ProjectLoadResult | null>;
     exportPng: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportGbr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
+    exportChr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
+    exportBsave: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     importImage: () => Promise<ImportedImagePayload | null>;
     exportImage: (
       format: string,
