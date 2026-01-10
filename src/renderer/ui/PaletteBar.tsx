@@ -366,9 +366,26 @@ const PaletteBar = () => {
     closeMenu();
   };
 
+  const layout = React.useMemo(() => {
+    const count = colors.length + 1;
+    const rows = Math.min(4, Math.max(1, Math.ceil(count / 16)));
+    const columns = Math.max(1, Math.ceil(count / rows));
+    return { rows, columns };
+  }, [colors.length]);
+
   return (
     <div className="palette-bar">
-      <div className="palette-bar__swatches" role="listbox" aria-label="Palette colors">
+      <div
+        className="palette-bar__swatches"
+        role="listbox"
+        aria-label="Palette colors"
+        style={
+          {
+            '--palette-rows': layout.rows,
+            '--palette-columns': layout.columns,
+          } as React.CSSProperties
+        }
+      >
         {colors.map((color, index) => (
           <button
             key={`${color}-${index}`}

@@ -306,6 +306,7 @@ const App = () => {
   const [traceMaxColors, setTraceMaxColors] = useState(TRACE_DEFAULT_MAX_COLORS);
   const projectTitle = getProjectTitle();
   const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
+  const paletteRightOffset = (minimapCollapsed ? 180 : 324) + 24;
 
   useEffect(() => {
     setTracePaletteStart((value) => clamp(value, 0, paletteMaxIndex));
@@ -1406,7 +1407,10 @@ const App = () => {
             </>
           )}
         </div>
-        <div className="app__palette panel">
+        <div
+          className="app__palette panel"
+          style={{ '--palette-right-offset': `${paletteRightOffset}px` } as React.CSSProperties}
+        >
           <PaletteBar />
         </div>
         <div
