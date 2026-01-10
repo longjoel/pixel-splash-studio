@@ -312,6 +312,7 @@ const App = () => {
   const setSelectionSnap = useSelectionRectangleStore((state) => state.setSnap);
   const fillMode = useFillBucketStore((state) => state.mode);
   const setFillMode = useFillBucketStore((state) => state.setMode);
+  const paletteSelectionCount = usePaletteStore((state) => state.selectedIndices.length);
   const stampMode = useStampStore((state) => state.mode);
   const stampSnap = useStampStore((state) => state.snap);
   const stampRotation = useStampStore((state) => state.rotation);
@@ -980,6 +981,20 @@ const App = () => {
                           />
                           Selection
                         </label>
+                        <label className="panel__radio">
+                          <input
+                            type="radio"
+                            name="fill-mode"
+                            value="gradient"
+                            checked={fillMode === 'gradient'}
+                            onChange={() => setFillMode('gradient')}
+                            disabled={paletteSelectionCount < 2}
+                          />
+                          Gradient Dither (palette selection, top → bottom)
+                        </label>
+                      </div>
+                      <div className="panel__note">
+                        Select 2+ palette swatches (Shift-click) to enable gradient dither.
                       </div>
                     </div>
                   ) : activeTool === 'stamp' ? (

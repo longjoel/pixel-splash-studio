@@ -255,10 +255,12 @@ const PaletteBar = () => {
   const colors = usePaletteStore((state) => state.colors);
   const primaryIndex = usePaletteStore((state) => state.primaryIndex);
   const secondaryIndex = usePaletteStore((state) => state.secondaryIndex);
+  const selectedIndices = usePaletteStore((state) => state.selectedIndices);
   const setPrimary = usePaletteStore((state) => state.setPrimary);
   const setSecondary = usePaletteStore((state) => state.setSecondary);
   const setColor = usePaletteStore((state) => state.setColor);
   const setPalette = usePaletteStore((state) => state.setPalette);
+  const setSelectedIndices = usePaletteStore((state) => state.setSelectedIndices);
   const addColor = usePaletteStore((state) => state.addColor);
   const removeColor = usePaletteStore((state) => state.removeColor);
 
@@ -268,7 +270,6 @@ const PaletteBar = () => {
     y: 0,
     index: null,
   });
-  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
   const lastSelectedRef = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -378,10 +379,7 @@ const PaletteBar = () => {
   const canDeleteSelection = colors.length - selectionCount >= 1;
 
   const setSelection = (indices: number[]) => {
-    const unique = Array.from(new Set(indices)).filter(
-      (idx) => idx >= 0 && idx < colors.length
-    );
-    setSelectedIndices(unique);
+    setSelectedIndices(indices);
   };
 
   const clampSelectionToPalette = () => {

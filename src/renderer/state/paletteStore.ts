@@ -5,6 +5,7 @@ type PaletteState = {
   colors: string[];
   primaryIndex: number;
   secondaryIndex: number;
+  selectedIndices: number[];
   addColor: (color: string) => void;
   removeColor: (index: number) => void;
   setColor: (index: number, color: string) => void;
@@ -12,12 +13,14 @@ type PaletteState = {
   reset: () => void;
   setPrimary: (index: number) => void;
   setSecondary: (index: number) => void;
+  setSelectedIndices: (indices: number[]) => void;
 };
 
 export const usePaletteStore = create<PaletteState>((set) => ({
   colors: DEFAULT_COLORS,
   primaryIndex: 0,
   secondaryIndex: 1,
+  selectedIndices: [],
   addColor: (color) =>
     set((state) => ({
       colors: [...state.colors, color],
@@ -42,24 +45,41 @@ export const usePaletteStore = create<PaletteState>((set) => ({
       } else if (index === secondaryIndex) {
         secondaryIndex = clampIndex(secondaryIndex);
       }
-      return { colors, primaryIndex, secondaryIndex };
+      const selectedIndices = state.selectedIndices
+        .filter((idx) => idx !== index)
+        .map((idx) => (idx > index ? idx - 1 : idx))
+        .filter((idx, pos, arr) => arr.indexOf(idx) === pos);
+      return { colors, primaryIndex, secondaryIndex, selectedIndices };
     }),
   setColor: (index, color) =>
     set((state) => ({
       colors: state.colors.map((entry, idx) => (idx === index ? color : entry)),
     })),
   setPalette: (colors, primaryIndex, secondaryIndex) =>
-    set({
+    set((state) => ({
       colors,
       primaryIndex,
       secondaryIndex,
-    }),
+      selectedIndices: state.selectedIndices.filter(
+        (idx, pos, arr) =>
+          idx >= 0 &&
+          idx < colors.length &&
+          arr.indexOf(idx) === pos
+      ),
+    })),
   reset: () =>
     set({
       colors: DEFAULT_COLORS,
       primaryIndex: 0,
       secondaryIndex: 1,
+      selectedIndices: [],
     }),
   setPrimary: (index) => set({ primaryIndex: index }),
   setSecondary: (index) => set({ secondaryIndex: index }),
+  setSelectedIndices: (indices) =>
+    set((state) => ({
+      selectedIndices: indices
+        .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
+        .filter((idx) => idx >= 0 && idx < state.colors.length),
+    })),
 }));
