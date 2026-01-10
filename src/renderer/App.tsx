@@ -116,6 +116,64 @@ const formatBytes = (bytes: number) => {
   return `${gb.toFixed(1)}GB`;
 };
 
+const TOOL_ICONS = {
+  pen: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 20l4-1 10-10-3-3-10 10-1 4z" />
+      <path d="M14 6l3 3" />
+    </svg>
+  ),
+  line: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <line x1="5" y1="19" x2="19" y2="5" />
+    </svg>
+  ),
+  rectangle: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="1.5" />
+    </svg>
+  ),
+  oval: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <ellipse cx="12" cy="12" rx="7" ry="5.5" />
+    </svg>
+  ),
+  'fill-bucket': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M7 10l7-7 4 4-7 7H7z" />
+      <path d="M7 14h6" />
+    </svg>
+  ),
+  'reference-handle': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+      <path d="M12 8v8M8 12h8" />
+    </svg>
+  ),
+  eyedropper: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 16l7-7 4 4-7 7H5z" />
+      <path d="M14 6l4 4" />
+    </svg>
+  ),
+  stamp: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M7 14h10v4H7z" />
+      <path d="M9 14v-4a3 3 0 016 0v4" />
+    </svg>
+  ),
+  'selection-rect': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="1.5" strokeDasharray="2 2" />
+    </svg>
+  ),
+  'selection-oval': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <ellipse cx="12" cy="12" rx="7" ry="5.5" strokeDasharray="2 2" />
+    </svg>
+  ),
+} as const;
+
 const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
   blocks.reduce((total, entry) => total + entry.block.byteLength, 0);
 
@@ -682,7 +740,7 @@ const App = () => {
                       title="Pen"
                       aria-label="Pen"
                     >
-                      <span className="toolbar__tool-icon">Pn</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.pen}</span>
                     </button>
                     <button
                       type="button"
@@ -692,7 +750,7 @@ const App = () => {
                       title="Line"
                       aria-label="Line"
                     >
-                      <span className="toolbar__tool-icon">Ln</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.line}</span>
                     </button>
                     <button
                       type="button"
@@ -702,7 +760,7 @@ const App = () => {
                       title="Rectangle"
                       aria-label="Rectangle"
                     >
-                      <span className="toolbar__tool-icon">Rc</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.rectangle}</span>
                     </button>
                     <button
                       type="button"
@@ -712,7 +770,7 @@ const App = () => {
                       title="Oval"
                       aria-label="Oval"
                     >
-                      <span className="toolbar__tool-icon">Ov</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.oval}</span>
                     </button>
                     <button
                       type="button"
@@ -722,7 +780,7 @@ const App = () => {
                       title="Fill"
                       aria-label="Fill"
                     >
-                      <span className="toolbar__tool-icon">Fl</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['fill-bucket']}</span>
                     </button>
                   </div>
                 </div>
@@ -737,7 +795,7 @@ const App = () => {
                       title="Reference Handle"
                       aria-label="Reference Handle"
                     >
-                      <span className="toolbar__tool-icon">Rf</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['reference-handle']}</span>
                     </button>
                     <button
                       type="button"
@@ -747,7 +805,7 @@ const App = () => {
                       title="Eyedropper"
                       aria-label="Eyedropper"
                     >
-                      <span className="toolbar__tool-icon">Ed</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.eyedropper}</span>
                     </button>
                     <button
                       type="button"
@@ -757,7 +815,7 @@ const App = () => {
                       title="Stamp"
                       aria-label="Stamp"
                     >
-                      <span className="toolbar__tool-icon">St</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.stamp}</span>
                     </button>
                     <button
                       type="button"
@@ -767,7 +825,7 @@ const App = () => {
                       title="Selection Rectangle"
                       aria-label="Selection Rectangle"
                     >
-                      <span className="toolbar__tool-icon">Se</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['selection-rect']}</span>
                     </button>
                     <button
                       type="button"
@@ -777,7 +835,7 @@ const App = () => {
                       title="Selection Oval"
                       aria-label="Selection Oval"
                     >
-                      <span className="toolbar__tool-icon">So</span>
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
                     </button>
                   </div>
                 </div>

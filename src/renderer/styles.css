@@ -278,9 +278,22 @@ body {
 }
 
 .toolbar__tool-icon {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar__tool-icon svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .toolbar__body {
