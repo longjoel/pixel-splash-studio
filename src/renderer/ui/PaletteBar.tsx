@@ -258,6 +258,7 @@ const PaletteBar = () => {
   const setPrimary = usePaletteStore((state) => state.setPrimary);
   const setSecondary = usePaletteStore((state) => state.setSecondary);
   const setColor = usePaletteStore((state) => state.setColor);
+  const setPalette = usePaletteStore((state) => state.setPalette);
   const addColor = usePaletteStore((state) => state.addColor);
   const removeColor = usePaletteStore((state) => state.removeColor);
 
@@ -267,6 +268,8 @@ const PaletteBar = () => {
     y: 0,
     index: null,
   });
+  const [selectedIndices, setSelectedIndices] = useState<number[]>([]);
+  const lastSelectedRef = useRef<number | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const closeMenu = () => {
@@ -275,6 +278,15 @@ const PaletteBar = () => {
 
   const openMenu = (event: React.MouseEvent, index: number | null) => {
     event.preventDefault();
+    if (typeof index === 'number') {
+      const selection = new Set(selectedIndices);
+      if (!selection.has(index)) {
+        selection.clear();
+        selection.add(index);
+        setSelectedIndices(Array.from(selection));
+      }
+      lastSelectedRef.current = index;
+    }
     setMenu({
       open: true,
       x: event.clientX,
@@ -358,6 +370,119 @@ const PaletteBar = () => {
     closeMenu();
   };
 
+  const selectionSet = new Set(selectedIndices);
+  const orderedSelection = [...selectionSet].sort((a, b) => a - b);
+  const selectionCount = orderedSelection.length;
+  const canEditSelection = selectionCount > 0;
+  const canCycleSelection = selectionCount > 1;
+  const canDeleteSelection = colors.length - selectionCount >= 1;
+
+  const setSelection = (indices: number[]) => {
+    const unique = Array.from(new Set(indices)).filter(
+      (idx) => idx >= 0 && idx < colors.length
+    );
+    setSelectedIndices(unique);
+  };
+
+  const clampSelectionToPalette = () => {
+    if (selectedIndices.length === 0) {
+      return;
+    }
+    const clamped = selectedIndices.filter((idx) => idx >= 0 && idx < colors.length);
+    if (clamped.length !== selectedIndices.length) {
+      setSelectedIndices(clamped);
+    }
+  };
+
+  useEffect(clampSelectionToPalette, [colors.length, selectedIndices]);
+
+  const handleClearSelected = () => {
+    if (!canEditSelection) {
+      return;
+    }
+    const nextColors = [...colors];
+    const clearColor = colors[0] ?? '#000000';
+    for (const index of orderedSelection) {
+      nextColors[index] = clearColor;
+    }
+    setPalette(nextColors, primaryIndex, secondaryIndex);
+    closeMenu();
+  };
+
+  const handleEditSelected = () => {
+    if (!canEditSelection) {
+      return;
+    }
+    const startIndex = orderedSelection[0] ?? 0;
+    const initial = colors[startIndex] ?? '#ffffff';
+    openColorPicker(initial, (value) => {
+      const nextColors = [...colors];
+      for (const index of orderedSelection) {
+        nextColors[index] = value;
+      }
+      setPalette(nextColors, primaryIndex, secondaryIndex);
+    });
+    closeMenu();
+  };
+
+  const handleDeleteSelected = () => {
+    if (!canEditSelection || !canDeleteSelection) {
+      return;
+    }
+    const toDelete = new Set(orderedSelection);
+    const nextColors = colors.filter((_color, index) => !toDelete.has(index));
+    if (nextColors.length === 0) {
+      return;
+    }
+    const adjustIndex = (value: number) => {
+      let next = value;
+      for (const index of orderedSelection) {
+        if (index < value) {
+          next -= 1;
+        }
+      }
+      if (toDelete.has(value)) {
+        next = Math.min(next, nextColors.length - 1);
+      }
+      return Math.max(0, Math.min(next, nextColors.length - 1));
+    };
+    setPalette(
+      nextColors,
+      adjustIndex(primaryIndex),
+      adjustIndex(secondaryIndex)
+    );
+    setSelectedIndices([]);
+    closeMenu();
+  };
+
+  const handleCycleSelected = () => {
+    if (!canCycleSelection) {
+      return;
+    }
+    const columns = layout.columns;
+    const ordered = [...selectionSet].sort((a, b) => {
+      const aRow = Math.floor(a / columns);
+      const aCol = a % columns;
+      const bRow = Math.floor(b / columns);
+      const bCol = b % columns;
+      if (aCol !== bCol) {
+        return aCol - bCol;
+      }
+      return aRow - bRow;
+    });
+    if (ordered.length < 2) {
+      return;
+    }
+    const nextColors = [...colors];
+    const lastColor = nextColors[ordered[ordered.length - 1]];
+    for (let i = ordered.length - 1; i > 0; i -= 1) {
+      nextColors[ordered[i]] = nextColors[ordered[i - 1]];
+    }
+    nextColors[ordered[0]] = lastColor;
+    setPalette(nextColors, primaryIndex, secondaryIndex);
+    closeMenu();
+  };
+
   const handleAddSwatch = (swatchColors: string[]) => {
     const existing = new Set(colors.map((color) => color.toLowerCase()));
     dedupeColors(swatchColors)
@@ -394,21 +519,47 @@ const PaletteBar = () => {
             style={{ background: color }}
             data-primary={index === primaryIndex}
             data-secondary={index === secondaryIndex}
+            data-selected={selectionSet.has(index)}
             onClick={(event) => {
-              if (event.ctrlKey) {
-                setSecondary(index);
+              if (event.shiftKey && lastSelectedRef.current !== null) {
+                const start = Math.min(lastSelectedRef.current, index);
+                const end = Math.max(lastSelectedRef.current, index);
+                const next = new Set(selectionSet);
+                for (let i = start; i <= end; i += 1) {
+                  next.add(i);
+                }
+                setSelectedIndices(Array.from(next));
+              } else if (event.metaKey || event.altKey) {
+                const next = new Set(selectionSet);
+                if (next.has(index)) {
+                  next.delete(index);
+                } else {
+                  next.add(index);
+                }
+                setSelectedIndices(Array.from(next));
+                lastSelectedRef.current = index;
               } else {
-                setPrimary(index);
+                setSelection([index]);
+                lastSelectedRef.current = index;
+                if (event.ctrlKey) {
+                  setSecondary(index);
+                } else {
+                  setPrimary(index);
+                }
               }
             }}
             onContextMenu={(event) => openMenu(event, index)}
             aria-label={`Palette color ${index + 1}`}
+            aria-selected={selectionSet.has(index)}
           />
         ))}
         <button
           type="button"
           className="palette-bar__swatch palette-bar__swatch--empty"
-          onClick={() => addColor('#ffffff')}
+          onClick={() => {
+            setSelectedIndices([]);
+            addColor('#ffffff');
+          }}
           onContextMenu={(event) => openMenu(event, null)}
           aria-label="Add palette color"
         />
@@ -433,10 +584,46 @@ const PaletteBar = () => {
             type="button"
             className="palette-bar__menu-item"
             role="menuitem"
+            disabled={!canEditSelection}
+            onClick={handleEditSelected}
+          >
+            Edit Selected
+          </button>
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            role="menuitem"
+            disabled={!canEditSelection}
+            onClick={handleClearSelected}
+          >
+            Clear Selected
+          </button>
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            role="menuitem"
             disabled={!canRemoveColor}
             onClick={handleRemoveColor}
           >
             Remove Color
+          </button>
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            role="menuitem"
+            disabled={!canEditSelection || !canDeleteSelection}
+            onClick={handleDeleteSelected}
+          >
+            Delete Selected
+          </button>
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            role="menuitem"
+            disabled={!canCycleSelection}
+            onClick={handleCycleSelected}
+          >
+            Cycle Selected (Shift-click to select multiple)
           </button>
           <button
             type="button"
