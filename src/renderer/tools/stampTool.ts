@@ -6,6 +6,7 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useStampStore, StampRotation, StampScale } from '@/state/stampStore';
+import { duplicateClipboardPalette } from '@/services/clipboardPaletteDuplicate';
 
 type TransformedPixel = { x: number; y: number; paletteIndex: number };
 
@@ -284,6 +285,9 @@ export class StampTool implements Tool {
     this.lastAnchor = null;
     const stamp = useStampStore.getState();
     const dragEnabled = stamp.drag;
+    if (!dragEnabled && stamp.pasteDuplicateColors) {
+      duplicateClipboardPalette();
+    }
     const point = toGridPoint(cursor);
     if (dragEnabled) {
       this.dragging = true;

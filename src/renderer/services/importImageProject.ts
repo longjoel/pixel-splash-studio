@@ -127,25 +127,36 @@ export const importImageAsProject = async () => {
     window.alert('Large images (over 512x512) can take a while to load.');
   }
 
-  newProject();
-
   const paletteStore = usePaletteStore.getState();
   const pixelStore = usePixelStore.getState();
   const selectionStore = useSelectionStore.getState();
   const clipboardStore = useClipboardStore.getState();
 
-  const mapped =
-    payload.colorType === 'indexed' ? mapIndexedPixels(payload) : mapRgbaPixels(payload);
+  newProject();
 
-  const paletteColors = mapped.paletteColors.length > 0 ? mapped.paletteColors : ['#000000'];
-  paletteStore.setPalette(
-    paletteColors,
-    0,
-    Math.min(1, Math.max(0, paletteColors.length - 1))
-  );
-
-  if (mapped.pixels.length > 0) {
-    pixelStore.setPixels(mapped.pixels);
+  if (payload.colorType === 'indexed') {
+    const mapped = mapIndexedPixels(payload);
+    const paletteColors =
+      mapped.paletteColors.length > 0 ? mapped.paletteColors : ['#000000'];
+    paletteStore.setPalette(
+      paletteColors,
+      0,
+      Math.min(1, Math.max(0, paletteColors.length - 1))
+    );
+    if (mapped.pixels.length > 0) {
+      pixelStore.setPixels(mapped.pixels);
+    }
+  } else {
+    const mapped = mapRgbaPixels(payload);
+    const paletteColors = mapped.paletteColors.length > 0 ? mapped.paletteColors : ['#000000'];
+    paletteStore.setPalette(
+      paletteColors,
+      0,
+      Math.min(1, Math.max(0, paletteColors.length - 1))
+    );
+    if (mapped.pixels.length > 0) {
+      pixelStore.setPixels(mapped.pixels);
+    }
   }
 
   selectionStore.clear();

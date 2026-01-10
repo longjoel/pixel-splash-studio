@@ -229,14 +229,21 @@ const openColorPicker = (initial: string, onPick: (value: string) => void) => {
   input.style.left = '-1000px';
   input.style.opacity = '0';
   input.setAttribute('aria-hidden', 'true');
+  let lastValue = input.value;
   const removePicker = () => {
     if (input.isConnected) {
       input.remove();
     }
     window.removeEventListener('focus', removePicker);
   };
-  input.addEventListener('change', () => {
+  input.addEventListener('input', () => {
+    lastValue = input.value;
     onPick(input.value);
+  });
+  input.addEventListener('change', () => {
+    if (input.value !== lastValue) {
+      onPick(input.value);
+    }
     removePicker();
   });
   window.addEventListener('focus', removePicker);

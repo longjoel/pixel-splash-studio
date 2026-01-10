@@ -38,6 +38,7 @@ type ProjectPayload = {
 type ProjectLoadResult = ProjectPayload & { path: string };
 
 type ImportedImagePayload = {
+  format: string;
   width: number;
   height: number;
   colorType: 'indexed' | 'rgba';

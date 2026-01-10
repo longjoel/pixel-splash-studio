@@ -255,6 +255,7 @@ const App = () => {
   const stampFlipX = useStampStore((state) => state.flipX);
   const stampFlipY = useStampStore((state) => state.flipY);
   const stampDrag = useStampStore((state) => state.drag);
+  const stampPasteDuplicateColors = useStampStore((state) => state.pasteDuplicateColors);
   const removeReference = useReferenceStore((state) => state.removeReference);
   const pasteShortcutRef = React.useRef(false);
 
@@ -286,6 +287,9 @@ const App = () => {
   const setStampFlipX = useStampStore((state) => state.setFlipX);
   const setStampFlipY = useStampStore((state) => state.setFlipY);
   const setStampDrag = useStampStore((state) => state.setDrag);
+  const setStampPasteDuplicateColors = useStampStore(
+    (state) => state.setPasteDuplicateColors
+  );
   const setBrushSize = useBrushStore((state) => state.setSize);
   const setBrushShape = useBrushStore((state) => state.setShape);
   const paletteColors = usePaletteStore((state) => state.colors);
@@ -1039,6 +1043,26 @@ const App = () => {
                               </option>
                             ))}
                           </select>
+                        </div>
+                      </div>
+                      <div className="panel__row">
+                        <div className="panel__group">
+                          <span className="panel__label">Paste</span>
+                          <div className="panel__toggle-group">
+                            <label
+                              className="panel__toggle"
+                              data-active={stampPasteDuplicateColors}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={stampPasteDuplicateColors}
+                                onChange={() =>
+                                  setStampPasteDuplicateColors(!stampPasteDuplicateColors)
+                                }
+                              />
+                              Duplicate Colors
+                            </label>
+                          </div>
                         </div>
                       </div>
                     </>

@@ -8,6 +8,7 @@ import GIFEncoder from 'gif-encoder-2';
 import { PCX as ElmaPCX, writePCX } from 'elma-pcx';
 
 export type DecodedImage = {
+  format: string;
   width: number;
   height: number;
   colorType: 'indexed' | 'rgba';
@@ -67,6 +68,7 @@ const buildPaletteFromBytes = (palette: Uint8Array) => {
 const decodeBmp = (buffer: Buffer): DecodedImage => {
   const decoded = bmp.decode(buffer);
   return {
+    format: 'bmp',
     width: decoded.width,
     height: decoded.height,
     colorType: 'rgba',
@@ -96,6 +98,7 @@ const decodeGif = (buffer: Buffer): DecodedImage => {
     frame.dims?.height === height
   ) {
     return {
+      format: 'gif',
       width,
       height,
       colorType: 'indexed',
@@ -129,6 +132,7 @@ const decodeGif = (buffer: Buffer): DecodedImage => {
   }
 
   return {
+    format: 'gif',
     width,
     height,
     colorType: 'rgba',
@@ -144,6 +148,7 @@ const decodePcx = (buffer: Buffer): DecodedImage => {
     const pcx = new ElmaPCX(buffer);
     const paletteBytes = pcx.getPalette();
     return {
+      format: 'pcx',
       width: pcx.width,
       height: pcx.height,
       colorType: 'indexed',
@@ -155,6 +160,7 @@ const decodePcx = (buffer: Buffer): DecodedImage => {
     const decoded = pcx.decode();
     const palette = decoded.palette ? buildPaletteFromBytes(decoded.palette) : undefined;
     return {
+      format: 'pcx',
       width: decoded.width,
       height: decoded.height,
       colorType: 'rgba',
@@ -167,6 +173,7 @@ const decodePcx = (buffer: Buffer): DecodedImage => {
 const decodeTga = (buffer: Buffer): DecodedImage => {
   const tga = new TGA(buffer);
   return {
+    format: 'tga',
     width: tga.width,
     height: tga.height,
     colorType: 'rgba',
@@ -253,11 +260,75 @@ const decodeGbr = (buffer: Buffer): DecodedImage => {
   }
 
   return {
+    format: 'gbr',
     width,
     height,
     colorType: 'indexed',
     pixels,
     palette: GAME_BOY_PALETTE,
+  };
+};
+
+const NES_GRAYSCALE_PALETTE: Array<[number, number, number]> = [
+  [0, 0, 0],
+  [85, 85, 85],
+  [170, 170, 170],
+  [255, 255, 255],
+];
+
+const decodeNes = (buffer: Buffer): DecodedImage => {
+  if (buffer.subarray(0, 4).toString('ascii') !== 'NES\x1a') {
+    throw new Error('Invalid NES file header.');
+  }
+  const prgBanks = buffer[4];
+  const chrBanks = buffer[5];
+  const hasTrainer = (buffer[6] & 0x04) !== 0;
+  if (chrBanks === 0) {
+    throw new Error('NES file uses CHR RAM; no tile data to import.');
+  }
+
+  const headerSize = 16;
+  const trainerSize = hasTrainer ? 512 : 0;
+  const prgSize = prgBanks * 16384;
+  const chrSize = chrBanks * 8192;
+  const chrStart = headerSize + trainerSize + prgSize;
+  const chrEnd = chrStart + chrSize;
+  if (chrEnd > buffer.length) {
+    throw new Error('NES file is truncated.');
+  }
+
+  const chrData = buffer.subarray(chrStart, chrEnd);
+  const tileCount = Math.floor(chrData.length / 16);
+  const tilesAcross = Math.min(16, Math.max(1, tileCount));
+  const tilesDown = Math.ceil(tileCount / tilesAcross);
+  const width = tilesAcross * 8;
+  const height = tilesDown * 8;
+  const pixels = new Uint8Array(width * height);
+
+  for (let tile = 0; tile < tileCount; tile += 1) {
+    const tileOffset = tile * 16;
+    const tileX = tile % tilesAcross;
+    const tileY = Math.floor(tile / tilesAcross);
+    for (let y = 0; y < 8; y += 1) {
+      const low = chrData[tileOffset + y];
+      const high = chrData[tileOffset + y + 8];
+      for (let x = 0; x < 8; x += 1) {
+        const bit = 7 - x;
+        const value = (((high >> bit) & 0x01) << 1) | ((low >> bit) & 0x01);
+        const px = tileX * 8 + x;
+        const py = tileY * 8 + y;
+        pixels[py * width + px] = value;
+      }
+    }
+  }
+
+  return {
+    format: 'nes',
+    width,
+    height,
+    colorType: 'indexed',
+    pixels,
+    palette: NES_GRAYSCALE_PALETTE,
   };
 };
 
@@ -275,6 +346,8 @@ export const decodeImageFile = async (filePath: string): Promise<DecodedImage> =
       return decodeTga(buffer);
     case 'gbr':
       return decodeGbr(buffer);
+    case 'nes':
+      return decodeNes(buffer);
     default:
       throw new Error(`Unsupported import format: .${extension}`);
   }
