@@ -192,6 +192,12 @@ const TOOL_ICONS = {
       <path d="M8 10h4M8 14h8" />
     </svg>
   ),
+  'tile-9slice': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M4 10h16M4 14h16M10 4v16M14 4v16" />
+    </svg>
+  ),
 } as const;
 
 const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
@@ -350,6 +356,9 @@ const App = () => {
   const stampPasteDuplicateColors = useStampStore((state) => state.pasteDuplicateColors);
   const tileDebugOverlay = useTileMapStore((state) => state.tileDebugOverlay);
   const setTileDebugOverlay = useTileMapStore((state) => state.setTileDebugOverlay);
+  const nineSlice = useTileMapStore((state) => state.nineSlice);
+  const tileSelectionCols = useTileMapStore((state) => state.selectedTileCols);
+  const tileSelectionRows = useTileMapStore((state) => state.selectedTileRows);
   const removeReference = useReferenceStore((state) => state.removeReference);
   const pasteShortcutRef = React.useRef(false);
 
@@ -405,7 +414,8 @@ const App = () => {
   const isTilingTool =
     activeTool === 'tile-sampler' ||
     activeTool === 'tile-pen' ||
-    activeTool === 'tile-rectangle';
+    activeTool === 'tile-rectangle' ||
+    activeTool === 'tile-9slice';
   const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
   const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
   const resizingRef = React.useRef(false);
@@ -949,6 +959,18 @@ const App = () => {
                     >
                       <span className="toolbar__tool-icon">
                         {TOOL_ICONS['tile-rectangle']}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-9slice'}
+                      onClick={() => setActiveTool('tile-9slice')}
+                      title="Tile 9-Slice"
+                      aria-label="Tile 9-Slice"
+                    >
+                      <span className="toolbar__tool-icon">
+                        {TOOL_ICONS['tile-9slice']}
                       </span>
                     </button>
                   </div>
@@ -1555,7 +1577,8 @@ const App = () => {
                   ) :
                   activeTool === 'tile-sampler' ||
                   activeTool === 'tile-pen' ||
-                  activeTool === 'tile-rectangle' ? (
+                  activeTool === 'tile-rectangle' ||
+                  activeTool === 'tile-9slice' ? (
                     <div className="panel__group">
                       <span className="panel__label">Tile Context</span>
                       <div className="panel__note">
@@ -1563,6 +1586,8 @@ const App = () => {
                           ? 'Drag to capture tiles on the tile grid.'
                           : activeTool === 'tile-rectangle'
                             ? 'Fill a tile rectangle using the selected tiles.'
+                            : activeTool === 'tile-9slice'
+                              ? 'Drag to set 3x3 source, then drag to fill.'
                             : 'Paint tiles from the active tile set.'}
                       </div>
                       <div className="panel__stack">
@@ -1578,6 +1603,16 @@ const App = () => {
                         <div className="panel__note">
                           Selected Tile: {activeTileSet ? selectedTileIndex + 1 : '—'}
                         </div>
+                        {activeTool === 'tile-9slice' && (
+                          <>
+                            <div className="panel__note">
+                              9-Slice: {nineSlice ? 'set' : 'unset'}
+                            </div>
+                            <div className="panel__note">
+                              Selection: {tileSelectionCols}x{tileSelectionRows}
+                            </div>
+                          </>
+                        )}
                       </div>
                     </div>
                   ) : (

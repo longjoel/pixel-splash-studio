@@ -40,6 +40,7 @@ type TileMapState = {
   tilePaletteOffset: number;
   tilePaletteRowsMin: number;
   tileDebugOverlay: boolean;
+  nineSlice: { tileSetId: string; tiles: number[] } | null;
   setTileSets: (tileSets: TileSetPayload[]) => void;
   setTileMaps: (tileMaps: TileMapPayload[]) => void;
   setAll: (tileSets: TileSetPayload[], tileMaps: TileMapPayload[]) => void;
@@ -57,6 +58,7 @@ type TileMapState = {
   setTilePaletteOffset: (offset: number) => void;
   setTilePaletteRowsMin: (rows: number) => void;
   setTileDebugOverlay: (enabled: boolean) => void;
+  setNineSlice: (value: { tileSetId: string; tiles: number[] } | null) => void;
   addTileSet: (payload: Omit<TileSetPayload, 'id'> & { id?: string }) => string;
   appendTilesToSet: (tileSetId: string, tiles: Array<Omit<TilePayload, 'id'>>) => void;
   addTileMap: (payload: Omit<TileMapPayload, 'id'> & { id?: string }) => string;
@@ -94,6 +96,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
   tilePaletteOffset: 0,
   tilePaletteRowsMin: 1,
   tileDebugOverlay: false,
+  nineSlice: null,
   setTileSets: (tileSets) => set({ tileSets }),
   setTileMaps: (tileMaps) => set({ tileMaps }),
   setAll: (tileSets, tileMaps) =>
@@ -110,6 +113,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       tilePaletteOffset: 0,
       tilePaletteRowsMin: 1,
       tileDebugOverlay: false,
+      nineSlice: null,
     }),
   setActiveTileSet: (id) =>
     set({
@@ -122,6 +126,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       tilePaletteOffset: 0,
       tilePaletteRowsMin: 1,
       tileDebugOverlay: false,
+      nineSlice: null,
     }),
   setActiveTileMap: (id) => set({ activeTileMapId: id }),
   setSelectedTileIndex: (index) =>
@@ -161,6 +166,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileRows: 1,
     })),
   setTileDebugOverlay: (enabled) => set({ tileDebugOverlay: enabled }),
+  setNineSlice: (value) => set({ nineSlice: value }),
   addTileSet: (payload) => {
     const { id: providedId, ...rest } = payload;
     const id = providedId ?? createId('tileset');
@@ -292,5 +298,6 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       tilePaletteOffset: 0,
       tilePaletteRowsMin: 1,
       tileDebugOverlay: false,
+      nineSlice: null,
     }),
 }));
