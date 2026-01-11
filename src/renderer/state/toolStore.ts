@@ -12,7 +12,8 @@ export type ToolId =
   | 'selection-rect'
   | 'selection-oval'
   | 'tile-sampler'
-  | 'tile-pen';
+  | 'tile-pen'
+  | 'tile-rectangle';
 
 type ToolState = {
   activeTool: ToolId;

@@ -186,6 +186,12 @@ const TOOL_ICONS = {
       <path d="M14.5 14.5l5.5-5.5-3-3-5.5 5.5-1 4 4-1z" />
     </svg>
   ),
+  'tile-rectangle': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="6" width="16" height="12" rx="2" />
+      <path d="M8 10h4M8 14h8" />
+    </svg>
+  ),
 } as const;
 
 const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
@@ -396,7 +402,10 @@ const App = () => {
   const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
   const activeTileSet = tileSets.find((set) => set.id === activeTileSetId) ?? tileSets[0];
   const activeTileMap = tileMaps.find((map) => map.id === activeTileMapId) ?? tileMaps[0];
-  const isTilingTool = activeTool === 'tile-sampler' || activeTool === 'tile-pen';
+  const isTilingTool =
+    activeTool === 'tile-sampler' ||
+    activeTool === 'tile-pen' ||
+    activeTool === 'tile-rectangle';
   const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
   const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
   const resizingRef = React.useRef(false);
@@ -929,6 +938,18 @@ const App = () => {
                       aria-label="Tile Pen"
                     >
                       <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-rectangle'}
+                      onClick={() => setActiveTool('tile-rectangle')}
+                      title="Tile Rectangle"
+                      aria-label="Tile Rectangle"
+                    >
+                      <span className="toolbar__tool-icon">
+                        {TOOL_ICONS['tile-rectangle']}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1531,13 +1552,18 @@ const App = () => {
                         </label>
                       </div>
                     </div>
-                  ) : activeTool === 'tile-sampler' || activeTool === 'tile-pen' ? (
+                  ) :
+                  activeTool === 'tile-sampler' ||
+                  activeTool === 'tile-pen' ||
+                  activeTool === 'tile-rectangle' ? (
                     <div className="panel__group">
                       <span className="panel__label">Tile Context</span>
                       <div className="panel__note">
                         {activeTool === 'tile-sampler'
                           ? 'Drag to capture tiles on the tile grid.'
-                          : 'Paint tiles from the active tile set.'}
+                          : activeTool === 'tile-rectangle'
+                            ? 'Fill a tile rectangle using the selected tiles.'
+                            : 'Paint tiles from the active tile set.'}
                       </div>
                       <div className="panel__stack">
                         <div className="panel__note">

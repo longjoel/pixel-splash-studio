@@ -89,46 +89,100 @@ const TileBar = () => {
     : 32;
   const selectingRef = useRef(false);
   const selectionAnchorRef = useRef<number | null>(null);
-  const selectionSet = useMemo(() => new Set(selectedTileIndices), [selectedTileIndices]);
+  const selectionSet = useMemo(
+    () => new Set(selectedTileIndices.filter((index) => index >= 0)),
+    [selectedTileIndices]
+  );
 
-  const setSelectionFromIndices = (startIndex: number, endIndex: number) => {
+  const getGridPosition = (index: number) => {
     const alignmentColumns = tilePaletteColumns;
     const alignmentOffset = tilePaletteOffset;
     const rows = Math.max(1, layoutRows);
     const blockSize = alignmentColumns * rows;
-    const getGridPosition = (index: number) => {
-      const adjusted = index + alignmentOffset;
-      const block = Math.floor(adjusted / blockSize);
-      const within = adjusted % blockSize;
-      return {
-        row: Math.floor(within / alignmentColumns),
-        col: (within % alignmentColumns) + block * alignmentColumns,
-      };
+    const adjusted = index + alignmentOffset;
+    const block = Math.floor(adjusted / blockSize);
+    const within = adjusted % blockSize;
+    return {
+      row: Math.floor(within / alignmentColumns),
+      col: (within % alignmentColumns) + block * alignmentColumns,
     };
+  };
+
+  const buildSelectionFromList = (indices: number[], anchorIndex: number) => {
+    if (indices.length === 0) {
+      setTileSelection([anchorIndex], 1, 1, anchorIndex);
+      return;
+    }
+    const positions = indices.map((index) => ({
+      index,
+      ...getGridPosition(index),
+    }));
+    const minCol = Math.min(...positions.map((pos) => pos.col));
+    const maxCol = Math.max(...positions.map((pos) => pos.col));
+    const minRow = Math.min(...positions.map((pos) => pos.row));
+    const maxRow = Math.max(...positions.map((pos) => pos.row));
+    const cols = maxCol - minCol + 1;
+    const rows = maxRow - minRow + 1;
+    const grid = new Array(cols * rows).fill(-1);
+    for (const pos of positions) {
+      const col = pos.col - minCol;
+      const row = pos.row - minRow;
+      const offset = row * cols + col;
+      grid[offset] = pos.index;
+    }
+    setTileSelection(grid, cols, rows, anchorIndex);
+  };
+
+  const setSelectionFromIndices = (startIndex: number, endIndex: number) => {
     const startPos = getGridPosition(startIndex);
     const endPos = getGridPosition(endIndex);
     const minCol = Math.min(startPos.col, endPos.col);
     const maxCol = Math.max(startPos.col, endPos.col);
     const minRow = Math.min(startPos.row, endPos.row);
     const maxRow = Math.max(startPos.row, endPos.row);
-    const nextIndices: number[] = [];
+    const cols = maxCol - minCol + 1;
+    const rows = maxRow - minRow + 1;
+    const grid = new Array(cols * rows).fill(-1);
+    const alignmentColumns = tilePaletteColumns;
+    const alignmentOffset = tilePaletteOffset;
+    const layout = Math.max(1, layoutRows);
+    const blockSize = alignmentColumns * layout;
     for (let row = minRow; row <= maxRow; row += 1) {
       for (let col = minCol; col <= maxCol; col += 1) {
         const block = Math.floor(col / alignmentColumns);
         const withinCol = col % alignmentColumns;
-        const index = block * blockSize + row * alignmentColumns + withinCol - alignmentOffset;
+        const index =
+          block * blockSize + row * alignmentColumns + withinCol - alignmentOffset;
         if (index < 0 || index >= totalTiles) {
           continue;
         }
-        nextIndices.push(index);
+        const offset = (row - minRow) * cols + (col - minCol);
+        grid[offset] = index;
       }
     }
-    setTileSelection(nextIndices, maxCol - minCol + 1, maxRow - minRow + 1, startIndex);
+    setTileSelection(grid, cols, rows, startIndex);
   };
 
-  const handleTilePointerDown = (index: number) => {
+  const handleTilePointerDown = (
+    index: number,
+    options?: { additive?: boolean; subtractive?: boolean }
+  ) => {
     selectingRef.current = true;
     selectionAnchorRef.current = index;
+    if (options?.additive) {
+      const merged = new Set([
+        ...selectedTileIndices.filter((value) => value >= 0),
+        index,
+      ]);
+      buildSelectionFromList(Array.from(merged), index);
+      return;
+    }
+    if (options?.subtractive) {
+      const next = selectedTileIndices.filter((value) => value >= 0 && value !== index);
+      const nextIndices = next.length > 0 ? next : [index];
+      buildSelectionFromList(nextIndices, index);
+      return;
+    }
     setSelectionFromIndices(index, index);
   };
 
@@ -302,9 +356,12 @@ const TileBar = () => {
                 data-selected={isSelected}
                 data-placeholder={isPlaceholder}
                 style={{ gridColumn: col + 1, gridRow: row + 1 }}
-                onPointerDown={() => {
+                onPointerDown={(event) => {
                   if (!isPlaceholder) {
-                    handleTilePointerDown(tileIndex);
+                    handleTilePointerDown(tileIndex, {
+                      additive: event.shiftKey,
+                      subtractive: event.ctrlKey || event.metaKey,
+                    });
                   }
                 }}
                 onPointerEnter={() => {

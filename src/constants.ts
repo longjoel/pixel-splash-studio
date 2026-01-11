@@ -87,6 +87,7 @@ export const TOOL_LABELS = {
   'selection-oval': 'Select Oval',
   'tile-sampler': 'Tile Sampler',
   'tile-pen': 'Tile Pen',
+  'tile-rectangle': 'Tile Rectangle',
 };
 
 export const E2E_BACKGROUND_COLOR = [20, 24, 36, 255];

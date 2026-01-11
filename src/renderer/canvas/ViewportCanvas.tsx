@@ -19,6 +19,7 @@ import { EyeDropperTool } from '@/tools/eyeDropperTool';
 import { ReferenceHandleTool } from '@/tools/referenceHandleTool';
 import { TileSamplerTool } from '@/tools/tileSamplerTool';
 import { TilePenTool } from '@/tools/tilePenTool';
+import { TileRandomTool } from '@/tools/tileRandomTool';
 import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
@@ -617,6 +618,7 @@ const ViewportCanvas = () => {
       'selection-oval': new SelectionOvalTool(),
       'tile-sampler': new TileSamplerTool(),
       'tile-pen': new TilePenTool(),
+      'tile-rectangle': new TileRandomTool(),
     };
     const initialTool = tools[useToolStore.getState().activeTool] ?? tools.pen;
     controllerRef.current.setTool(initialTool);
