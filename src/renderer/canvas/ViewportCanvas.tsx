@@ -382,6 +382,11 @@ const drawTileMapLayer = (
     return;
   }
 
+  const viewLeft = viewX / PIXEL_SIZE;
+  const viewTop = viewY / PIXEL_SIZE;
+  const viewRight = viewLeft + viewWidth / PIXEL_SIZE;
+  const viewBottom = viewTop + viewHeight / PIXEL_SIZE;
+
   const tileSetMap = new Map(tileSets.map((tileSet) => [tileSet.id, tileSet]));
   for (const tileMap of tileMaps) {
     const tileSet = tileSetMap.get(tileMap.tileSetId);
@@ -403,23 +408,23 @@ const drawTileMapLayer = (
     const mapBottom = mapTop + mapHeight;
 
     if (
-      mapRight < viewX ||
-      mapBottom < viewY ||
-      mapLeft > viewX + viewWidth ||
-      mapTop > viewY + viewHeight
+      mapRight < viewLeft ||
+      mapBottom < viewTop ||
+      mapLeft > viewRight ||
+      mapTop > viewBottom
     ) {
       continue;
     }
 
-    const startCol = Math.max(0, Math.floor((viewX - mapLeft) / tileWidth));
+    const startCol = Math.max(0, Math.floor((viewLeft - mapLeft) / tileWidth));
     const endCol = Math.min(
       tileMap.columns - 1,
-      Math.ceil((viewX + viewWidth - mapLeft) / tileWidth) - 1
+      Math.ceil((viewRight - mapLeft) / tileWidth) - 1
     );
-    const startRow = Math.max(0, Math.floor((viewY - mapTop) / tileHeight));
+    const startRow = Math.max(0, Math.floor((viewTop - mapTop) / tileHeight));
     const endRow = Math.min(
       tileMap.rows - 1,
-      Math.ceil((viewY + viewHeight - mapTop) / tileHeight) - 1
+      Math.ceil((viewBottom - mapTop) / tileHeight) - 1
     );
 
     if (endCol < startCol || endRow < startRow) {
@@ -746,6 +751,15 @@ const ViewportCanvas = () => {
         viewWidth,
         viewHeight
       );
+      if (useTileMapStore.getState().tileDebugOverlay) {
+        drawTileDebugOverlay(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight
+        );
+      }
       drawGrid(
         context,
         state.camera.x,
@@ -999,6 +1013,49 @@ const ViewportCanvas = () => {
       />
     </div>
   );
+};
+
+const drawTileDebugOverlay = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number
+) => {
+  const { tileMaps } = useTileMapStore.getState();
+  if (tileMaps.length === 0) {
+    return;
+  }
+  context.save();
+  context.font = `${Math.max(10, PIXEL_SIZE)}px sans-serif`;
+  context.textBaseline = 'top';
+  context.fillStyle = 'rgba(255, 186, 73, 0.95)';
+  context.strokeStyle = 'rgba(255, 186, 73, 0.5)';
+  context.lineWidth = Math.max(1, PIXEL_SIZE * 0.06);
+
+  for (const tileMap of tileMaps) {
+    const left = tileMap.originX * PIXEL_SIZE;
+    const top = tileMap.originY * PIXEL_SIZE;
+    const width = tileMap.columns * PIXEL_SIZE;
+    const height = tileMap.rows * PIXEL_SIZE;
+    const right = left + width;
+    const bottom = top + height;
+    if (
+      right < viewX ||
+      bottom < viewY ||
+      left > viewX + viewWidth ||
+      top > viewY + viewHeight
+    ) {
+      continue;
+    }
+    context.strokeRect(left, top, width, height);
+    context.fillText(
+      `map ${tileMap.id.slice(0, 6)} origin=(${tileMap.originX},${tileMap.originY}) size=${tileMap.columns}x${tileMap.rows}`,
+      left + PIXEL_SIZE * 0.5,
+      top + PIXEL_SIZE * 0.5
+    );
+  }
+  context.restore();
 };
 
 export default ViewportCanvas;

@@ -314,6 +314,8 @@ const App = () => {
   const [minimapCollapsed, setMinimapCollapsed] = useState(false);
   const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
   const [memoryLabel, setMemoryLabel] = useState('');
+  const [paletteHeight, setPaletteHeight] = useState(96);
+  const [tilePaletteHeight, setTilePaletteHeight] = useState(220);
   const activeTool = useToolStore((state) => state.activeTool);
   const setActiveTool = useToolStore((state) => state.setActiveTool);
   const tileSets = useTileMapStore((state) => state.tileSets);
@@ -340,6 +342,8 @@ const App = () => {
   const stampFlipY = useStampStore((state) => state.flipY);
   const stampDrag = useStampStore((state) => state.drag);
   const stampPasteDuplicateColors = useStampStore((state) => state.pasteDuplicateColors);
+  const tileDebugOverlay = useTileMapStore((state) => state.tileDebugOverlay);
+  const setTileDebugOverlay = useTileMapStore((state) => state.setTileDebugOverlay);
   const removeReference = useReferenceStore((state) => state.removeReference);
   const pasteShortcutRef = React.useRef(false);
 
@@ -393,6 +397,41 @@ const App = () => {
   const activeTileSet = tileSets.find((set) => set.id === activeTileSetId) ?? tileSets[0];
   const activeTileMap = tileMaps.find((map) => map.id === activeTileMapId) ?? tileMaps[0];
   const isTilingTool = activeTool === 'tile-sampler' || activeTool === 'tile-pen';
+  const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
+  const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
+  const resizingRef = React.useRef(false);
+
+  const startPaletteResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeModeRef.current = isTilingTool ? 'tile' : 'palette';
+    resizingRef.current = true;
+  };
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!resizingRef.current) {
+        return;
+      }
+      const viewportHeight = document.documentElement.clientHeight;
+      const nextHeight = Math.max(72, Math.min(360, viewportHeight - event.clientY));
+      if (resizeModeRef.current === 'tile') {
+        setTilePaletteHeight(nextHeight);
+      } else {
+        setPaletteHeight(nextHeight);
+      }
+    };
+    const handlePointerUp = () => {
+      resizeModeRef.current = isTilingTool ? 'tile' : 'palette';
+      resizingRef.current = false;
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [isTilingTool]);
   const paletteRightOffset = (minimapCollapsed ? 180 : 324) + 24;
 
   useEffect(() => {
@@ -506,7 +545,7 @@ const App = () => {
     if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
       return;
     }
-    await loadProject(projectPath ?? undefined);
+    await loadProject(undefined);
   };
 
   const handleNew = () => {
@@ -717,6 +756,12 @@ const App = () => {
           break;
         case 'uiScale:reset':
           window.uiScaleApi?.resetScale?.();
+          break;
+        case 'tileDebug:on':
+          setTileDebugOverlay(true);
+          break;
+        case 'tileDebug:off':
+          setTileDebugOverlay(false);
           break;
         default:
           break;
@@ -1569,9 +1614,20 @@ const App = () => {
           )}
         </div>
         <div
-          className="app__palette panel"
-          style={{ '--palette-right-offset': `${paletteRightOffset}px` } as React.CSSProperties}
+          className={`app__palette panel${isTilingTool ? ' app__palette--tile' : ''}`}
+          style={
+            {
+              '--palette-right-offset': `${paletteRightOffset}px`,
+              '--palette-bar-height': `${paletteHeightValue}px`,
+            } as React.CSSProperties
+          }
         >
+          <div
+            className="app__palette-resize"
+            role="separator"
+            aria-label="Resize palette bar"
+            onPointerDown={startPaletteResize}
+          />
           {isTilingTool ? <TileBar /> : <PaletteBar />}
         </div>
         <div

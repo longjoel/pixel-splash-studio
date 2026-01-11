@@ -27,7 +27,6 @@ const createWindow = () => {
   } else {
     win.loadFile(join(app.getAppPath(), 'dist', 'index.html'));
   }
-  win.webContents.openDevTools({ mode: 'detach' });
 
   win.webContents.on('zoom-changed', (_event, zoomDirection) => {
     win.webContents.send('app:zoom-changed', zoomDirection, win.webContents.getZoomFactor());
@@ -224,6 +223,18 @@ app.whenReady().then(() => {
             perfLoggingEnabled.value = menuItem.checked;
           },
         },
+        {
+          label: 'Tile Debug Overlay',
+          type: 'checkbox' as const,
+          checked: false,
+          click: (menuItem: Electron.MenuItem) => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send(
+              'menu:action',
+              menuItem.checked ? 'tileDebug:on' : 'tileDebug:off'
+            );
+          },
+        },
         { type: 'separator' as const },
         {
           label: 'Reset UI Scale',
@@ -408,13 +419,12 @@ const readProjectZip = async (buffer: Buffer) => {
       if (!basename) {
         continue;
       }
-      const [rowText, colTextWithExt] = basename.split('-');
-      const colText = colTextWithExt?.replace('.bin', '');
-      if (!rowText || !colText) {
+      const match = basename.match(/(-?\d+)-(-?\d+)\.bin$/);
+      if (!match) {
         continue;
       }
-      const row = Number(rowText);
-      const col = Number(colText);
+      const row = Number(match[1]);
+      const col = Number(match[2]);
       const dataBuffer = await zip.file(filename)?.async('uint8array');
       if (!dataBuffer) {
         continue;

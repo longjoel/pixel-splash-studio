@@ -110,6 +110,9 @@ export class TileSamplerTool implements Tool {
       tileStore.appendTilesToSet(activeTileSetId, tilesToAdd);
       tileStore.setSelectedTileIndex(startIndex);
       tileStore.setTilePage(0);
+      const columns = bounds.maxTileX - bounds.minTileX + 1;
+      tileStore.setTilePaletteColumns(columns);
+      tileStore.setTilePaletteOffset(0);
     }
 
     preview.clear();

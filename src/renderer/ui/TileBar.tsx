@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { usePaletteStore } from '@/state/paletteStore';
 import { useTileMapStore } from '@/state/tileMapStore';
 
-const TILE_PAGE_SIZE = 32;
+const MAX_TILE_PALETTE_COLUMNS = 64;
 const TILE_BAR_PIXEL_SIZE = 6;
+const TILE_GRID_GAP = 6;
 
 type TileCanvasProps = {
   pixels: number[];
@@ -54,10 +55,17 @@ const TileBar = () => {
   const tileSets = useTileMapStore((state) => state.tileSets);
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
   const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
-  const tilePage = useTileMapStore((state) => state.tilePage);
-  const setTilePage = useTileMapStore((state) => state.setTilePage);
-  const setSelectedTileIndex = useTileMapStore((state) => state.setSelectedTileIndex);
+  const selectedTileIndices = useTileMapStore((state) => state.selectedTileIndices);
+  const selectedTileCols = useTileMapStore((state) => state.selectedTileCols);
+  const selectedTileRows = useTileMapStore((state) => state.selectedTileRows);
+  const tilePaletteColumns = useTileMapStore((state) => state.tilePaletteColumns);
+  const tilePaletteOffset = useTileMapStore((state) => state.tilePaletteOffset);
+  const tilePaletteRowsMin = useTileMapStore((state) => state.tilePaletteRowsMin);
+  const setTileSelection = useTileMapStore((state) => state.setTileSelection);
   const setActiveTileSet = useTileMapStore((state) => state.setActiveTileSet);
+  const setTilePaletteColumns = useTileMapStore((state) => state.setTilePaletteColumns);
+  const setTilePaletteOffset = useTileMapStore((state) => state.setTilePaletteOffset);
+  const setTilePaletteRowsMin = useTileMapStore((state) => state.setTilePaletteRowsMin);
   const palette = usePaletteStore((state) => state.colors);
 
   const activeTileSet = useMemo(() => {
@@ -71,24 +79,97 @@ const TileBar = () => {
   }, [activeTileSet, tileSets, setActiveTileSet]);
 
   const totalTiles = activeTileSet?.tiles.length ?? 0;
-  const totalPages = Math.max(1, Math.ceil(totalTiles / TILE_PAGE_SIZE));
-  const clampedPage = Math.min(tilePage, totalPages - 1);
-  const pageStart = clampedPage * TILE_PAGE_SIZE;
-  const pageTiles = activeTileSet?.tiles.slice(pageStart, pageStart + TILE_PAGE_SIZE) ?? [];
+  const tiles = activeTileSet?.tiles ?? [];
+  const totalSlots = totalTiles + tilePaletteOffset;
+  const [layoutRows, setLayoutRows] = useState(1);
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
   const tileSwatchSize = activeTileSet
-    ? Math.max(24, activeTileSet.tileWidth * TILE_BAR_PIXEL_SIZE)
-    : 24;
+    ? Math.max(32, activeTileSet.tileWidth * TILE_BAR_PIXEL_SIZE)
+    : 32;
+  const selectingRef = useRef(false);
+  const selectionAnchorRef = useRef<number | null>(null);
+  const selectionSet = useMemo(() => new Set(selectedTileIndices), [selectedTileIndices]);
+
+  const setSelectionFromIndices = (startIndex: number, endIndex: number) => {
+    const alignmentColumns = tilePaletteColumns;
+    const alignmentOffset = tilePaletteOffset;
+    const rows = Math.max(1, layoutRows);
+    const blockSize = alignmentColumns * rows;
+    const getGridPosition = (index: number) => {
+      const adjusted = index + alignmentOffset;
+      const block = Math.floor(adjusted / blockSize);
+      const within = adjusted % blockSize;
+      return {
+        row: Math.floor(within / alignmentColumns),
+        col: (within % alignmentColumns) + block * alignmentColumns,
+      };
+    };
+    const startPos = getGridPosition(startIndex);
+    const endPos = getGridPosition(endIndex);
+    const minCol = Math.min(startPos.col, endPos.col);
+    const maxCol = Math.max(startPos.col, endPos.col);
+    const minRow = Math.min(startPos.row, endPos.row);
+    const maxRow = Math.max(startPos.row, endPos.row);
+    const nextIndices: number[] = [];
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let col = minCol; col <= maxCol; col += 1) {
+        const block = Math.floor(col / alignmentColumns);
+        const withinCol = col % alignmentColumns;
+        const index = block * blockSize + row * alignmentColumns + withinCol - alignmentOffset;
+        if (index < 0 || index >= totalTiles) {
+          continue;
+        }
+        nextIndices.push(index);
+      }
+    }
+    setTileSelection(nextIndices, maxCol - minCol + 1, maxRow - minRow + 1, startIndex);
+  };
+
+  const handleTilePointerDown = (index: number) => {
+    selectingRef.current = true;
+    selectionAnchorRef.current = index;
+    setSelectionFromIndices(index, index);
+  };
+
+  const handleTilePointerEnter = (index: number) => {
+    if (!selectingRef.current || selectionAnchorRef.current === null) {
+      return;
+    }
+    setSelectionFromIndices(selectionAnchorRef.current, index);
+  };
+
+  const handlePointerUp = () => {
+    selectingRef.current = false;
+    selectionAnchorRef.current = null;
+  };
 
   useEffect(() => {
-    const desiredPage = Math.min(
-      Math.floor(selectedTileIndex / TILE_PAGE_SIZE),
-      totalPages - 1
-    );
-    if (Number.isFinite(desiredPage) && desiredPage !== clampedPage) {
-      setTilePage(desiredPage);
+    const onPointerUp = () => handlePointerUp();
+    window.addEventListener('pointerup', onPointerUp);
+    return () => window.removeEventListener('pointerup', onPointerUp);
+  }, []);
+
+  useEffect(() => {
+    const grid = gridRef.current;
+    if (!grid) {
+      return undefined;
     }
-  }, [selectedTileIndex, clampedPage, totalPages, setTilePage]);
+    const updateRows = () => {
+      const height = grid.clientHeight;
+      const cell = tileSwatchSize;
+    const rows = Math.max(
+      tilePaletteRowsMin,
+      1,
+      Math.floor((height + TILE_GRID_GAP) / (cell + TILE_GRID_GAP))
+    );
+    setLayoutRows(rows);
+    };
+    updateRows();
+    const observer = new ResizeObserver(updateRows);
+    observer.observe(grid);
+    return () => observer.disconnect();
+  }, [tileSwatchSize, tilePaletteRowsMin]);
 
   return (
     <div className="tilebar">
@@ -112,26 +193,63 @@ const TileBar = () => {
                 ))}
               </select>
             </div>
-            <div className="tilebar__pages">
-              <button
-                type="button"
-                className="panel__item"
-                onClick={() => setTilePage(Math.max(0, clampedPage - 1))}
-                disabled={clampedPage === 0}
-              >
-                Prev
-              </button>
-              <span className="tilebar__page-label">
-                Page {clampedPage + 1} / {totalPages}
-              </span>
-              <button
-                type="button"
-                className="panel__item"
-                onClick={() => setTilePage(Math.min(totalPages - 1, clampedPage + 1))}
-                disabled={clampedPage >= totalPages - 1}
-              >
-                Next
-              </button>
+            <div className="tilebar__select">
+              <label className="panel__label" htmlFor="tile-cols-input">
+                Columns
+              </label>
+              <input
+                id="tile-cols-input"
+                type="number"
+                className="panel__number"
+                min={1}
+                max={MAX_TILE_PALETTE_COLUMNS}
+                step={1}
+                value={tilePaletteColumns}
+                onChange={(event) => {
+                  const next = event.currentTarget.valueAsNumber;
+                  if (Number.isFinite(next)) {
+                    setTilePaletteColumns(Math.max(1, Math.min(MAX_TILE_PALETTE_COLUMNS, Math.round(next))));
+                  }
+                }}
+              />
+            </div>
+            <div className="tilebar__select">
+              <label className="panel__label" htmlFor="tile-rows-input">
+                Rows
+              </label>
+              <input
+                id="tile-rows-input"
+                type="number"
+                className="panel__number"
+                min={1}
+                step={1}
+                value={tilePaletteRowsMin}
+                onChange={(event) => {
+                  const next = event.currentTarget.valueAsNumber;
+                  if (Number.isFinite(next)) {
+                    setTilePaletteRowsMin(Math.max(1, Math.round(next)));
+                  }
+                }}
+              />
+            </div>
+            <div className="tilebar__select">
+              <label className="panel__label" htmlFor="tile-offset-input">
+                Offset
+              </label>
+              <input
+                id="tile-offset-input"
+                type="number"
+                className="panel__number"
+                min={0}
+                step={1}
+                value={tilePaletteOffset}
+                onChange={(event) => {
+                  const next = event.currentTarget.valueAsNumber;
+                  if (Number.isFinite(next)) {
+                    setTilePaletteOffset(Math.max(0, Math.round(next)));
+                  }
+                }}
+              />
             </div>
           </>
         ) : (
@@ -144,26 +262,67 @@ const TileBar = () => {
         <div className="tilebar__empty">No tiles in this set yet.</div>
       ) : (
         <div
+          ref={gridRef}
           className="tilebar__grid"
-          style={{ '--tile-swatch-size': `${tileSwatchSize}px` } as React.CSSProperties}
+          style={
+            {
+              '--tile-swatch-size': `${tileSwatchSize}px`,
+              '--tile-cell-size': `${tileSwatchSize}px`,
+              '--tile-grid-columns': Math.max(
+                tilePaletteColumns,
+                Math.ceil(
+                  totalSlots /
+                    (Math.max(1, layoutRows) * Math.max(1, tilePaletteColumns))
+                ) * tilePaletteColumns
+              ),
+              '--tile-grid-rows': layoutRows,
+            } as React.CSSProperties
+          }
         >
-          {pageTiles.map((tile, index) => {
-            const tileIndex = pageStart + index;
+          {Array.from({ length: totalSlots }, (_value, slotIndex) => {
+            const alignmentColumns = tilePaletteColumns;
+            const alignmentOffset = tilePaletteOffset;
+            const rows = Math.max(1, layoutRows);
+            const blockSize = alignmentColumns * rows;
+            const adjusted = slotIndex;
+            const block = Math.floor(adjusted / blockSize);
+            const within = adjusted % blockSize;
+            const row = Math.floor(within / alignmentColumns);
+            const col = (within % alignmentColumns) + block * alignmentColumns;
+            const tileIndex = slotIndex - alignmentOffset;
+            const isPlaceholder = tileIndex < 0 || tileIndex >= totalTiles;
+            const tile = !isPlaceholder ? tiles[tileIndex] : null;
+            const isSelected = !isPlaceholder && selectionSet.has(tileIndex);
             return (
               <button
-                key={tile.id}
+                key={isPlaceholder ? `placeholder-${slotIndex}` : tile?.id ?? `tile-${slotIndex}`}
                 type="button"
                 className="tilebar__tile"
                 data-active={tileIndex === selectedTileIndex}
-                onClick={() => setSelectedTileIndex(tileIndex)}
+                data-selected={isSelected}
+                data-placeholder={isPlaceholder}
+                style={{ gridColumn: col + 1, gridRow: row + 1 }}
+                onPointerDown={() => {
+                  if (!isPlaceholder) {
+                    handleTilePointerDown(tileIndex);
+                  }
+                }}
+                onPointerEnter={() => {
+                  if (!isPlaceholder) {
+                    handleTilePointerEnter(tileIndex);
+                  }
+                }}
                 aria-label={`Tile ${tileIndex + 1}`}
+                disabled={isPlaceholder}
               >
-                <TileCanvas
-                  pixels={tile.pixels}
-                  tileWidth={activeTileSet.tileWidth}
-                  tileHeight={activeTileSet.tileHeight}
-                  palette={palette}
-                />
+                {tile ? (
+                  <TileCanvas
+                    pixels={tile.pixels}
+                    tileWidth={activeTileSet.tileWidth}
+                    tileHeight={activeTileSet.tileHeight}
+                    palette={palette}
+                  />
+                ) : null}
               </button>
             );
           })}
