@@ -17,9 +17,12 @@ import { FillBucketTool } from '@/tools/fillBucketTool';
 import { StampTool } from '@/tools/stampTool';
 import { EyeDropperTool } from '@/tools/eyeDropperTool';
 import { ReferenceHandleTool } from '@/tools/referenceHandleTool';
+import { TileSamplerTool } from '@/tools/tileSamplerTool';
+import { TilePenTool } from '@/tools/tilePenTool';
 import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
+import { useTileMapStore } from '@/state/tileMapStore';
 import { addReferencesFromFiles } from '@/services/references';
 import {
   getReferenceBounds,
@@ -108,6 +111,10 @@ type SelectionCacheEntry = {
   canvas: HTMLCanvasElement;
 };
 
+type TileCacheEntry = {
+  canvas: HTMLCanvasElement;
+};
+
 const buildBlockCanvas = (block: Uint8Array, palette: string[]) => {
   const canvas = document.createElement('canvas');
   canvas.width = BLOCK_SIZE * PIXEL_SIZE;
@@ -132,6 +139,35 @@ const buildBlockCanvas = (block: Uint8Array, palette: string[]) => {
   }
 
   return { canvas, pixels };
+};
+
+const buildTileCanvas = (
+  pixels: number[],
+  palette: string[],
+  tileWidth: number,
+  tileHeight: number
+) => {
+  const canvas = document.createElement('canvas');
+  canvas.width = tileWidth * PIXEL_SIZE;
+  canvas.height = tileHeight * PIXEL_SIZE;
+  const context = canvas.getContext('2d');
+  if (!context) {
+    return null;
+  }
+  context.imageSmoothingEnabled = false;
+
+  for (let y = 0; y < tileHeight; y += 1) {
+    for (let x = 0; x < tileWidth; x += 1) {
+      const paletteIndex = pixels[y * tileWidth + x] ?? 0;
+      if (paletteIndex === 0) {
+        continue;
+      }
+      context.fillStyle = palette[paletteIndex] ?? palette[0];
+      context.fillRect(x * PIXEL_SIZE, y * PIXEL_SIZE, PIXEL_SIZE, PIXEL_SIZE);
+    }
+  }
+
+  return { canvas };
 };
 
 const drawPixelLayer = (
@@ -332,6 +368,105 @@ const drawSelectionOutline = (
   context.restore();
 };
 
+const drawTileMapLayer = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number,
+  palette: string[],
+  cache: Map<string, TileCacheEntry>
+) => {
+  const { tileSets, tileMaps } = useTileMapStore.getState();
+  if (tileSets.length === 0 || tileMaps.length === 0) {
+    return;
+  }
+
+  const tileSetMap = new Map(tileSets.map((tileSet) => [tileSet.id, tileSet]));
+  for (const tileMap of tileMaps) {
+    const tileSet = tileSetMap.get(tileMap.tileSetId);
+    if (!tileSet) {
+      continue;
+    }
+
+    const tileWidth = tileSet.tileWidth;
+    const tileHeight = tileSet.tileHeight;
+    if (tileWidth <= 0 || tileHeight <= 0) {
+      continue;
+    }
+
+    const mapWidth = tileMap.columns * tileWidth;
+    const mapHeight = tileMap.rows * tileHeight;
+    const mapLeft = tileMap.originX;
+    const mapTop = tileMap.originY;
+    const mapRight = mapLeft + mapWidth;
+    const mapBottom = mapTop + mapHeight;
+
+    if (
+      mapRight < viewX ||
+      mapBottom < viewY ||
+      mapLeft > viewX + viewWidth ||
+      mapTop > viewY + viewHeight
+    ) {
+      continue;
+    }
+
+    const startCol = Math.max(0, Math.floor((viewX - mapLeft) / tileWidth));
+    const endCol = Math.min(
+      tileMap.columns - 1,
+      Math.ceil((viewX + viewWidth - mapLeft) / tileWidth) - 1
+    );
+    const startRow = Math.max(0, Math.floor((viewY - mapTop) / tileHeight));
+    const endRow = Math.min(
+      tileMap.rows - 1,
+      Math.ceil((viewY + viewHeight - mapTop) / tileHeight) - 1
+    );
+
+    if (endCol < startCol || endRow < startRow) {
+      continue;
+    }
+
+    for (let row = startRow; row <= endRow; row += 1) {
+      for (let col = startCol; col <= endCol; col += 1) {
+        const index = row * tileMap.columns + col;
+        const tileIndex = tileMap.tiles[index] ?? -1;
+        if (tileIndex < 0) {
+          continue;
+        }
+        const tile = tileSet.tiles[tileIndex];
+        if (!tile) {
+          continue;
+        }
+
+        const cacheKey = `${tileSet.id}:${tileIndex}`;
+        let cached = cache.get(cacheKey);
+        if (!cached) {
+          const rebuilt = buildTileCanvas(
+            tile.pixels,
+            palette,
+            tileWidth,
+            tileHeight
+          );
+          if (rebuilt) {
+            cached = rebuilt;
+            cache.set(cacheKey, rebuilt);
+          }
+        }
+
+        if (!cached) {
+          continue;
+        }
+
+        context.drawImage(
+          cached.canvas,
+          (mapLeft + col * tileWidth) * PIXEL_SIZE,
+          (mapTop + row * tileHeight) * PIXEL_SIZE
+        );
+      }
+    }
+  }
+};
+
 const drawPreviewLayer = (
   context: CanvasRenderingContext2D,
   palette: string[],
@@ -441,6 +576,7 @@ const ViewportCanvas = () => {
   const controllerRef = useRef<ToolController | null>(null);
   const blockCacheRef = useRef<Map<string, BlockCacheEntry>>(new Map());
   const selectionCacheRef = useRef<Map<string, SelectionCacheEntry>>(new Map());
+  const tileCacheRef = useRef<Map<string, TileCacheEntry>>(new Map());
   const lastPerfLogRef = useRef(0);
   const setSize = useViewportStore((state) => state.setSize);
   const zoom = useViewportStore((state) => state.camera.zoom);
@@ -474,6 +610,8 @@ const ViewportCanvas = () => {
       stamp: new StampTool(),
       'selection-rect': new SelectionRectangleTool(),
       'selection-oval': new SelectionOvalTool(),
+      'tile-sampler': new TileSamplerTool(),
+      'tile-pen': new TilePenTool(),
     };
     const initialTool = tools[useToolStore.getState().activeTool] ?? tools.pen;
     controllerRef.current.setTool(initialTool);
@@ -483,9 +621,13 @@ const ViewportCanvas = () => {
     });
     const unsubscribePalette = usePaletteStore.subscribe(() => {
       blockCacheRef.current.clear();
+      tileCacheRef.current.clear();
     });
     const unsubscribeSelection = useSelectionStore.subscribe(() => {
       selectionCacheRef.current.clear();
+    });
+    const unsubscribeTileMaps = useTileMapStore.subscribe(() => {
+      tileCacheRef.current.clear();
     });
 
     const render = () => {
@@ -579,6 +721,15 @@ const ViewportCanvas = () => {
         palette,
         blockCacheRef.current
       );
+      drawTileMapLayer(
+        context,
+        state.camera.x,
+        state.camera.y,
+        viewWidth,
+        viewHeight,
+        palette,
+        tileCacheRef.current
+      );
       drawSelectionLayer(
         context,
         state.camera.x,
@@ -617,7 +768,9 @@ const ViewportCanvas = () => {
       drawAxes(context, state.camera.x, state.camera.y, viewWidth, viewHeight, axisColor);
       const activeTool = useToolStore.getState().activeTool;
       const previewColor =
-        activeTool === 'selection-rect' || activeTool === 'selection-oval'
+        activeTool === 'selection-rect' ||
+        activeTool === 'selection-oval' ||
+        activeTool === 'tile-sampler'
           ? 'rgba(245, 197, 66, 0.35)'
           : undefined;
       drawPreviewLayer(context, palette, previewColor);
@@ -665,6 +818,7 @@ const ViewportCanvas = () => {
       unsubscribeTool();
       unsubscribePalette();
       unsubscribeSelection();
+      unsubscribeTileMaps();
       resizeObserver.disconnect();
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);

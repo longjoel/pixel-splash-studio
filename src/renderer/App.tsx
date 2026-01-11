@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ViewportCanvas from './canvas/ViewportCanvas';
 import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
+import TileBar from './ui/TileBar';
 import { loadProject, newProject, saveProject } from './services/project';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
@@ -42,6 +43,7 @@ import {
 } from './services/referenceTrace';
 import { useReferenceStore } from './state/referenceStore';
 import { useReferenceHandleStore } from './state/referenceHandleStore';
+import { useTileMapStore } from './state/tileMapStore';
 import {
   BYTES_PER_NUMBER,
   HISTORY_CHANGE_BYTES,
@@ -170,6 +172,18 @@ const TOOL_ICONS = {
   'selection-oval': (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <ellipse cx="12" cy="12" rx="7" ry="5.5" strokeDasharray="2 2" />
+    </svg>
+  ),
+  'tile-sampler': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="1.5" strokeDasharray="2 2" />
+      <path d="M9 9h2v2H9zM13 9h2v2h-2zM9 13h2v2H9zM13 13h2v2h-2z" />
+    </svg>
+  ),
+  'tile-pen': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="4" width="10" height="10" rx="1.5" />
+      <path d="M14.5 14.5l5.5-5.5-3-3-5.5 5.5-1 4 4-1z" />
     </svg>
   ),
 } as const;
@@ -302,6 +316,11 @@ const App = () => {
   const [memoryLabel, setMemoryLabel] = useState('');
   const activeTool = useToolStore((state) => state.activeTool);
   const setActiveTool = useToolStore((state) => state.setActiveTool);
+  const tileSets = useTileMapStore((state) => state.tileSets);
+  const tileMaps = useTileMapStore((state) => state.tileMaps);
+  const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
+  const activeTileMapId = useTileMapStore((state) => state.activeTileMapId);
+  const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
   const brushSize = useBrushStore((state) => state.size);
   const brushShape = useBrushStore((state) => state.shape);
   const rectangleMode = useRectangleStore((state) => state.mode);
@@ -371,6 +390,9 @@ const App = () => {
   const [traceMaxColors, setTraceMaxColors] = useState(TRACE_DEFAULT_MAX_COLORS);
   const projectTitle = getProjectTitle();
   const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
+  const activeTileSet = tileSets.find((set) => set.id === activeTileSetId) ?? tileSets[0];
+  const activeTileMap = tileMaps.find((map) => map.id === activeTileMapId) ?? tileMaps[0];
+  const isTilingTool = activeTool === 'tile-sampler' || activeTool === 'tile-pen';
   const paletteRightOffset = (minimapCollapsed ? 180 : 324) + 24;
 
   useEffect(() => {
@@ -837,6 +859,31 @@ const App = () => {
                       aria-label="Selection Oval"
                     >
                       <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="toolbar__tool-group">
+                  <span className="panel__label">Tiling</span>
+                  <div className="toolbar__tools-grid">
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-sampler'}
+                      onClick={() => setActiveTool('tile-sampler')}
+                      title="Tile Sampler"
+                      aria-label="Tile Sampler"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-pen'}
+                      onClick={() => setActiveTool('tile-pen')}
+                      title="Tile Pen"
+                      aria-label="Tile Pen"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
                     </button>
                   </div>
                 </div>
@@ -1439,6 +1486,29 @@ const App = () => {
                         </label>
                       </div>
                     </div>
+                  ) : activeTool === 'tile-sampler' || activeTool === 'tile-pen' ? (
+                    <div className="panel__group">
+                      <span className="panel__label">Tile Context</span>
+                      <div className="panel__note">
+                        {activeTool === 'tile-sampler'
+                          ? 'Drag to capture tiles on the tile grid.'
+                          : 'Paint tiles from the active tile set.'}
+                      </div>
+                      <div className="panel__stack">
+                        <div className="panel__note">
+                          Tile Set:{' '}
+                          {activeTileSet
+                            ? `${activeTileSet.name} (${activeTileSet.tiles.length} tiles)`
+                            : 'None'}
+                        </div>
+                        <div className="panel__note">
+                          Tile Map: {activeTileMap ? activeTileMap.name : 'None'}
+                        </div>
+                        <div className="panel__note">
+                          Selected Tile: {activeTileSet ? selectedTileIndex + 1 : '—'}
+                        </div>
+                      </div>
+                    </div>
                   ) : (
                     <div className="panel__item" aria-disabled="true">
                       No options
@@ -1502,7 +1572,7 @@ const App = () => {
           className="app__palette panel"
           style={{ '--palette-right-offset': `${paletteRightOffset}px` } as React.CSSProperties}
         >
-          <PaletteBar />
+          {isTilingTool ? <TileBar /> : <PaletteBar />}
         </div>
         <div
           className={`app__minimap panel${minimapCollapsed ? ' app__minimap--collapsed panel--collapsed' : ''}`}

@@ -124,6 +124,29 @@ File menu and persistence
  - project file extension is .splash
  - undo/redo history is persisted in project files, capped to last 8 actions
  - reference images are stored inside the project zip under references/
+ - project payload includes tile sets + tile maps (see Tile Mapping)
+
+Tile Mapping
+ - tile sets define tile size (w, h) and a list of tiles extracted from pixel data
+ - a tile is a bounded pixel region stored as a reusable asset
+ - tile map is a grid of tile indices referencing a tile set
+ - tile maps have origin (x, y) in world space and a grid size (cols, rows)
+ - tile map render is a layer over the pixel canvas, aligned to the tile grid
+ - selection to tile: convert selection bounds into a tile (snap to tile size)
+ - tile set builder
+    - extract tiles from selection or a pixel region
+    - de-duplicate tiles by pixel content
+    - assign tile IDs and optionally name groups
+ - tile map editor
+    - paint tiles into the tile map grid
+    - erase tiles (set empty index)
+    - sample tile from map (eyedropper for tiles)
+    - snap to tile grid by default
+ - tile map tools
+    - pencil: place single tile
+    - brush: place repeated tiles while dragging
+    - rectangle fill: fill a rectangular region with a tile
+    - selection stamp: place a tile pattern from selection
 
 Performance work log
  - project saves are written in a worker thread to keep UI responsive

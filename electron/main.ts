@@ -27,6 +27,7 @@ const createWindow = () => {
   } else {
     win.loadFile(join(app.getAppPath(), 'dist', 'index.html'));
   }
+  win.webContents.openDevTools({ mode: 'detach' });
 
   win.webContents.on('zoom-changed', (_event, zoomDirection) => {
     win.webContents.send('app:zoom-changed', zoomDirection, win.webContents.getZoomFactor());
@@ -312,6 +313,27 @@ export type ProjectPayload = {
       flipX: boolean;
       flipY: boolean;
       opacity: number;
+    }>;
+    tileSets?: Array<{
+      id: string;
+      name: string;
+      tileWidth: number;
+      tileHeight: number;
+      tiles: Array<{
+        id: string;
+        name?: string;
+        pixels: number[];
+      }>;
+    }>;
+    tileMaps?: Array<{
+      id: string;
+      name: string;
+      tileSetId: string;
+      originX: number;
+      originY: number;
+      columns: number;
+      rows: number;
+      tiles: number[];
     }>;
   };
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
