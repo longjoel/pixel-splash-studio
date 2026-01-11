@@ -401,6 +401,23 @@ body {
   height: 100%;
 }
 
+.tilebar__layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  height: 100%;
+  align-items: stretch;
+  flex: 1;
+}
+
+.tilebar__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  min-width: 128px;
+}
+
 .tilebar__header {
   display: flex;
   gap: 8px;
@@ -411,8 +428,20 @@ body {
 
 .tilebar__select {
   display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.tilebar__actions {
+  display: grid;
   gap: 6px;
-  align-items: center;
+  width: 100%;
+}
+
+.tilebar__actions .panel__item {
+  width: 100%;
+  text-align: center;
 }
 
 .tilebar__grid {
@@ -427,6 +456,7 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
   flex: 1;
+  height: 100%;
   padding-bottom: 6px;
   justify-content: start;
   align-content: start;

@@ -61,6 +61,8 @@ type TileMapState = {
   setNineSlice: (value: { tileSetId: string; tiles: number[] } | null) => void;
   addTileSet: (payload: Omit<TileSetPayload, 'id'> & { id?: string }) => string;
   appendTilesToSet: (tileSetId: string, tiles: Array<Omit<TilePayload, 'id'>>) => void;
+  deleteTilesFromSet: (tileSetId: string, indices: number[]) => void;
+  consolidateTileSet: (tileSetId: string) => void;
   addTileMap: (payload: Omit<TileMapPayload, 'id'> & { id?: string }) => string;
   setTileMapTiles: (tileMapId: string, updates: Array<{ index: number; tile: number }>) => void;
   expandTileMapToInclude: (
@@ -94,7 +96,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
   tilePage: 0,
   tilePaletteColumns: 8,
   tilePaletteOffset: 0,
-  tilePaletteRowsMin: 1,
+  tilePaletteRowsMin: 3,
   tileDebugOverlay: false,
   nineSlice: null,
   setTileSets: (tileSets) => set({ tileSets }),
@@ -111,7 +113,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileRows: 1,
       tilePage: 0,
       tilePaletteOffset: 0,
-      tilePaletteRowsMin: 1,
+      tilePaletteRowsMin: 3,
       tileDebugOverlay: false,
       nineSlice: null,
     }),
@@ -124,7 +126,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileRows: 1,
       tilePage: 0,
       tilePaletteOffset: 0,
-      tilePaletteRowsMin: 1,
+      tilePaletteRowsMin: 3,
       tileDebugOverlay: false,
       nineSlice: null,
     }),
@@ -200,6 +202,134 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
         return { ...tileSet, tiles: [...tileSet.tiles, ...nextTiles] };
       }),
     }));
+  },
+  deleteTilesFromSet: (tileSetId, indices) => {
+    if (indices.length === 0) {
+      return;
+    }
+    const deleteSet = new Set(indices);
+    useProjectStore.getState().setDirty(true);
+    set((state) => {
+      const tileSet = state.tileSets.find((set) => set.id === tileSetId);
+      if (!tileSet) {
+        return state;
+      }
+      const indexMap = new Map<number, number>();
+      const nextTiles: TilePayload[] = [];
+      let nextIndex = 0;
+      tileSet.tiles.forEach((tile, index) => {
+        if (deleteSet.has(index)) {
+          indexMap.set(index, -1);
+          return;
+        }
+        indexMap.set(index, nextIndex);
+        nextTiles.push(tile);
+        nextIndex += 1;
+      });
+
+      const remapIndices = (values: number[]) =>
+        values.map((value) => (value >= 0 ? indexMap.get(value) ?? -1 : -1));
+      const remappedSelection = remapIndices(state.selectedTileIndices).filter(
+        (value) => value >= 0
+      );
+      const fallbackIndex = nextTiles.length > 0 ? 0 : 0;
+      const nextSelected =
+        remappedSelection.length > 0 ? remappedSelection : [fallbackIndex];
+      const nextSelectedIndex = nextSelected[0] ?? fallbackIndex;
+
+      return {
+        tileSets: state.tileSets.map((set) =>
+          set.id === tileSetId ? { ...set, tiles: nextTiles } : set
+        ),
+        tileMaps: state.tileMaps.map((map) => {
+          if (map.tileSetId !== tileSetId) {
+            return map;
+          }
+          const nextMapTiles = map.tiles.map((tile) => {
+            if (tile < 0) {
+              return -1;
+            }
+            return indexMap.get(tile) ?? -1;
+          });
+          return { ...map, tiles: nextMapTiles };
+        }),
+        selectedTileIndex: nextSelectedIndex,
+        selectedTileIndices: [nextSelectedIndex],
+        selectedTileCols: 1,
+        selectedTileRows: 1,
+        nineSlice:
+          state.nineSlice?.tileSetId === tileSetId && state.nineSlice.tiles.length > 0
+            ? {
+                ...state.nineSlice,
+                tiles: remapIndices(state.nineSlice.tiles),
+              }
+            : state.nineSlice,
+      };
+    });
+  },
+  consolidateTileSet: (tileSetId) => {
+    useProjectStore.getState().setDirty(true);
+    set((state) => {
+      const tileSet = state.tileSets.find((set) => set.id === tileSetId);
+      if (!tileSet) {
+        return state;
+      }
+      const indexMap = new Map<number, number>();
+      const seen = new Map<string, number>();
+      const nextTiles: TilePayload[] = [];
+      let nextIndex = 0;
+      tileSet.tiles.forEach((tile, index) => {
+        const key = tile.pixels.join(',');
+        const existing = seen.get(key);
+        if (existing !== undefined) {
+          indexMap.set(index, existing);
+          return;
+        }
+        seen.set(key, nextIndex);
+        indexMap.set(index, nextIndex);
+        nextTiles.push(tile);
+        nextIndex += 1;
+      });
+
+      const remapIndices = (values: number[]) =>
+        values.map((value) => (value >= 0 ? indexMap.get(value) ?? -1 : -1));
+      const remappedSelection = remapIndices(state.selectedTileIndices).filter(
+        (value) => value >= 0
+      );
+      const fallbackIndex = nextTiles.length > 0 ? 0 : 0;
+      const nextSelected =
+        remappedSelection.length > 0 ? remappedSelection : [fallbackIndex];
+      const nextSelectedIndex = nextSelected[0] ?? fallbackIndex;
+
+      return {
+        tileSets: state.tileSets.map((set) =>
+          set.id === tileSetId ? { ...set, tiles: nextTiles } : set
+        ),
+        tileMaps: state.tileMaps.map((map) => {
+          if (map.tileSetId !== tileSetId) {
+            return map;
+          }
+          const nextMapTiles = map.tiles.map((tile) => {
+            if (tile < 0) {
+              return -1;
+            }
+            return indexMap.get(tile) ?? -1;
+          });
+          return { ...map, tiles: nextMapTiles };
+        }),
+        selectedTileIndex: nextSelectedIndex,
+        selectedTileIndices: [nextSelectedIndex],
+        selectedTileCols: 1,
+        selectedTileRows: 1,
+        nineSlice:
+          state.nineSlice?.tileSetId === tileSetId && state.nineSlice.tiles.length > 0
+            ? {
+                ...state.nineSlice,
+                tiles: remapIndices(state.nineSlice.tiles),
+              }
+            : state.nineSlice,
+      };
+    });
   },
   addTileMap: (payload) => {
     const { id: providedId, ...rest } = payload;
@@ -296,7 +426,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       tilePage: 0,
       tilePaletteColumns: 8,
       tilePaletteOffset: 0,
-      tilePaletteRowsMin: 1,
+      tilePaletteRowsMin: 3,
       tileDebugOverlay: false,
       nineSlice: null,
     }),
