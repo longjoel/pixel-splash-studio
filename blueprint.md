@@ -132,6 +132,10 @@ Tile Mapping
  - tile map is a grid of tile indices referencing a tile set
  - tile maps have origin (x, y) in world space and a grid size (cols, rows)
  - tile map render is a layer over the pixel canvas, aligned to the tile grid
+ - tile picker shows tiles with alignment controls (columns, rows, offset) and placeholders
+ - tile picker supports multi-select (shift add, ctrl remove)
+ - tile picker can consolidate duplicate tiles or delete selected tiles with confirmation
+ - export tile map region to Tiled TMX with tiles.png atlas
  - selection to tile: convert selection bounds into a tile (snap to tile size)
  - tile set builder
     - extract tiles from selection or a pixel region
@@ -143,10 +147,11 @@ Tile Mapping
     - sample tile from map (eyedropper for tiles)
     - snap to tile grid by default
  - tile map tools
-    - pencil: place single tile
-    - brush: place repeated tiles while dragging
-    - rectangle fill: fill a rectangular region with a tile
-    - selection stamp: place a tile pattern from selection
+    - tile sampler: capture a rectangular region into the tile set
+    - tile pen: place single or multi-tile selections
+    - tile rectangle: fill a rectangular region, random when multiple tiles selected
+    - tile 9-slice: sample a 3x3 set and fill rectangles (corners/edges/center)
+    - tile export: export a tile map region as tiles.png + tiles.tmx (Tiled)
 
 Performance work log
  - project saves are written in a worker thread to keep UI responsive
