@@ -531,6 +531,30 @@ ipcMain.handle('export:png', async (_event, data: Uint8Array, suggestedName?: st
   return filePath;
 });
 
+ipcMain.handle(
+  'export:tilemap',
+  async (_event, payload: { png: Uint8Array; tmx: string }) => {
+    const window = BrowserWindow.getFocusedWindow();
+    const dialogOptions: OpenDialogOptions = {
+      properties: ['openDirectory', 'createDirectory'],
+    };
+    const { canceled, filePaths } = window
+      ? await dialog.showOpenDialog(window, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
+
+    if (canceled || filePaths.length === 0) {
+      return null;
+    }
+
+    const basePath = filePaths[0];
+    const pngPath = join(basePath, 'tiles.png');
+    const tmxPath = join(basePath, 'tiles.tmx');
+    await writeFile(pngPath, Buffer.from(payload.png));
+    await writeFile(tmxPath, payload.tmx);
+    return basePath;
+  }
+);
+
 ipcMain.handle('export:gbr', async (_event, data: Uint8Array, suggestedName?: string) => {
   const window = BrowserWindow.getFocusedWindow();
   const dialogOptions = {

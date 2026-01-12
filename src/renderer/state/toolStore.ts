@@ -14,7 +14,8 @@ export type ToolId =
   | 'tile-sampler'
   | 'tile-pen'
   | 'tile-rectangle'
-  | 'tile-9slice';
+  | 'tile-9slice'
+  | 'tile-export';
 
 type ToolState = {
   activeTool: ToolId;

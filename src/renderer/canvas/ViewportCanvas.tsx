@@ -20,6 +20,7 @@ import { ReferenceHandleTool } from '@/tools/referenceHandleTool';
 import { TileSamplerTool } from '@/tools/tileSamplerTool';
 import { TilePenTool } from '@/tools/tilePenTool';
 import { TileRandomTool } from '@/tools/tileRandomTool';
+import { TileExportTool } from '@/tools/tileExportTool';
 import { TileNineSliceTool } from '@/tools/tileNineSliceTool';
 import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
@@ -621,6 +622,7 @@ const ViewportCanvas = () => {
       'tile-pen': new TilePenTool(),
       'tile-rectangle': new TileRandomTool(),
       'tile-9slice': new TileNineSliceTool(),
+      'tile-export': new TileExportTool(),
     };
     const initialTool = tools[useToolStore.getState().activeTool] ?? tools.pen;
     controllerRef.current.setTool(initialTool);

@@ -198,6 +198,12 @@ const TOOL_ICONS = {
       <path d="M4 10h16M4 14h16M10 4v16M14 4v16" />
     </svg>
   ),
+  'tile-export': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="4" width="12" height="12" rx="2" />
+      <path d="M12 12h8M16 8l4 4-4 4" />
+    </svg>
+  ),
 } as const;
 
 const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
@@ -415,7 +421,8 @@ const App = () => {
     activeTool === 'tile-sampler' ||
     activeTool === 'tile-pen' ||
     activeTool === 'tile-rectangle' ||
-    activeTool === 'tile-9slice';
+    activeTool === 'tile-9slice' ||
+    activeTool === 'tile-export';
   const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
   const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
   const resizingRef = React.useRef(false);
@@ -971,6 +978,18 @@ const App = () => {
                     >
                       <span className="toolbar__tool-icon">
                         {TOOL_ICONS['tile-9slice']}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-export'}
+                      onClick={() => setActiveTool('tile-export')}
+                      title="Tile Export"
+                      aria-label="Tile Export"
+                    >
+                      <span className="toolbar__tool-icon">
+                        {TOOL_ICONS['tile-export']}
                       </span>
                     </button>
                   </div>
@@ -1578,7 +1597,8 @@ const App = () => {
                   activeTool === 'tile-sampler' ||
                   activeTool === 'tile-pen' ||
                   activeTool === 'tile-rectangle' ||
-                  activeTool === 'tile-9slice' ? (
+                  activeTool === 'tile-9slice' ||
+                  activeTool === 'tile-export' ? (
                     <div className="panel__group">
                       <span className="panel__label">Tile Context</span>
                       <div className="panel__note">
@@ -1588,7 +1608,9 @@ const App = () => {
                             ? 'Fill a tile rectangle using the selected tiles.'
                             : activeTool === 'tile-9slice'
                               ? 'Drag to set 3x3 source, then drag to fill.'
-                            : 'Paint tiles from the active tile set.'}
+                              : activeTool === 'tile-export'
+                                ? 'Drag to export a tile map region as tiles.png + tiles.tmx.'
+                              : 'Paint tiles from the active tile set.'}
                       </div>
                       <div className="panel__stack">
                         <div className="panel__note">
