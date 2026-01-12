@@ -146,7 +146,7 @@ export const exportTileMapRegion = async (bounds: TileBounds) => {
   </tileset>
   <layer id="1" name="Tile Layer 1" width="${mapWidth}" height="${mapHeight}">
     <data encoding="csv">
-${dataRows.join(',\n')}
+${dataRows.join('\n')}
     </data>
   </layer>
 </map>
