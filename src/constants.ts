@@ -35,6 +35,9 @@ export const TRACE_COLOR_BUCKET_STEP = 8;
 export const TRACE_DEFAULT_MAX_COLORS = 8;
 export const TRACE_MAX_COLORS_MIN = 1;
 export const TRACE_MAX_COLORS_MAX = 64;
+export const TRACE_CANVAS_MAX_DIMENSION = 4096;
+export const TRACE_CANVAS_MAX_PIXELS = 4_000_000;
+export const TRACE_CANVAS_OVERRIDE_STORAGE_KEY = 'pss.traceCanvasOversize';
 
 export const BYTES_PER_NUMBER = 8;
 export const PIXEL_RECORD_BYTES = BYTES_PER_NUMBER * 3;
