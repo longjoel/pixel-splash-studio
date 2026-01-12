@@ -8,6 +8,9 @@ import {
   PIXEL_SIZE,
   TRACE_ALPHA_THRESHOLD,
   TRACE_COLOR_BUCKET_STEP,
+  TRACE_CANVAS_MAX_DIMENSION,
+  TRACE_CANVAS_MAX_PIXELS,
+  TRACE_CANVAS_OVERRIDE_STORAGE_KEY,
   TRACE_MAX_COLORS_MAX,
   TRACE_MAX_COLORS_MIN,
 } from '../../constants';
@@ -36,6 +39,17 @@ const colorDistance = (a: Rgb, b: Rgb) => {
   return dr * dr + dg * dg + db * db;
 };
 
+const allowOversizedTraceCanvas = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  try {
+    return window.localStorage?.getItem(TRACE_CANVAS_OVERRIDE_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+};
+
 const buildTraceCanvas = (reference: ReferenceImage): TraceCanvas | null => {
   const bounds = getReferenceBounds(reference);
   const minGridX = Math.floor(bounds.minX / PIXEL_SIZE);
@@ -45,6 +59,27 @@ const buildTraceCanvas = (reference: ReferenceImage): TraceCanvas | null => {
   const width = Math.max(0, maxGridX - minGridX);
   const height = Math.max(0, maxGridY - minGridY);
   if (width === 0 || height === 0) {
+    return null;
+  }
+  const pixelCount = width * height;
+  const exceedsLimits =
+    width > TRACE_CANVAS_MAX_DIMENSION ||
+    height > TRACE_CANVAS_MAX_DIMENSION ||
+    pixelCount > TRACE_CANVAS_MAX_PIXELS;
+  if (exceedsLimits && !allowOversizedTraceCanvas()) {
+    const warning =
+      `Reference trace is too large (${width}x${height}, ${pixelCount.toLocaleString()} px). ` +
+      `Reduce the reference scale or set localStorage["${TRACE_CANVAS_OVERRIDE_STORAGE_KEY}"]="true" to override.`;
+    if (typeof window !== 'undefined') {
+      window.alert(warning);
+    }
+    console.warn('[referenceTrace] Trace canvas exceeds limits.', {
+      width,
+      height,
+      pixelCount,
+      maxDimension: TRACE_CANVAS_MAX_DIMENSION,
+      maxPixels: TRACE_CANVAS_MAX_PIXELS,
+    });
     return null;
   }
 
