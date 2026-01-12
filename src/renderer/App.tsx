@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import ViewportCanvas from './canvas/ViewportCanvas';
 import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
+import TileBar from './ui/TileBar';
 import { loadProject, newProject, saveProject } from './services/project';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
@@ -42,6 +43,7 @@ import {
 } from './services/referenceTrace';
 import { useReferenceStore } from './state/referenceStore';
 import { useReferenceHandleStore } from './state/referenceHandleStore';
+import { useTileMapStore } from './state/tileMapStore';
 import {
   BYTES_PER_NUMBER,
   HISTORY_CHANGE_BYTES,
@@ -172,6 +174,36 @@ const TOOL_ICONS = {
       <ellipse cx="12" cy="12" rx="7" ry="5.5" strokeDasharray="2 2" />
     </svg>
   ),
+  'tile-sampler': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="1.5" strokeDasharray="2 2" />
+      <path d="M9 9h2v2H9zM13 9h2v2h-2zM9 13h2v2H9zM13 13h2v2h-2z" />
+    </svg>
+  ),
+  'tile-pen': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="4" width="10" height="10" rx="1.5" />
+      <path d="M14.5 14.5l5.5-5.5-3-3-5.5 5.5-1 4 4-1z" />
+    </svg>
+  ),
+  'tile-rectangle': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="6" width="16" height="12" rx="2" />
+      <path d="M8 10h4M8 14h8" />
+    </svg>
+  ),
+  'tile-9slice': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M4 10h16M4 14h16M10 4v16M14 4v16" />
+    </svg>
+  ),
+  'tile-export': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4" y="4" width="12" height="12" rx="2" />
+      <path d="M12 12h8M16 8l4 4-4 4" />
+    </svg>
+  ),
 } as const;
 
 const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
@@ -300,8 +332,15 @@ const App = () => {
   const [minimapCollapsed, setMinimapCollapsed] = useState(false);
   const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
   const [memoryLabel, setMemoryLabel] = useState('');
+  const [paletteHeight, setPaletteHeight] = useState(96);
+  const [tilePaletteHeight, setTilePaletteHeight] = useState(220);
   const activeTool = useToolStore((state) => state.activeTool);
   const setActiveTool = useToolStore((state) => state.setActiveTool);
+  const tileSets = useTileMapStore((state) => state.tileSets);
+  const tileMaps = useTileMapStore((state) => state.tileMaps);
+  const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
+  const activeTileMapId = useTileMapStore((state) => state.activeTileMapId);
+  const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
   const brushSize = useBrushStore((state) => state.size);
   const brushShape = useBrushStore((state) => state.shape);
   const rectangleMode = useRectangleStore((state) => state.mode);
@@ -321,6 +360,11 @@ const App = () => {
   const stampFlipY = useStampStore((state) => state.flipY);
   const stampDrag = useStampStore((state) => state.drag);
   const stampPasteDuplicateColors = useStampStore((state) => state.pasteDuplicateColors);
+  const tileDebugOverlay = useTileMapStore((state) => state.tileDebugOverlay);
+  const setTileDebugOverlay = useTileMapStore((state) => state.setTileDebugOverlay);
+  const nineSlice = useTileMapStore((state) => state.nineSlice);
+  const tileSelectionCols = useTileMapStore((state) => state.selectedTileCols);
+  const tileSelectionRows = useTileMapStore((state) => state.selectedTileRows);
   const removeReference = useReferenceStore((state) => state.removeReference);
   const pasteShortcutRef = React.useRef(false);
 
@@ -371,6 +415,49 @@ const App = () => {
   const [traceMaxColors, setTraceMaxColors] = useState(TRACE_DEFAULT_MAX_COLORS);
   const projectTitle = getProjectTitle();
   const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
+  const activeTileSet = tileSets.find((set) => set.id === activeTileSetId) ?? tileSets[0];
+  const activeTileMap = tileMaps.find((map) => map.id === activeTileMapId) ?? tileMaps[0];
+  const isTilingTool =
+    activeTool === 'tile-sampler' ||
+    activeTool === 'tile-pen' ||
+    activeTool === 'tile-rectangle' ||
+    activeTool === 'tile-9slice' ||
+    activeTool === 'tile-export';
+  const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
+  const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
+  const resizingRef = React.useRef(false);
+
+  const startPaletteResize = (event: React.PointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resizeModeRef.current = isTilingTool ? 'tile' : 'palette';
+    resizingRef.current = true;
+  };
+
+  useEffect(() => {
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!resizingRef.current) {
+        return;
+      }
+      const viewportHeight = document.documentElement.clientHeight;
+      const nextHeight = Math.max(72, Math.min(360, viewportHeight - event.clientY));
+      if (resizeModeRef.current === 'tile') {
+        setTilePaletteHeight(nextHeight);
+      } else {
+        setPaletteHeight(nextHeight);
+      }
+    };
+    const handlePointerUp = () => {
+      resizeModeRef.current = isTilingTool ? 'tile' : 'palette';
+      resizingRef.current = false;
+    };
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [isTilingTool]);
   const paletteRightOffset = (minimapCollapsed ? 180 : 324) + 24;
 
   useEffect(() => {
@@ -484,7 +571,7 @@ const App = () => {
     if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
       return;
     }
-    await loadProject(projectPath ?? undefined);
+    await loadProject(undefined);
   };
 
   const handleNew = () => {
@@ -696,6 +783,12 @@ const App = () => {
         case 'uiScale:reset':
           window.uiScaleApi?.resetScale?.();
           break;
+        case 'tileDebug:on':
+          setTileDebugOverlay(true);
+          break;
+        case 'tileDebug:off':
+          setTileDebugOverlay(false);
+          break;
         default:
           break;
       }
@@ -837,6 +930,67 @@ const App = () => {
                       aria-label="Selection Oval"
                     >
                       <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
+                    </button>
+                  </div>
+                </div>
+                <div className="toolbar__tool-group">
+                  <span className="panel__label">Tiling</span>
+                  <div className="toolbar__tools-grid">
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-sampler'}
+                      onClick={() => setActiveTool('tile-sampler')}
+                      title="Tile Sampler"
+                      aria-label="Tile Sampler"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-pen'}
+                      onClick={() => setActiveTool('tile-pen')}
+                      title="Tile Pen"
+                      aria-label="Tile Pen"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-rectangle'}
+                      onClick={() => setActiveTool('tile-rectangle')}
+                      title="Tile Rectangle"
+                      aria-label="Tile Rectangle"
+                    >
+                      <span className="toolbar__tool-icon">
+                        {TOOL_ICONS['tile-rectangle']}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-9slice'}
+                      onClick={() => setActiveTool('tile-9slice')}
+                      title="Tile 9-Slice"
+                      aria-label="Tile 9-Slice"
+                    >
+                      <span className="toolbar__tool-icon">
+                        {TOOL_ICONS['tile-9slice']}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'tile-export'}
+                      onClick={() => setActiveTool('tile-export')}
+                      title="Tile Export"
+                      aria-label="Tile Export"
+                    >
+                      <span className="toolbar__tool-icon">
+                        {TOOL_ICONS['tile-export']}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -1439,6 +1593,50 @@ const App = () => {
                         </label>
                       </div>
                     </div>
+                  ) :
+                  activeTool === 'tile-sampler' ||
+                  activeTool === 'tile-pen' ||
+                  activeTool === 'tile-rectangle' ||
+                  activeTool === 'tile-9slice' ||
+                  activeTool === 'tile-export' ? (
+                    <div className="panel__group">
+                      <span className="panel__label">Tile Context</span>
+                      <div className="panel__note">
+                        {activeTool === 'tile-sampler'
+                          ? 'Drag to capture tiles on the tile grid.'
+                          : activeTool === 'tile-rectangle'
+                            ? 'Fill a tile rectangle using the selected tiles.'
+                            : activeTool === 'tile-9slice'
+                              ? 'Drag to set 3x3 source, then drag to fill.'
+                              : activeTool === 'tile-export'
+                                ? 'Drag to export a tile map region as tiles.png + tiles.tmx.'
+                              : 'Paint tiles from the active tile set.'}
+                      </div>
+                      <div className="panel__stack">
+                        <div className="panel__note">
+                          Tile Set:{' '}
+                          {activeTileSet
+                            ? `${activeTileSet.name} (${activeTileSet.tiles.length} tiles)`
+                            : 'None'}
+                        </div>
+                        <div className="panel__note">
+                          Tile Map: {activeTileMap ? activeTileMap.name : 'None'}
+                        </div>
+                        <div className="panel__note">
+                          Selected Tile: {activeTileSet ? selectedTileIndex + 1 : '—'}
+                        </div>
+                        {activeTool === 'tile-9slice' && (
+                          <>
+                            <div className="panel__note">
+                              9-Slice: {nineSlice ? 'set' : 'unset'}
+                            </div>
+                            <div className="panel__note">
+                              Selection: {tileSelectionCols}x{tileSelectionRows}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
                   ) : (
                     <div className="panel__item" aria-disabled="true">
                       No options
@@ -1499,10 +1697,21 @@ const App = () => {
           )}
         </div>
         <div
-          className="app__palette panel"
-          style={{ '--palette-right-offset': `${paletteRightOffset}px` } as React.CSSProperties}
+          className={`app__palette panel${isTilingTool ? ' app__palette--tile' : ''}`}
+          style={
+            {
+              '--palette-right-offset': `${paletteRightOffset}px`,
+              '--palette-bar-height': `${paletteHeightValue}px`,
+            } as React.CSSProperties
+          }
         >
-          <PaletteBar />
+          <div
+            className="app__palette-resize"
+            role="separator"
+            aria-label="Resize palette bar"
+            onPointerDown={startPaletteResize}
+          />
+          {isTilingTool ? <TileBar /> : <PaletteBar />}
         </div>
         <div
           className={`app__minimap panel${minimapCollapsed ? ' app__minimap--collapsed panel--collapsed' : ''}`}

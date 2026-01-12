@@ -85,6 +85,11 @@ export const TOOL_LABELS = {
   stamp: 'Stamp',
   'selection-rect': 'Select',
   'selection-oval': 'Select Oval',
+  'tile-sampler': 'Tile Sampler',
+  'tile-pen': 'Tile Pen',
+  'tile-rectangle': 'Tile Rectangle',
+  'tile-9slice': 'Tile 9-Slice',
+  'tile-export': 'Tile Export',
 };
 
 export const E2E_BACKGROUND_COLOR = [20, 24, 36, 255];

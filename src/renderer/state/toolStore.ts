@@ -10,7 +10,12 @@ export type ToolId =
   | 'reference-handle'
   | 'stamp'
   | 'selection-rect'
-  | 'selection-oval';
+  | 'selection-oval'
+  | 'tile-sampler'
+  | 'tile-pen'
+  | 'tile-rectangle'
+  | 'tile-9slice'
+  | 'tile-export';
 
 type ToolState = {
   activeTool: ToolId;

@@ -2,448 +2,897 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1"
-    />
-    <title>Pixel Splash Studio</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel Splash Studio — Infinite Canvas Pixel Art</title>
     <meta
       name="description"
-      content="Pixel Splash Studio is a fast, grid-snapped pixel art editor built for infinite canvas workflows."
+      content="Pixel Splash Studio is a fast, grid-snapped pixel editor built for infinite canvas workflows — with references, palette indexing, tile mapping, and TMX export."
     />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
-      rel="stylesheet"
+
+    <meta property="og:title" content="Pixel Splash Studio" />
+    <meta
+      property="og:description"
+      content="Paint fast on an infinite canvas. Palette indexed pixels, references, tile mapping, and TMX export."
     />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="./000-new%20canvas%20-%20all%20tools.png" />
+
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+
     <style>
       :root {
-        color-scheme: light;
-        --ink: #11100e;
-        --paper: #f7f2e8;
-        --paper-deep: #efe5d4;
-        --sun: #ffcb5c;
-        --coral: #ff6b6b;
-        --ocean: #4ea7ff;
-        --mint: #2dd4bf;
-        --shadow: rgba(17, 16, 14, 0.15);
-        --grid: rgba(17, 16, 14, 0.08);
+        color-scheme: dark;
+        --bg0: #070a10;
+        --bg1: #0b101b;
+        --bg2: #10182a;
+        --panel: rgba(255, 255, 255, 0.06);
+        --panel-strong: rgba(255, 255, 255, 0.08);
+        --line: rgba(255, 255, 255, 0.12);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.68);
+        --dim: rgba(255, 255, 255, 0.52);
+        --shadow: rgba(0, 0, 0, 0.45);
+
+        --accent: #ff4a64;
+        --accent2: #4ea7ff;
+        --accent3: #2dd4bf;
+        --accent4: #f5c542;
+
+        --radius-lg: 20px;
+        --radius-md: 14px;
+        --radius-sm: 12px;
+        --max: 1180px;
       }
 
       * {
         box-sizing: border-box;
       }
 
+      html,
+      body {
+        height: 100%;
+      }
+
       body {
         margin: 0;
-        font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
-        color: var(--ink);
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
+          Noto Sans, Arial, sans-serif;
+        color: var(--text);
         background:
-          radial-gradient(circle at 12% 12%, #fff0c8 0%, transparent 45%),
-          radial-gradient(circle at 86% 18%, #e6f4ff 0%, transparent 45%),
-          linear-gradient(165deg, var(--paper) 0%, var(--paper-deep) 100%);
-        min-height: 100vh;
+          radial-gradient(900px 520px at 12% 18%, rgba(78, 167, 255, 0.22), transparent 60%),
+          radial-gradient(900px 520px at 82% 16%, rgba(255, 74, 100, 0.16), transparent 60%),
+          radial-gradient(1000px 700px at 50% 95%, rgba(45, 212, 191, 0.14), transparent 55%),
+          linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 38%, var(--bg0) 100%);
+        overflow-x: hidden;
       }
 
-      .page {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
+      a {
+        color: inherit;
+        text-decoration: none;
       }
 
-      header {
-        padding: 28px clamp(20px, 4vw, 64px);
+      .grid {
+        position: fixed;
+        inset: -40px;
+        pointer-events: none;
+        opacity: 0.4;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), transparent 46%),
+          repeating-linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.06) 0,
+            rgba(255, 255, 255, 0.06) 1px,
+            transparent 1px,
+            transparent 28px
+          ),
+          repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.06) 0,
+            rgba(255, 255, 255, 0.06) 1px,
+            transparent 1px,
+            transparent 28px
+          );
+        mask-image: radial-gradient(circle at 50% 25%, black 35%, transparent 70%);
+      }
+
+      .wrap {
+        width: min(var(--max), calc(100% - 48px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(14px);
+        background: rgba(7, 10, 16, 0.6);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .nav {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
+        gap: 18px;
+        padding: 14px 0;
       }
 
-      .logo {
+      .brand {
         display: flex;
         align-items: center;
         gap: 12px;
-        font-weight: 700;
-        letter-spacing: 0.06em;
-        text-transform: uppercase;
-        font-size: 14px;
+        min-width: 220px;
       }
 
-      .logo-mark {
-        width: 36px;
-        height: 36px;
+      .mark {
+        width: 34px;
+        height: 34px;
         border-radius: 12px;
         background: conic-gradient(
           from 180deg,
-          var(--coral),
-          var(--sun),
-          var(--mint),
-          var(--ocean),
-          var(--coral)
+          var(--accent),
+          var(--accent4),
+          var(--accent3),
+          var(--accent2),
+          var(--accent)
         );
-        box-shadow: 0 8px 16px var(--shadow);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
       }
 
-      .cta {
+      .brand h1 {
+        font-size: 13px;
+        margin: 0;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.86);
+      }
+
+      .links {
         display: flex;
         align-items: center;
         gap: 12px;
-        font-weight: 600;
-        font-size: 14px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
       }
 
-      .cta a {
-        text-decoration: none;
-        color: var(--ink);
-        padding: 10px 18px;
+      .links a {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 10px 12px;
         border-radius: 999px;
-        border: 1px solid var(--ink);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        border: 1px solid transparent;
+        transition: background 160ms ease, color 160ms ease, border-color 160ms ease,
+          transform 160ms ease;
       }
 
-      .cta a:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 12px 20px var(--shadow);
+      .links a:hover {
+        color: rgba(255, 255, 255, 0.92);
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
+        transform: translateY(-1px);
       }
 
-      main {
-        flex: 1;
-        display: grid;
-        gap: clamp(24px, 5vw, 64px);
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        padding: 0 clamp(20px, 6vw, 96px) 64px;
+      .cta {
+        display: inline-flex;
         align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        font-weight: 650;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 100%),
+          radial-gradient(circle at 30% 30%, rgba(255, 74, 100, 0.3), transparent 55%),
+          radial-gradient(circle at 70% 30%, rgba(78, 167, 255, 0.22), transparent 55%);
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.35);
+        transition: transform 160ms ease, border-color 160ms ease;
+      }
+
+      .cta:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 255, 255, 0.24);
       }
 
       .hero {
-        max-width: 560px;
-        display: grid;
-        gap: 18px;
-        animation: rise 0.7s ease-out;
+        padding: 68px 0 44px;
       }
 
-      .hero h1 {
-        font-size: clamp(2.2rem, 4vw, 3.6rem);
-        margin: 0;
-        line-height: 1.05;
+      .hero-grid {
+        display: grid;
+        grid-template-columns: 1.06fr 0.94fr;
+        gap: 28px;
+        align-items: center;
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.05);
+        color: rgba(255, 255, 255, 0.78);
+        font-size: 12px;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .pill strong {
+        color: rgba(255, 255, 255, 0.95);
+        font-weight: 700;
+      }
+
+      .hero h2 {
+        margin: 14px 0 12px;
+        font-size: clamp(2.25rem, 4.6vw, 3.7rem);
+        line-height: 1.02;
+        letter-spacing: -0.02em;
       }
 
       .hero p {
         margin: 0;
-        font-size: 1.1rem;
+        color: rgba(255, 255, 255, 0.74);
+        font-size: 1.08rem;
         line-height: 1.6;
-        color: #2a2620;
+        max-width: 64ch;
       }
 
-      .hero .meta {
+      .actions {
         display: flex;
         flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 20px;
+      }
+
+      .button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         gap: 10px;
-        font-family: "Space Mono", ui-monospace, monospace;
-        font-size: 0.85rem;
+        padding: 12px 16px;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.06);
+        color: rgba(255, 255, 255, 0.9);
+        font-weight: 650;
+        transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
+      }
+
+      .button:hover {
+        transform: translateY(-1px);
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.22);
+      }
+
+      .button.primary {
+        background:
+          radial-gradient(circle at 15% 20%, rgba(255, 74, 100, 0.38), transparent 50%),
+          radial-gradient(circle at 85% 20%, rgba(78, 167, 255, 0.28), transparent 50%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.06) 100%);
+        border-color: rgba(255, 255, 255, 0.22);
+      }
+
+      .button code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono,
+          monospace;
+        font-size: 0.9em;
+        color: rgba(255, 255, 255, 0.92);
+      }
+
+      .hero-card {
+        position: relative;
+        border-radius: 24px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.04);
+        box-shadow: 0 32px 60px rgba(0, 0, 0, 0.45);
+        overflow: hidden;
+      }
+
+      .hero-card::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background:
+          radial-gradient(circle at 30% 30%, rgba(255, 74, 100, 0.22), transparent 55%),
+          radial-gradient(circle at 70% 30%, rgba(78, 167, 255, 0.22), transparent 55%),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+        pointer-events: none;
+      }
+
+      .hero-card img {
+        width: 100%;
+        display: block;
+        transform: scale(1.03);
+        filter: saturate(1.05) contrast(1.02);
+      }
+
+      .hero-card .caption {
+        position: absolute;
+        left: 14px;
+        bottom: 14px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(7, 10, 16, 0.68);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        color: rgba(255, 255, 255, 0.82);
+        font-size: 12px;
+        letter-spacing: 0.06em;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        backdrop-filter: blur(10px);
       }
 
-      .meta span {
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #ffffff;
-        border: 1px solid rgba(17, 16, 14, 0.15);
+      .section {
+        padding: 44px 0;
       }
 
-      .feature-stack {
+      .section h3 {
+        margin: 0 0 12px;
+        font-size: clamp(1.35rem, 2.2vw, 2rem);
+        letter-spacing: -0.01em;
+      }
+
+      .section p.lead {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.72);
+        max-width: 82ch;
+        line-height: 1.65;
+      }
+
+      .cards {
+        margin-top: 18px;
         display: grid;
+        grid-template-columns: repeat(12, 1fr);
         gap: 14px;
       }
 
-      .feature {
-        padding: 16px 18px;
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.72);
-        border: 1px solid rgba(17, 16, 14, 0.12);
-        box-shadow: 0 20px 40px rgba(17, 16, 14, 0.08);
-        animation: fade-in 0.8s ease-out both;
+      .card {
+        grid-column: span 4;
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.045);
+        padding: 16px 16px 14px;
+        box-shadow: 0 26px 46px rgba(0, 0, 0, 0.22);
+        transform: translateY(6px);
+        opacity: 0;
+        transition: transform 500ms ease, opacity 500ms ease;
       }
 
-      .feature:nth-child(2) {
-        animation-delay: 0.1s;
+      .card.is-visible {
+        transform: translateY(0);
+        opacity: 1;
       }
 
-      .feature:nth-child(3) {
-        animation-delay: 0.2s;
-      }
-
-      .feature h3 {
-        margin: 0 0 6px;
-        font-size: 1rem;
-      }
-
-      .feature p {
-        margin: 0;
-        color: #3a342c;
-        line-height: 1.5;
-        font-size: 0.95rem;
-      }
-
-      .mock {
-        position: relative;
-        border-radius: 28px;
-        padding: 28px;
-        background: #141210;
-        color: #fdf8ee;
-        box-shadow: 0 30px 50px rgba(17, 16, 14, 0.25);
-        overflow: hidden;
-        min-height: 360px;
-      }
-
-      .mock::before {
-        content: "";
-        position: absolute;
-        inset: 18px;
-        border-radius: 22px;
-        background:
-          linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, transparent 45%),
-          repeating-linear-gradient(
-            90deg,
-            var(--grid) 0,
-            var(--grid) 1px,
-            transparent 1px,
-            transparent 24px
-          ),
-          repeating-linear-gradient(
-            180deg,
-            var(--grid) 0,
-            var(--grid) 1px,
-            transparent 1px,
-            transparent 24px
-          );
-      }
-
-      .mock-content {
-        position: relative;
-        display: grid;
-        gap: 16px;
-        z-index: 1;
-      }
-
-      .mock-title {
-        font-family: "Space Mono", ui-monospace, monospace;
-        font-size: 0.9rem;
-        letter-spacing: 0.05em;
-        text-transform: uppercase;
-        opacity: 0.7;
-      }
-
-      .mock-image {
-        width: 100%;
-        border-radius: 16px;
-        box-shadow: 0 18px 30px rgba(0, 0, 0, 0.35);
-      }
-
-      .footer {
-        padding: 20px clamp(20px, 6vw, 96px) 32px;
+      .card-head {
         display: flex;
-        justify-content: space-between;
+        gap: 10px;
         align-items: center;
-        gap: 12px;
-        font-size: 0.9rem;
+        margin-bottom: 10px;
+      }
+
+      .icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .icon svg {
+        width: 18px;
+        height: 18px;
+        opacity: 0.9;
+        fill: none;
+        stroke: rgba(255, 255, 255, 0.88);
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .card h4 {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.84);
+      }
+
+      .card p {
+        margin: 0;
+        color: rgba(255, 255, 255, 0.66);
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+      .grid-2 {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14px;
+      }
+
+      .panel {
+        border-radius: var(--radius-lg);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.045);
+        padding: 18px;
+        box-shadow: 0 26px 46px rgba(0, 0, 0, 0.22);
+      }
+
+      .panel h4 {
+        margin: 0 0 10px;
+        font-size: 12px;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .steps {
+        margin: 0;
+        padding-left: 18px;
+        color: rgba(255, 255, 255, 0.72);
+        line-height: 1.65;
+      }
+
+      .code {
+        margin-top: 10px;
+        padding: 12px 12px;
+        border-radius: 14px;
+        background: rgba(0, 0, 0, 0.22);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        overflow-x: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono,
+          monospace;
+        font-size: 13px;
+        color: rgba(255, 255, 255, 0.9);
       }
 
       .shots {
-        padding: 0 clamp(20px, 6vw, 96px) 64px;
+        margin-top: 18px;
         display: grid;
-        gap: 18px;
-      }
-
-      .shots h2 {
-        margin: 0;
-        font-size: clamp(1.4rem, 2.5vw, 2rem);
-      }
-
-      .shots-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-        gap: 18px;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 14px;
       }
 
       .shot {
-        background: rgba(255, 255, 255, 0.75);
-        border: 1px solid rgba(17, 16, 14, 0.12);
-        border-radius: 18px;
-        padding: 12px;
-        box-shadow: 0 18px 32px rgba(17, 16, 14, 0.1);
-        display: grid;
-        gap: 10px;
+        grid-column: span 6;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(255, 255, 255, 0.03);
+        box-shadow: 0 34px 66px rgba(0, 0, 0, 0.42);
+        position: relative;
       }
 
       .shot img {
         width: 100%;
         display: block;
+        filter: saturate(1.05) contrast(1.02);
+      }
+
+      .shot .label {
+        position: absolute;
+        left: 14px;
+        bottom: 14px;
+        padding: 10px 12px;
         border-radius: 12px;
+        background: rgba(7, 10, 16, 0.68);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        backdrop-filter: blur(10px);
+        color: rgba(255, 255, 255, 0.84);
+        font-size: 12px;
+        letter-spacing: 0.06em;
       }
 
-      .shot span {
-        font-size: 0.9rem;
-        color: #2f2a24;
+      .footer {
+        padding: 38px 0 56px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        margin-top: 30px;
       }
 
-      .footer span {
-        font-family: "Space Mono", ui-monospace, monospace;
+      .footer-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        flex-wrap: wrap;
       }
 
-      @keyframes rise {
-        from {
-          opacity: 0;
-          transform: translateY(18px);
+      .fine {
+        color: rgba(255, 255, 255, 0.55);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+
+      .fine a {
+        color: rgba(255, 255, 255, 0.75);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.25);
+      }
+
+      @media (max-width: 980px) {
+        .hero-grid {
+          grid-template-columns: 1fr;
         }
-        to {
+        .brand {
+          min-width: unset;
+        }
+        .card {
+          grid-column: span 6;
+        }
+        .shot {
+          grid-column: span 12;
+        }
+      }
+
+      @media (max-width: 640px) {
+        .wrap {
+          width: calc(100% - 28px);
+        }
+        .card {
+          grid-column: span 12;
+        }
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .card {
+          transition: none;
+          transform: none;
           opacity: 1;
-          transform: translateY(0);
         }
-      }
-
-      @keyframes fade-in {
-        from {
-          opacity: 0;
-          transform: translateY(16px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
-      @media (max-width: 720px) {
-        header {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
+        .links a,
+        .button,
         .cta {
-          width: 100%;
-          flex-wrap: wrap;
-        }
-
-        .mock-grid {
-          grid-template-columns: repeat(4, 1fr);
-        }
-
-        .footer {
-          flex-direction: column;
-          align-items: flex-start;
+          transition: none;
         }
       }
     </style>
   </head>
+
   <body>
-    <div class="page">
-      <header>
-        <div class="logo">
-          <div class="logo-mark" aria-hidden="true"></div>
-          Pixel Splash Studio
-        </div>
-        <div class="cta">
-          <span>Early Release</span>
-          <a href="https://github.com/longjoel/pixel-splash-studio/releases">Get the app</a>
-        </div>
-      </header>
+    <div class="grid" aria-hidden="true"></div>
 
-      <main>
-        <section class="hero">
-          <h1>Paint fast. Pan free. Build pixel worlds without borders.</h1>
-          <p>
-            Pixel Splash Studio is a focused pixel art editor for creators who want speed,
-            precision, and unlimited space. Sketch, block, and refine with an always-on grid,
-            palette indexing, and a minimap that keeps you grounded.
+    <div class="topbar">
+      <div class="wrap">
+        <div class="nav">
+          <div class="brand">
+            <div class="mark" aria-hidden="true"></div>
+            <h1>Pixel Splash Studio</h1>
+          </div>
+
+          <div class="links">
+            <a href="#features">Features</a>
+            <a href="#tiling">Tiling</a>
+            <a href="#get-started">Get Started</a>
+            <a href="https://github.com/longjoel/pixel-splash-studio" rel="noreferrer">GitHub</a>
+            <a
+              class="cta"
+              href="https://github.com/longjoel/pixel-splash-studio/releases"
+              rel="noreferrer"
+            >
+              Get the app
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <header class="hero">
+      <div class="wrap">
+        <div class="hero-grid">
+          <div>
+            <div class="pill-row">
+              <span class="pill"><strong>New</strong> tile mapping + TMX export</span>
+              <span class="pill">Infinite canvas</span>
+              <span class="pill">Palette indexed</span>
+              <span class="pill">References</span>
+            </div>
+
+            <h2>Build pixel worlds without borders.</h2>
+            <p>
+              Pixel Splash Studio is a fast, grid-snapped pixel editor built for exploration:
+              pan and zoom forever, keep your palette non-destructive, trace with references,
+              and lay down tile maps for level-scale work.
+            </p>
+
+            <div class="actions">
+              <a
+                class="button primary"
+                href="https://github.com/longjoel/pixel-splash-studio/releases"
+                rel="noreferrer"
+              >
+                Download
+              </a>
+              <a class="button" href="#get-started">Run from source</a>
+              <a class="button" href="https://github.com/longjoel/pixel-splash-studio/blob/main/features.md" rel="noreferrer">
+                Full feature list
+              </a>
+            </div>
+
+            <div class="actions" style="margin-top: 10px">
+              <span class="pill">
+                Shortcut: <code>Ctrl</code>+<code>Shift</code>+<code>E</code> export selection
+              </span>
+              <span class="pill">
+                Project files: <code>.splash</code>
+              </span>
+            </div>
+          </div>
+
+          <div class="hero-card" aria-label="App screenshot">
+            <img
+              src="./000-new%20canvas%20-%20all%20tools.png"
+              alt="Pixel Splash Studio canvas with tools"
+              loading="eager"
+            />
+            <div class="caption">Infinite canvas + tool-first UI</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <section id="features" class="section">
+        <div class="wrap">
+          <h3>Fast where it counts</h3>
+          <p class="lead">
+            Everything is built around responsive editing: block-based rendering, a live preview
+            layer, selection masking, and a minimap that keeps you oriented as the world grows.
           </p>
-          <div class="meta">
-            <span>Infinite Canvas</span>
-            <span>Palette Indexed</span>
-            <span>Reference Layers</span>
-            <span>Tool-first Workflow</span>
-          </div>
-          <div class="feature-stack">
-            <div class="feature">
-              <h3>Draw at scale</h3>
-              <p>
-                Block-based storage keeps every stroke snappy, even as your scene stretches
-                past the origin in all directions.
-              </p>
-            </div>
-            <div class="feature">
-              <h3>Plan with references</h3>
-              <p>
-                Drop in images under your pixels, scale and rotate them, and keep them parked
-                as you paint.
-              </p>
-            </div>
-            <div class="feature">
-              <h3>Stay oriented</h3>
-              <p>
-                The minimap shows the full world, while grid and axis overlays keep every
-                movement intentional.
-              </p>
-            </div>
-          </div>
-        </section>
 
-        <section class="mock" aria-label="App preview">
-          <div class="mock-content">
-            <div class="mock-title">New Canvas + Tools</div>
-            <img
-              class="mock-image"
-              src="./000-new%20canvas%20-%20all%20tools.png"
-              alt="New canvas with all tools visible"
-              loading="lazy"
-            />
-          </div>
-        </section>
-      </main>
+          <div class="cards">
+            <div class="card">
+              <div class="card-head">
+                <div class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M12 2v20M2 12h20" />
+                    <path d="M7 7h10v10H7z" />
+                  </svg>
+                </div>
+                <h4>Infinite canvas</h4>
+              </div>
+              <p>Paint in positive and negative space with camera pan/zoom and axis overlays.</p>
+            </div>
 
-      <section class="shots">
-        <h2>Inside the studio</h2>
-        <div class="shots-grid">
-          <div class="shot">
-            <img
-              src="./000-new%20canvas%20-%20all%20tools.png"
-              alt="New canvas with all tools visible"
-              loading="lazy"
-            />
-            <span>All tools and a clean canvas, ready to block in ideas.</span>
-          </div>
-          <div class="shot">
-            <img
-              src="./001-%20hidden%20mini%20map%20-%20drawing%20in%20progress.png"
-              alt="Drawing in progress with hidden minimap"
-              loading="lazy"
-            />
-            <span>Focused drawing mode with the minimap tucked away.</span>
-          </div>
-          <div class="shot">
-            <img
-              src="./003-%20tracing%20references.png"
-              alt="Tracing references with overlay"
-              loading="lazy"
-            />
-            <span>Reference layers stay under your pixels as you trace.</span>
-          </div>
-          <div class="shot">
-            <img
-              src="./marty%20the%20wizzard.png"
-              alt="Example pixel art character"
-              loading="lazy"
-            />
-            <span>Finished art shows how the palette pops.</span>
+            <div class="card">
+              <div class="card-head">
+                <div class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M7 3h10v6H7z" />
+                    <path d="M5 11h14v10H5z" />
+                  </svg>
+                </div>
+                <h4>Palette indexed</h4>
+              </div>
+              <p>Pixels store palette indices, so changing a color updates the whole canvas.</p>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 7h16v10H4z" />
+                    <path d="M8 7V5h8v2" />
+                  </svg>
+                </div>
+                <h4>References</h4>
+              </div>
+              <p>Drop images underneath, transform them, and trace with palette-aware tools.</p>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 4h16v16H4z" />
+                    <path d="M4 10h16M10 4v16" />
+                  </svg>
+                </div>
+                <h4>Selection + preview</h4>
+              </div>
+              <p>A selection mask plus a live preview layer makes tools feel immediate.</p>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 18V6l8-3 8 3v12l-8 3-8-3z" />
+                    <path d="M12 3v18" />
+                  </svg>
+                </div>
+                <h4>Minimap</h4>
+              </div>
+              <p>Navigate huge scenes with zoom/pan controls, axes, and camera readouts.</p>
+            </div>
+
+            <div class="card">
+              <div class="card-head">
+                <div class="icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M4 4h10v10H4z" />
+                    <path d="M14 14h6M17 11l3 3-3 3" />
+                  </svg>
+                </div>
+                <h4>Export formats</h4>
+              </div>
+              <p>Export selection images, retro formats, and tile maps as TMX + atlas PNG.</p>
+            </div>
           </div>
         </div>
       </section>
 
-      <div class="footer">
-        <span>Pixel Splash Studio</span>
-        <div>Built for artists who like to explore.</div>
+      <section id="tiling" class="section">
+        <div class="wrap">
+          <h3>Tile mapping for level-scale work</h3>
+          <p class="lead">
+            Use tile sets and tile maps as an overlay on your canvas: sample tiles from pixels,
+            paint multi-tile patterns, fill rectangles (optionally randomized), and export regions
+            directly to Tiled.
+          </p>
+
+          <div class="grid-2">
+            <div class="panel">
+              <h4>Tile tools</h4>
+              <ul class="steps">
+                <li><strong>Tile Sampler</strong>: capture tiles from the canvas</li>
+                <li><strong>Tile Pen</strong>: place single tiles or tile patterns</li>
+                <li><strong>Tile Rectangle</strong>: fill rectangles (random with multi-select)</li>
+                <li><strong>Tile 9‑Slice</strong>: corners/edges/fill rectangles from a 3×3 sample</li>
+                <li><strong>Tile Export</strong>: drag a region to generate <code>tiles.png</code> + <code>tiles.tmx</code></li>
+              </ul>
+            </div>
+            <div class="panel">
+              <h4>Tile picker</h4>
+              <ul class="steps">
+                <li>Scrollable “newspaper” layout with alignment controls (columns/rows/offset)</li>
+                <li>Placeholders preserve stride/offset without shifting tiles around</li>
+                <li>Multi-select tiles: Shift add, Ctrl/⌘ remove</li>
+                <li>Consolidate duplicates or delete tiles with confirmation</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="wrap">
+          <h3>See it in action</h3>
+          <p class="lead">
+            The UI stays out of the way: tools, options, a resizable palette bar, and a collapsible
+            minimap that’s always there when you need it.
+          </p>
+
+          <div class="shots">
+            <div class="shot">
+              <img
+                src="./001-%20hidden%20mini%20map%20-%20drawing%20in%20progress.png"
+                alt="Drawing in progress with hidden minimap"
+                loading="lazy"
+              />
+              <div class="label">Focused drawing mode</div>
+            </div>
+            <div class="shot">
+              <img
+                src="./003-%20tracing%20references.png"
+                alt="Tracing references with overlay"
+                loading="lazy"
+              />
+              <div class="label">Reference underlay + tracing</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="get-started" class="section">
+        <div class="wrap">
+          <h3>Try it in two minutes</h3>
+          <p class="lead">
+            Grab a release build, or run from source with Electron + Vite. Projects save to <code>.splash</code>.
+          </p>
+
+          <div class="grid-2">
+            <div class="panel">
+              <h4>Download</h4>
+              <ol class="steps">
+                <li>Open the releases page</li>
+                <li>Download a build for your OS</li>
+                <li>Launch and start painting</li>
+              </ol>
+              <div class="actions" style="margin-top: 14px">
+                <a
+                  class="button primary"
+                  href="https://github.com/longjoel/pixel-splash-studio/releases"
+                  rel="noreferrer"
+                >
+                  Releases
+                </a>
+                <a
+                  class="button"
+                  href="https://github.com/longjoel/pixel-splash-studio"
+                  rel="noreferrer"
+                >
+                  Repo
+                </a>
+              </div>
+            </div>
+
+            <div class="panel">
+              <h4>Run from source</h4>
+              <div class="code">npm ci\nnpm run dev</div>
+              <div class="fine" style="margin-top: 10px">
+                Want the full breakdown? See <a href="https://github.com/longjoel/pixel-splash-studio#getting-started" rel="noreferrer">Getting Started</a>.
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <div class="footer-row">
+          <div class="brand" style="min-width: unset">
+            <div class="mark" aria-hidden="true" style="width: 28px; height: 28px"></div>
+            <div class="fine">
+              <strong style="color: rgba(255, 255, 255, 0.86)">Pixel Splash Studio</strong><br />
+              MIT licensed • Built with Electron + React
+            </div>
+          </div>
+          <div class="fine">
+            <a href="https://github.com/longjoel/pixel-splash-studio/blob/main/features.md" rel="noreferrer">Features</a>
+            &nbsp;•&nbsp;
+            <a href="https://github.com/longjoel/pixel-splash-studio/issues" rel="noreferrer">Issues</a>
+            &nbsp;•&nbsp;
+            <a href="https://github.com/longjoel/pixel-splash-studio/pulls" rel="noreferrer">PRs</a>
+            &nbsp;•&nbsp;
+            <span>Built with Codex CLI, guided by <a href="https://github.com/longjoel/pixel-splash-studio/blob/main/blueprint.md" rel="noreferrer">blueprint.md</a></span>
+          </div>
+        </div>
       </div>
-    </div>
+    </footer>
+
+    <script>
+      (function () {
+        var prefersReduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (prefersReduced) return;
+
+        var cards = Array.prototype.slice.call(document.querySelectorAll(".card"));
+        if (!cards.length || !("IntersectionObserver" in window)) {
+          cards.forEach(function (card) { card.classList.add("is-visible"); });
+          return;
+        }
+
+        var io = new IntersectionObserver(
+          function (entries) {
+            entries.forEach(function (entry) {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add("is-visible");
+              io.unobserve(entry.target);
+            });
+          },
+          { root: null, threshold: 0.12 }
+        );
+
+        cards.forEach(function (card) { io.observe(card); });
+      })();
+    </script>
   </body>
 </html>

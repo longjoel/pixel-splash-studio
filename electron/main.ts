@@ -223,6 +223,18 @@ app.whenReady().then(() => {
             perfLoggingEnabled.value = menuItem.checked;
           },
         },
+        {
+          label: 'Tile Debug Overlay',
+          type: 'checkbox' as const,
+          checked: false,
+          click: (menuItem: Electron.MenuItem) => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send(
+              'menu:action',
+              menuItem.checked ? 'tileDebug:on' : 'tileDebug:off'
+            );
+          },
+        },
         { type: 'separator' as const },
         {
           label: 'Reset UI Scale',
@@ -313,6 +325,27 @@ export type ProjectPayload = {
       flipY: boolean;
       opacity: number;
     }>;
+    tileSets?: Array<{
+      id: string;
+      name: string;
+      tileWidth: number;
+      tileHeight: number;
+      tiles: Array<{
+        id: string;
+        name?: string;
+        pixels: number[];
+      }>;
+    }>;
+    tileMaps?: Array<{
+      id: string;
+      name: string;
+      tileSetId: string;
+      originX: number;
+      originY: number;
+      columns: number;
+      rows: number;
+      tiles: number[];
+    }>;
   };
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
   referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
@@ -386,13 +419,12 @@ const readProjectZip = async (buffer: Buffer) => {
       if (!basename) {
         continue;
       }
-      const [rowText, colTextWithExt] = basename.split('-');
-      const colText = colTextWithExt?.replace('.bin', '');
-      if (!rowText || !colText) {
+      const match = basename.match(/(-?\d+)-(-?\d+)\.bin$/);
+      if (!match) {
         continue;
       }
-      const row = Number(rowText);
-      const col = Number(colText);
+      const row = Number(match[1]);
+      const col = Number(match[2]);
       const dataBuffer = await zip.file(filename)?.async('uint8array');
       if (!dataBuffer) {
         continue;
@@ -498,6 +530,30 @@ ipcMain.handle('export:png', async (_event, data: Uint8Array, suggestedName?: st
   await writeFile(filePath, Buffer.from(data));
   return filePath;
 });
+
+ipcMain.handle(
+  'export:tilemap',
+  async (_event, payload: { png: Uint8Array; tmx: string }) => {
+    const window = BrowserWindow.getFocusedWindow();
+    const dialogOptions: OpenDialogOptions = {
+      properties: ['openDirectory', 'createDirectory'],
+    };
+    const { canceled, filePaths } = window
+      ? await dialog.showOpenDialog(window, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
+
+    if (canceled || filePaths.length === 0) {
+      return null;
+    }
+
+    const basePath = filePaths[0];
+    const pngPath = join(basePath, 'tiles.png');
+    const tmxPath = join(basePath, 'tiles.tmx');
+    await writeFile(pngPath, Buffer.from(payload.png));
+    await writeFile(tmxPath, payload.tmx);
+    return basePath;
+  }
+);
 
 ipcMain.handle('export:gbr', async (_event, data: Uint8Array, suggestedName?: string) => {
   const window = BrowserWindow.getFocusedWindow();

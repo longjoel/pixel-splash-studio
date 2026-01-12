@@ -359,12 +359,164 @@ body {
   right: 0;
   border-radius: 0;
   min-height: var(--palette-bar-height);
+  height: var(--palette-bar-height);
   background: rgba(12, 14, 18, 0.96);
   border-top: 1px solid rgba(255, 255, 255, 0.12);
   border-left: none;
   border-right: none;
   border-bottom: none;
   padding-right: calc(16px + var(--palette-right-offset, 0px));
+}
+
+.app__palette--tile {
+  border-top: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.app__palette-resize {
+  position: absolute;
+  top: -6px;
+  left: 0;
+  right: 0;
+  height: 12px;
+  cursor: ns-resize;
+  pointer-events: auto;
+}
+
+.app__palette-resize::before {
+  content: "";
+  position: absolute;
+  top: 5px;
+  left: 20px;
+  right: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.tilebar {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px;
+  height: 100%;
+}
+
+.tilebar__layout {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 14px;
+  height: 100%;
+  align-items: stretch;
+  flex: 1;
+}
+
+.tilebar__controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+  min-width: 128px;
+}
+
+.tilebar__header {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+
+.tilebar__select {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.tilebar__actions {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.tilebar__actions .panel__item {
+  width: 100%;
+  text-align: center;
+}
+
+.tilebar__grid {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(
+    var(--tile-grid-columns, 8),
+    var(--tile-cell-size, 32px)
+  );
+  grid-template-rows: repeat(var(--tile-grid-rows, 1), var(--tile-cell-size, 32px));
+  align-items: start;
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex: 1;
+  height: 100%;
+  padding-bottom: 6px;
+  justify-content: start;
+  align-content: start;
+}
+
+.tilebar__tile {
+  display: grid;
+  place-items: center;
+  width: var(--tile-cell-size, 32px);
+  height: var(--tile-cell-size, 32px);
+  padding: 0;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.tilebar__tile[data-placeholder='true'] {
+  border-style: dashed;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.02);
+  cursor: default;
+}
+
+.tilebar__tile[data-active='true'] {
+  border-color: rgba(245, 197, 66, 0.6);
+  box-shadow: 0 0 0 1px rgba(245, 197, 66, 0.4);
+}
+
+.tilebar__tile[data-selected='true'] {
+  border-color: rgba(121, 201, 255, 0.65);
+  box-shadow: 0 0 0 1px rgba(121, 201, 255, 0.4);
+}
+
+.tilebar__tile canvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.tilebar__empty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.tilebar .panel__item {
+  margin-bottom: 0;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+.tilebar .panel__select {
+  padding: 4px 6px;
+  font-size: 10px;
+}
+
+.tilebar .panel__number {
+  padding: 4px 6px;
+  font-size: 10px;
+  width: 52px;
 }
 
 .app__minimap {

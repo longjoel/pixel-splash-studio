@@ -1,5 +1,28 @@
 /// <reference types="vite/client" />
 
+type TileSetPayload = {
+  id: string;
+  name: string;
+  tileWidth: number;
+  tileHeight: number;
+  tiles: Array<{
+    id: string;
+    name?: string;
+    pixels: number[];
+  }>;
+};
+
+type TileMapPayload = {
+  id: string;
+  name: string;
+  tileSetId: string;
+  originX: number;
+  originY: number;
+  columns: number;
+  rows: number;
+  tiles: number[];
+};
+
 type ProjectPayload = {
   data: {
     palette: {
@@ -30,6 +53,8 @@ type ProjectPayload = {
       flipY: boolean;
       opacity: number;
     }>;
+    tileSets?: TileSetPayload[];
+    tileMaps?: TileMapPayload[];
   };
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
   referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
@@ -70,6 +95,7 @@ interface Window {
     exportGbr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportChr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportBsave: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
+    exportTileMap: (payload: { png: Uint8Array; tmx: string }) => Promise<string | null>;
     importImage: () => Promise<ImportedImagePayload | null>;
     exportImage: (
       format: string,

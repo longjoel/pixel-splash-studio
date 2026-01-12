@@ -5,6 +5,7 @@ import { usePreviewStore } from '@/state/previewStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useProjectStore } from '@/state/projectStore';
 import { useReferenceStore } from '@/state/referenceStore';
+import { useTileMapStore } from '@/state/tileMapStore';
 
 const loadImageFromBytes = (data: Uint8Array, type: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -28,6 +29,7 @@ export const buildProjectPayload = () => {
   const pixelStore = usePixelStore.getState();
   const history = useHistoryStore.getState();
   const referenceStore = useReferenceStore.getState();
+  const tileStore = useTileMapStore.getState();
 
   const referenceFiles = new Map<
     string,
@@ -72,6 +74,8 @@ export const buildProjectPayload = () => {
         redoStack: history.redoStack,
       },
       references: referenceData.length > 0 ? referenceData : undefined,
+      tileSets: tileStore.tileSets.length > 0 ? tileStore.tileSets : undefined,
+      tileMaps: tileStore.tileMaps.length > 0 ? tileStore.tileMaps : undefined,
     },
     blocks: pixelStore.store.getBlocks().map((block) => ({
       row: block.row,
@@ -151,6 +155,9 @@ export const applyProjectPayload = async (payload: ProjectPayload) => {
 
   const project = useProjectStore.getState();
   project.setDirty(false);
+
+  const tileStore = useTileMapStore.getState();
+  tileStore.setAll(payload.data.tileSets ?? [], payload.data.tileMaps ?? []);
 };
 
 export const saveProject = async (existingPath?: string) => {
@@ -189,6 +196,8 @@ export const newProject = () => {
   history.clear();
   const referenceStore = useReferenceStore.getState();
   referenceStore.clear();
+  const tileStore = useTileMapStore.getState();
+  tileStore.clear();
   const project = useProjectStore.getState();
   project.setPath(null);
   project.setDirty(false);

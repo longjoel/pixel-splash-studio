@@ -4,6 +4,8 @@ Pixel Splash Studio is a fast, grid-snapped pixel art editor built with Electron
 
 It focuses on a responsive “infinite canvas” workflow: paint pixels in blocks, pan/zoom freely, keep a minimap for navigation, and use reference images as an underlay for planning.
 
+- Full feature list: see `features.md`.
+
 ## Highlights
 
 - Infinite canvas (positive + negative world space) with a camera-driven viewport
