@@ -106,6 +106,15 @@ interface Window {
   menuApi: {
     onAction: (handler: (action: string) => void) => () => void;
   };
+  viewMenuApi: {
+    setState: (partial: {
+      showReferenceLayer?: boolean;
+      showPixelLayer?: boolean;
+      showTileLayer?: boolean;
+      toolbarCollapsed?: boolean;
+      minimapCollapsed?: boolean;
+    }) => void;
+  };
   appApi: {
     setTitle: (title: string) => void;
   };

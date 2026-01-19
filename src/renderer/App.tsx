@@ -36,6 +36,7 @@ import { usePreviewStore } from './state/previewStore';
 import { useClipboardStore } from './state/clipboardStore';
 import { usePaletteStore } from './state/paletteStore';
 import { useViewportStore } from './state/viewportStore';
+import { useLayerVisibilityStore } from './state/layerVisibilityStore';
 import { addReferenceFromFile } from './services/references';
 import {
   traceReferenceWithMaxColors,
@@ -294,6 +295,7 @@ const buildMemorySummary = () => {
     fill: stripFunctions(useFillBucketStore.getState() as Record<string, unknown>),
     stamp: stripFunctions(useStampStore.getState() as Record<string, unknown>),
     viewport: stripFunctions(useViewportStore.getState() as Record<string, unknown>),
+    layers: stripFunctions(useLayerVisibilityStore.getState() as Record<string, unknown>),
     project: stripFunctions(useProjectStore.getState() as Record<string, unknown>),
     referenceHandle: stripFunctions(useReferenceHandleStore.getState() as Record<string, unknown>),
   };
@@ -336,6 +338,15 @@ const App = () => {
   const [tilePaletteHeight, setTilePaletteHeight] = useState(220);
   const activeTool = useToolStore((state) => state.activeTool);
   const setActiveTool = useToolStore((state) => state.setActiveTool);
+  const showReferenceLayer = useLayerVisibilityStore((state) => state.showReferenceLayer);
+  const showPixelLayer = useLayerVisibilityStore((state) => state.showPixelLayer);
+  const showTileLayer = useLayerVisibilityStore((state) => state.showTileLayer);
+  const setShowReferenceLayer = useLayerVisibilityStore((state) => state.setShowReferenceLayer);
+  const setShowPixelLayer = useLayerVisibilityStore((state) => state.setShowPixelLayer);
+  const setShowTileLayer = useLayerVisibilityStore((state) => state.setShowTileLayer);
+  const toggleReferenceLayer = useLayerVisibilityStore((state) => state.toggleReferenceLayer);
+  const togglePixelLayer = useLayerVisibilityStore((state) => state.togglePixelLayer);
+  const toggleTileLayer = useLayerVisibilityStore((state) => state.toggleTileLayer);
   const tileSets = useTileMapStore((state) => state.tileSets);
   const tileMaps = useTileMapStore((state) => state.tileMaps);
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
@@ -713,6 +724,31 @@ const App = () => {
 
   useEffect(() => {
     const unsubscribe = window.menuApi.onAction((action) => {
+      if (action.startsWith('view:set:')) {
+        const parts = action.split(':');
+        const key = parts[2] ?? '';
+        const rawValue = parts[3] ?? '';
+        const next = rawValue === 'true';
+        switch (key) {
+          case 'showReferenceLayer':
+            setShowReferenceLayer(next);
+            return;
+          case 'showPixelLayer':
+            setShowPixelLayer(next);
+            return;
+          case 'showTileLayer':
+            setShowTileLayer(next);
+            return;
+          case 'toolbarCollapsed':
+            setToolbarCollapsed(next);
+            return;
+          case 'minimapCollapsed':
+            setMinimapCollapsed(next);
+            return;
+          default:
+            return;
+        }
+      }
       switch (action) {
         case 'new':
           handleNew();
@@ -789,12 +825,31 @@ const App = () => {
         case 'tileDebug:off':
           setTileDebugOverlay(false);
           break;
+        case 'view:select-tool:pen':
+          setActiveTool('pen');
+          break;
         default:
           break;
       }
     });
     return () => unsubscribe();
   }, [projectPath]);
+
+  useEffect(() => {
+    window.viewMenuApi?.setState({
+      showReferenceLayer,
+      showPixelLayer,
+      showTileLayer,
+      toolbarCollapsed,
+      minimapCollapsed,
+    });
+  }, [
+    showReferenceLayer,
+    showPixelLayer,
+    showTileLayer,
+    toolbarCollapsed,
+    minimapCollapsed,
+  ]);
 
   return (
     <div className="app">
@@ -996,6 +1051,37 @@ const App = () => {
                 </div>
               </div>
               <div className="toolbar__body">
+                <div className="panel__section">
+                  <div className="panel__group">
+                    <span className="panel__label">Layers</span>
+                    <div className="panel__toggle-group">
+                      <label className="panel__toggle" data-active={showReferenceLayer}>
+                        <input
+                          type="checkbox"
+                          checked={showReferenceLayer}
+                          onChange={toggleReferenceLayer}
+                        />
+                        Reference
+                      </label>
+                      <label className="panel__toggle" data-active={showPixelLayer}>
+                        <input
+                          type="checkbox"
+                          checked={showPixelLayer}
+                          onChange={togglePixelLayer}
+                        />
+                        Pixels
+                      </label>
+                      <label className="panel__toggle" data-active={showTileLayer}>
+                        <input
+                          type="checkbox"
+                          checked={showTileLayer}
+                          onChange={toggleTileLayer}
+                        />
+                        Tiles
+                      </label>
+                    </div>
+                  </div>
+                </div>
                 <div className="panel__section">
                   {activeTool === 'pen' ? (
                     <>
