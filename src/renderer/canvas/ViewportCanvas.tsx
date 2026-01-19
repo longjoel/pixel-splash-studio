@@ -26,6 +26,7 @@ import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
 import { addReferencesFromFiles } from '@/services/references';
 import {
   getReferenceBounds,
@@ -716,31 +717,38 @@ const ViewportCanvas = () => {
         }
       }
 
-      drawReferenceLayer(
-        context,
-        state.camera.x,
-        state.camera.y,
-        viewWidth,
-        viewHeight
-      );
-      const { blocksDrawn, pixelsDrawn } = drawPixelLayer(
-        context,
-        state.camera.x,
-        state.camera.y,
-        viewWidth,
-        viewHeight,
-        palette,
-        blockCacheRef.current
-      );
-      drawTileMapLayer(
-        context,
-        state.camera.x,
-        state.camera.y,
-        viewWidth,
-        viewHeight,
-        palette,
-        tileCacheRef.current
-      );
+      const layers = useLayerVisibilityStore.getState();
+      if (layers.showReferenceLayer) {
+        drawReferenceLayer(context, state.camera.x, state.camera.y, viewWidth, viewHeight);
+      }
+
+      let blocksDrawn = 0;
+      let pixelsDrawn = 0;
+      if (layers.showPixelLayer) {
+        const pixelMetrics = drawPixelLayer(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight,
+          palette,
+          blockCacheRef.current
+        );
+        blocksDrawn = pixelMetrics.blocksDrawn;
+        pixelsDrawn = pixelMetrics.pixelsDrawn;
+      }
+
+      if (layers.showTileLayer) {
+        drawTileMapLayer(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight,
+          palette,
+          tileCacheRef.current
+        );
+      }
       drawSelectionLayer(
         context,
         state.camera.x,
@@ -757,7 +765,7 @@ const ViewportCanvas = () => {
         viewWidth,
         viewHeight
       );
-      if (useTileMapStore.getState().tileDebugOverlay) {
+      if (layers.showTileLayer && useTileMapStore.getState().tileDebugOverlay) {
         drawTileDebugOverlay(
           context,
           state.camera.x,

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useViewportStore } from '@/state/viewportStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { usePaletteStore } from '@/state/paletteStore';
+import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
 import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE } from '@/core/grid';
 import { ensureContrast, getComplement, hexToRgb, mix, toRgb, toRgba } from '@/core/colorUtils';
@@ -142,27 +143,29 @@ const drawMinimap = (
   const blocks = pixelStore.store.getBlocks();
   let blocksDrawn = 0;
   let pixelsDrawn = 0;
-  const pixelScale = scale * PIXEL_SIZE;
-  const sampleStride = Math.max(1, Math.floor(1 / Math.max(pixelScale * 0.75, 0.01)));
-  for (const { row, col, block } of blocks) {
-    blocksDrawn += 1;
-    for (let y = 0; y < BLOCK_SIZE; y += sampleStride) {
-      for (let x = 0; x < BLOCK_SIZE; x += sampleStride) {
-        const paletteIndex = block[y * BLOCK_SIZE + x];
-        if (paletteIndex === 0) {
-          continue;
+  if (useLayerVisibilityStore.getState().showPixelLayer) {
+    const pixelScale = scale * PIXEL_SIZE;
+    const sampleStride = Math.max(1, Math.floor(1 / Math.max(pixelScale * 0.75, 0.01)));
+    for (const { row, col, block } of blocks) {
+      blocksDrawn += 1;
+      for (let y = 0; y < BLOCK_SIZE; y += sampleStride) {
+        for (let x = 0; x < BLOCK_SIZE; x += sampleStride) {
+          const paletteIndex = block[y * BLOCK_SIZE + x];
+          if (paletteIndex === 0) {
+            continue;
+          }
+          pixelsDrawn += 1;
+          const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
+          const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
+          context.fillStyle = palette[paletteIndex] ?? palette[0];
+          const pixelSize = Math.max(1, pixelScale * sampleStride);
+          context.fillRect(
+            offsetX + worldX * scale,
+            offsetY + worldY * scale,
+            pixelSize,
+            pixelSize
+          );
         }
-        pixelsDrawn += 1;
-        const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
-        const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
-        context.fillStyle = palette[paletteIndex] ?? palette[0];
-        const pixelSize = Math.max(1, pixelScale * sampleStride);
-        context.fillRect(
-          offsetX + worldX * scale,
-          offsetY + worldY * scale,
-          pixelSize,
-          pixelSize
-        );
       }
     }
   }

@@ -34,6 +34,12 @@ contextBridge.exposeInMainWorld('menuApi', {
   },
 });
 
+contextBridge.exposeInMainWorld('viewMenuApi', {
+  setState: (partial: Record<string, unknown>) => {
+    ipcRenderer.send('view:set-state', partial);
+  },
+});
+
 contextBridge.exposeInMainWorld('appApi', {
   setTitle: (title: string) => ipcRenderer.send('app:set-title', title),
 });

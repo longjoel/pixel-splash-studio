@@ -10,6 +10,44 @@ import { decodeImageFile, encodeImageBuffer, type ExportImagePayload } from './i
 
 const perfLoggingEnabled = { value: false };
 const memoryUsageEnabled = { value: false };
+const viewMenuState = {
+  showReferenceLayer: true,
+  showPixelLayer: true,
+  showTileLayer: true,
+  toolbarCollapsed: false,
+  minimapCollapsed: false,
+};
+
+const setMenuItemChecked = (id: string, checked: boolean) => {
+  const menu = Menu.getApplicationMenu();
+  const item = menu?.getMenuItemById(id);
+  if (item && item.checked !== checked) {
+    item.checked = checked;
+  }
+};
+
+const applyViewMenuState = (partial: Partial<typeof viewMenuState>) => {
+  if (typeof partial.showReferenceLayer === 'boolean') {
+    viewMenuState.showReferenceLayer = partial.showReferenceLayer;
+    setMenuItemChecked('view:showReferenceLayer', partial.showReferenceLayer);
+  }
+  if (typeof partial.showPixelLayer === 'boolean') {
+    viewMenuState.showPixelLayer = partial.showPixelLayer;
+    setMenuItemChecked('view:showPixelLayer', partial.showPixelLayer);
+  }
+  if (typeof partial.showTileLayer === 'boolean') {
+    viewMenuState.showTileLayer = partial.showTileLayer;
+    setMenuItemChecked('view:showTileLayer', partial.showTileLayer);
+  }
+  if (typeof partial.toolbarCollapsed === 'boolean') {
+    viewMenuState.toolbarCollapsed = partial.toolbarCollapsed;
+    setMenuItemChecked('view:toolbarExpanded', !partial.toolbarCollapsed);
+  }
+  if (typeof partial.minimapCollapsed === 'boolean') {
+    viewMenuState.minimapCollapsed = partial.minimapCollapsed;
+    setMenuItemChecked('view:minimapExpanded', !partial.minimapCollapsed);
+  }
+};
 
 const createWindow = () => {
   const win = new BrowserWindow({
@@ -187,6 +225,91 @@ app.whenReady().then(() => {
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
             window?.webContents.send('menu:action', 'redo');
+          },
+        },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        {
+          id: 'view:toolbarExpanded',
+          label: 'Toolbar Panel',
+          type: 'checkbox' as const,
+          checked: !viewMenuState.toolbarCollapsed,
+          click: (menuItem: Electron.MenuItem) => {
+            const next = !menuItem.checked;
+            applyViewMenuState({ toolbarCollapsed: next });
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', `view:set:toolbarCollapsed:${next}`);
+          },
+        },
+        {
+          id: 'view:minimapExpanded',
+          label: 'Minimap Panel',
+          type: 'checkbox' as const,
+          checked: !viewMenuState.minimapCollapsed,
+          click: (menuItem: Electron.MenuItem) => {
+            const next = !menuItem.checked;
+            applyViewMenuState({ minimapCollapsed: next });
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', `view:set:minimapCollapsed:${next}`);
+          },
+        },
+        { type: 'separator' as const },
+        {
+          label: 'Layers',
+          submenu: [
+            {
+              id: 'view:showReferenceLayer',
+              label: 'Reference Layer',
+              type: 'checkbox' as const,
+              checked: viewMenuState.showReferenceLayer,
+              click: (menuItem: Electron.MenuItem) => {
+                applyViewMenuState({ showReferenceLayer: menuItem.checked });
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send(
+                  'menu:action',
+                  `view:set:showReferenceLayer:${menuItem.checked}`
+                );
+              },
+            },
+            {
+              id: 'view:showPixelLayer',
+              label: 'Pixel Layer',
+              type: 'checkbox' as const,
+              checked: viewMenuState.showPixelLayer,
+              click: (menuItem: Electron.MenuItem) => {
+                applyViewMenuState({ showPixelLayer: menuItem.checked });
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send(
+                  'menu:action',
+                  `view:set:showPixelLayer:${menuItem.checked}`
+                );
+              },
+            },
+            {
+              id: 'view:showTileLayer',
+              label: 'Tile Layer',
+              type: 'checkbox' as const,
+              checked: viewMenuState.showTileLayer,
+              click: (menuItem: Electron.MenuItem) => {
+                applyViewMenuState({ showTileLayer: menuItem.checked });
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send(
+                  'menu:action',
+                  `view:set:showTileLayer:${menuItem.checked}`
+                );
+              },
+            },
+          ],
+        },
+        { type: 'separator' as const },
+        {
+          label: 'Select Pen Tool',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'view:select-tool:pen');
           },
         },
       ],
@@ -690,4 +813,12 @@ ipcMain.on('app:set-title', (event, title: string) => {
   if (window) {
     window.setTitle(title);
   }
+});
+
+ipcMain.on('view:set-state', (_event, partial: unknown) => {
+  if (!partial || typeof partial !== 'object') {
+    return;
+  }
+  const state = partial as Partial<typeof viewMenuState>;
+  applyViewMenuState(state);
 });
