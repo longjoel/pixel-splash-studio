@@ -269,6 +269,7 @@ const Minimap = () => {
     const unsubscribeViewport = useViewportStore.subscribe(render);
     const unsubscribePixels = usePixelStore.subscribe(render);
     const unsubscribePalette = usePaletteStore.subscribe(render);
+    const unsubscribeLayers = useLayerVisibilityStore.subscribe(render);
     const resizeObserver = new ResizeObserver(render);
     resizeObserver.observe(wrapper);
 
@@ -276,6 +277,7 @@ const Minimap = () => {
       unsubscribeViewport();
       unsubscribePixels();
       unsubscribePalette();
+      unsubscribeLayers();
       resizeObserver.disconnect();
     };
   }, []);
