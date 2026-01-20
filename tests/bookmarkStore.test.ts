@@ -1,0 +1,55 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { useBookmarkStore } from '@/state/bookmarkStore';
+import { useViewportStore } from '@/state/viewportStore';
+
+describe('bookmarkStore', () => {
+  beforeEach(() => {
+    useBookmarkStore.getState().clear();
+    useViewportStore.getState().setSize(800, 600);
+    useViewportStore.getState().setCamera({ x: 0, y: 0, zoom: 2 });
+  });
+
+  it('adds a bookmark at the current camera center', () => {
+    useBookmarkStore.getState().addFromCamera();
+    const items = useBookmarkStore.getState().items;
+    expect(items).toHaveLength(1);
+    expect(items[0]?.name).toBe('Bookmark 1');
+    expect(items[0]?.centerX).toBe(200);
+    expect(items[0]?.centerY).toBe(150);
+    expect(items[0]?.zoom).toBe(2);
+  });
+
+  it('reorders bookmarks', () => {
+    useBookmarkStore.getState().addFromCamera();
+    useViewportStore.getState().panTo(100, 100);
+    useBookmarkStore.getState().addFromCamera();
+    const [first, second] = useBookmarkStore.getState().items;
+    expect(first && second).toBeTruthy();
+    if (!first || !second) {
+      return;
+    }
+    useBookmarkStore.getState().move(second.id, 'up');
+    expect(useBookmarkStore.getState().items[0]?.id).toBe(second.id);
+    useBookmarkStore.getState().move(second.id, 'down');
+    expect(useBookmarkStore.getState().items[1]?.id).toBe(second.id);
+  });
+
+  it('jumps to a bookmark and restores zoom', () => {
+    useViewportStore.getState().setCamera({ x: 50, y: 25, zoom: 1 });
+    useBookmarkStore.getState().addFromCamera();
+    const id = useBookmarkStore.getState().items[0]?.id;
+    expect(id).toBeTruthy();
+    if (!id) {
+      return;
+    }
+
+    useViewportStore.getState().setCamera({ x: 999, y: 999, zoom: 4 });
+    useBookmarkStore.getState().jumpTo(id);
+
+    const camera = useViewportStore.getState().camera;
+    expect(camera.zoom).toBe(1);
+    expect(camera.x).toBe(50);
+    expect(camera.y).toBe(25);
+  });
+});
+
