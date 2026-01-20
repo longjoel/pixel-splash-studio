@@ -6,6 +6,7 @@ import { useHistoryStore } from '@/state/historyStore';
 import { useProjectStore } from '@/state/projectStore';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { clearLargeOperationQueue } from '@/services/largeOperationQueue';
 
 const loadImageFromBytes = (data: Uint8Array, type: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -88,6 +89,7 @@ export const buildProjectPayload = () => {
 };
 
 export const applyProjectPayload = async (payload: ProjectPayload) => {
+  clearLargeOperationQueue();
   const palette = usePaletteStore.getState();
   palette.setPalette(
     payload.data.palette.colors,
@@ -172,6 +174,7 @@ export const saveProject = async (existingPath?: string) => {
 };
 
 export const loadProject = async (existingPath?: string) => {
+  clearLargeOperationQueue();
   const result = await window.projectApi.load(existingPath);
   if (!result) {
     return null;
@@ -184,6 +187,7 @@ export const loadProject = async (existingPath?: string) => {
 };
 
 export const newProject = () => {
+  clearLargeOperationQueue();
   const palette = usePaletteStore.getState();
   palette.reset();
   const viewport = useViewportStore.getState();

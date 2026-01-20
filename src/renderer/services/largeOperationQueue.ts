@@ -69,6 +69,7 @@ const decBlock = (key: string) => {
 const processFrame = () => {
   const operation = queue[0];
   if (!operation) {
+    useHistoryStore.getState().setLocked(false);
     running = false;
     scheduledFrame = null;
     return;
@@ -99,6 +100,9 @@ const processFrame = () => {
     if (operation.index >= operation.changes.length) {
       useHistoryStore.getState().pushBatch({ changes: operation.changes });
       queue.shift();
+      if (queue.length === 0) {
+        useHistoryStore.getState().setLocked(false);
+      }
       break;
     }
 
@@ -121,6 +125,9 @@ const ensureRunning = () => {
 export const enqueuePixelChanges = (changes: PixelChange[], options: EnqueueOptions = {}) => {
   if (changes.length === 0) {
     return;
+  }
+  if (queue.length === 0) {
+    useHistoryStore.getState().setLocked(true);
   }
   const id = String(nextOperationId);
   nextOperationId += 1;
@@ -157,6 +164,7 @@ export const getBlocksUnderConstruction = () =>
 export const clearLargeOperationQueue = () => {
   queue.length = 0;
   inProgressBlockCounts.clear();
+  useHistoryStore.getState().setLocked(false);
   running = false;
   if (scheduledFrame !== null) {
     cancelFrame(scheduledFrame);

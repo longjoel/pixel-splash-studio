@@ -323,6 +323,7 @@ const App = () => {
   const redo = useHistoryStore((state) => state.redo);
   const undoAvailable = useHistoryStore((state) => state.undoStack.length > 0);
   const redoAvailable = useHistoryStore((state) => state.redoStack.length > 0);
+  const historyLocked = useHistoryStore((state) => state.locked);
   const selectionCount = useSelectionStore((state) => state.selectedCount);
   const clearSelection = useSelectionStore((state) => state.clear);
   const projectPath = useProjectStore((state) => state.path);
@@ -529,6 +530,9 @@ const App = () => {
       }
       if (key === 'z') {
         event.preventDefault();
+        if (useHistoryStore.getState().locked) {
+          return;
+        }
         if (event.shiftKey) {
           redo();
         } else {
@@ -537,6 +541,9 @@ const App = () => {
       }
       if (key === 'y') {
         event.preventDefault();
+        if (useHistoryStore.getState().locked) {
+          return;
+        }
         redo();
       }
       if (key === 's') {
@@ -1792,14 +1799,27 @@ const App = () => {
                     Add Reference
                   </button>
                   {undoAvailable && (
-                    <button type="button" className="panel__item" onClick={undo}>
+                    <button
+                      type="button"
+                      className="panel__item"
+                      onClick={undo}
+                      disabled={historyLocked}
+                    >
                       Undo
                     </button>
                   )}
                   {redoAvailable && (
-                    <button type="button" className="panel__item" onClick={redo}>
+                    <button
+                      type="button"
+                      className="panel__item"
+                      onClick={redo}
+                      disabled={historyLocked}
+                    >
                       Redo
                     </button>
+                  )}
+                  {historyLocked && (
+                    <div className="panel__note">Undo/redo disabled while operation runs.</div>
                   )}
                   {selectionCount > 0 && (
                     <button
