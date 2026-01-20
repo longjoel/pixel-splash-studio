@@ -1,9 +1,9 @@
 import { hexToRgb, type Rgb } from '@/core/colorUtils';
 import { getReferenceBounds, getReferenceTransform } from '@/core/referenceTransforms';
-import { useHistoryStore, type PixelChange } from '@/state/historyStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import type { ReferenceImage } from '@/state/referenceStore';
+import { enqueuePixelChanges } from '@/services/largeOperationQueue';
 import {
   PIXEL_SIZE,
   TRACE_ALPHA_THRESHOLD,
@@ -208,8 +208,7 @@ const applyTraceCanvas = (traceCanvas: TraceCanvas, paletteEntries: PaletteEntry
     return;
   }
   const pixelStore = usePixelStore.getState();
-  const changes: PixelChange[] = [];
-  const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
+  const changes: Array<{ x: number; y: number; prev: number; next: number }> = [];
   const paletteCache = new Map<string, number>();
 
   for (let y = 0; y < traceCanvas.height; y += 1) {
@@ -246,15 +245,13 @@ const applyTraceCanvas = (traceCanvas: TraceCanvas, paletteEntries: PaletteEntry
         continue;
       }
       changes.push({ x: worldX, y: worldY, prev, next: paletteIndex });
-      pixelsToCommit.push({ x: worldX, y: worldY, paletteIndex });
     }
   }
 
-  if (pixelsToCommit.length === 0) {
+  if (changes.length === 0) {
     return;
   }
-  pixelStore.setPixels(pixelsToCommit);
-  useHistoryStore.getState().pushBatch({ changes });
+  enqueuePixelChanges(changes, { label: 'Reference Trace' });
 };
 
 export const traceReferenceWithPaletteRange = (

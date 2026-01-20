@@ -27,6 +27,7 @@ import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useTileMapStore } from '@/state/tileMapStore';
 import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
+import { getBlocksUnderConstruction } from '@/services/largeOperationQueue';
 import { addReferencesFromFiles } from '@/services/references';
 import {
   getReferenceBounds,
@@ -64,6 +65,48 @@ const drawGrid = (
     context.lineTo(viewX + viewWidth, y + 0.5);
     context.stroke();
   }
+};
+
+const drawConstructionOverlay = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number,
+  fillColor: string,
+  strokeColor: string
+) => {
+  const blocks = getBlocksUnderConstruction();
+  if (blocks.length === 0) {
+    return;
+  }
+  context.save();
+  context.fillStyle = fillColor;
+  context.strokeStyle = strokeColor;
+  context.lineWidth = Math.max(1, PIXEL_SIZE * 0.08);
+
+  for (const block of blocks) {
+    const left = block.col * BLOCK_SIZE * PIXEL_SIZE;
+    const top = block.row * BLOCK_SIZE * PIXEL_SIZE;
+    const right = left + BLOCK_SIZE * PIXEL_SIZE;
+    const bottom = top + BLOCK_SIZE * PIXEL_SIZE;
+    if (
+      right < viewX ||
+      bottom < viewY ||
+      left > viewX + viewWidth ||
+      top > viewY + viewHeight
+    ) {
+      continue;
+    }
+    context.fillRect(left, top, BLOCK_SIZE * PIXEL_SIZE, BLOCK_SIZE * PIXEL_SIZE);
+    context.strokeRect(
+      left + 0.5,
+      top + 0.5,
+      BLOCK_SIZE * PIXEL_SIZE - 1,
+      BLOCK_SIZE * PIXEL_SIZE - 1
+    );
+  }
+  context.restore();
 };
 
 const drawAxes = (
@@ -597,6 +640,11 @@ const ViewportCanvas = () => {
     cameraY: number;
     zoom: number;
   } | null>(null);
+  const wheelZoomRef = useRef<{
+    remainingDelta: number;
+    anchor: { x: number; y: number } | null;
+    frame: number | null;
+  }>({ remainingDelta: 0, anchor: null, frame: null });
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -663,6 +711,8 @@ const ViewportCanvas = () => {
       const gridColor = toRgba(accent, 0.08);
       const tileGridColor = toRgba(accent, 0.18);
       const axisColor = toRgba(accent, 0.5);
+      const constructionFill = toRgba(accent, 0.08);
+      const constructionStroke = toRgba(accent, 0.35);
 
       context.fillStyle = bgHex;
       context.fillRect(0, 0, state.width, state.height);
@@ -749,6 +799,15 @@ const ViewportCanvas = () => {
           tileCacheRef.current
         );
       }
+      drawConstructionOverlay(
+        context,
+        state.camera.x,
+        state.camera.y,
+        viewWidth,
+        viewHeight,
+        constructionFill,
+        constructionStroke
+      );
       drawSelectionLayer(
         context,
         state.camera.x,
@@ -851,6 +910,10 @@ const ViewportCanvas = () => {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
+      if (wheelZoomRef.current.frame) {
+        cancelAnimationFrame(wheelZoomRef.current.frame);
+        wheelZoomRef.current.frame = null;
+      }
     };
   }, []);
 
@@ -910,11 +973,6 @@ const ViewportCanvas = () => {
       startPan(event);
       return;
     }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
-      return;
-    }
     event.currentTarget.setPointerCapture(event.pointerId);
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('begin', cursor);
@@ -923,11 +981,6 @@ const ViewportCanvas = () => {
   const handlePointerMove = (event: React.PointerEvent) => {
     if (panStartRef.current) {
       updatePan(event);
-      return;
-    }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
       return;
     }
     const cursor = toCursorState(event);
@@ -940,12 +993,6 @@ const ViewportCanvas = () => {
       stopPan(event);
       return;
     }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      return;
-    }
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('end', cursor);
     event.currentTarget.releasePointerCapture(event.pointerId);
@@ -954,11 +1001,6 @@ const ViewportCanvas = () => {
   const handlePointerLeave = (event: React.PointerEvent) => {
     if (panStartRef.current) {
       stopPan(event);
-      return;
-    }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
       return;
     }
     const cursor = toCursorState(event);
@@ -1007,7 +1049,31 @@ const ViewportCanvas = () => {
     } else if (zoomDelta < -WHEEL_ZOOM_MAX_STEP) {
       zoomDelta = -WHEEL_ZOOM_MAX_STEP;
     }
-    useViewportStore.getState().zoomBy(zoomDelta, anchor);
+
+    wheelZoomRef.current.remainingDelta += zoomDelta;
+    wheelZoomRef.current.anchor = anchor;
+    if (wheelZoomRef.current.frame) {
+      return;
+    }
+
+    const tick = () => {
+      const wheelState = wheelZoomRef.current;
+      const remaining = wheelState.remainingDelta;
+      if (!Number.isFinite(remaining) || Math.abs(remaining) < 0.0005) {
+        wheelState.remainingDelta = 0;
+        wheelState.frame = null;
+        return;
+      }
+      const eased = remaining * 0.35;
+      const minStep = 0.02;
+      const maxStep = Math.max(minStep, WHEEL_ZOOM_MAX_STEP * 0.25);
+      const applyDelta = Math.sign(eased) * Math.min(Math.abs(eased), maxStep);
+      useViewportStore.getState().zoomBy(applyDelta, wheelState.anchor ?? undefined);
+      wheelState.remainingDelta -= applyDelta;
+      wheelState.frame = requestAnimationFrame(tick);
+    };
+
+    wheelZoomRef.current.frame = requestAnimationFrame(tick);
   };
 
   return (
@@ -1022,7 +1088,7 @@ const ViewportCanvas = () => {
         onDrop={handleDrop}
         onWheel={handleWheel}
         style={{
-          cursor: isPanning ? 'grabbing' : zoom < MIN_TOOL_ZOOM ? 'not-allowed' : 'crosshair',
+          cursor: isPanning ? 'grabbing' : 'crosshair',
         }}
       />
     </div>

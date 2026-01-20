@@ -4,11 +4,11 @@ import { BLOCK_SIZE } from '@/core/canvasStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useSelectionStore } from '@/state/selectionStore';
-import { useHistoryStore } from '@/state/historyStore';
 import { useViewportStore } from '@/state/viewportStore';
 import { useFillBucketStore } from '@/state/fillBucketStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { collectSelectionPixels } from '@/services/selectionData';
+import { enqueuePixelChanges } from '@/services/largeOperationQueue';
 
 type Bounds = {
   minX: number;
@@ -41,7 +41,6 @@ const fillSelection = (paletteIndex: number) => {
   }
   const pixelStore = usePixelStore.getState();
   const changes: Array<{ x: number; y: number; prev: number; next: number }> = [];
-  const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
   const blocks = selection.store.getBlocks();
   for (const { row, col, block } of blocks) {
     const baseX = col * BLOCK_SIZE;
@@ -58,15 +57,13 @@ const fillSelection = (paletteIndex: number) => {
           continue;
         }
         changes.push({ x: worldX, y: worldY, prev, next: paletteIndex });
-        pixelsToCommit.push({ x: worldX, y: worldY, paletteIndex });
       }
     }
   }
-  if (pixelsToCommit.length === 0) {
+  if (changes.length === 0) {
     return;
   }
-  pixelStore.setPixels(pixelsToCommit);
-  useHistoryStore.getState().pushBatch({ changes });
+  enqueuePixelChanges(changes, { label: 'Fill Selection' });
 };
 
 const fillByColor = (
@@ -93,7 +90,6 @@ const fillByColor = (
   const queueX: number[] = [startX];
   const queueY: number[] = [startY];
   const changes: Array<{ x: number; y: number; prev: number; next: number }> = [];
-  const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
 
   for (let i = 0; i < queueX.length; i += 1) {
     const x = queueX[i];
@@ -126,16 +122,14 @@ const fillByColor = (
     }
 
     changes.push({ x, y, prev: sourceIndex, next: paletteIndex });
-    pixelsToCommit.push({ x, y, paletteIndex });
     queueX.push(x + 1, x - 1, x, x);
     queueY.push(y, y, y + 1, y - 1);
   }
 
-  if (pixelsToCommit.length === 0) {
+  if (changes.length === 0) {
     return;
   }
-  pixelStore.setPixels(pixelsToCommit);
-  useHistoryStore.getState().pushBatch({ changes });
+  enqueuePixelChanges(changes, { label: 'Fill Region' });
 };
 
 const buildGradientRamp = (startIndex: number, endIndex: number) => {
@@ -236,9 +230,7 @@ const applyGradientFill = (
   bounds: Bounds,
   ramp: number[]
 ) => {
-  const pixelStore = usePixelStore.getState();
   const changes: Array<{ x: number; y: number; prev: number; next: number }> = [];
-  const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
   const dy = bounds.maxY - bounds.minY;
   const denom = dy === 0 ? 1 : dy;
   const bayer2 = [
@@ -260,14 +252,12 @@ const applyGradientFill = (
       continue;
     }
     changes.push({ x: pixel.x, y: pixel.y, prev: pixel.prev, next });
-    pixelsToCommit.push({ x: pixel.x, y: pixel.y, paletteIndex: next });
   }
 
-  if (pixelsToCommit.length === 0) {
+  if (changes.length === 0) {
     return;
   }
-  pixelStore.setPixels(pixelsToCommit);
-  useHistoryStore.getState().pushBatch({ changes });
+  enqueuePixelChanges(changes, { label: 'Gradient Fill' });
 };
 
 export class FillBucketTool implements Tool {
