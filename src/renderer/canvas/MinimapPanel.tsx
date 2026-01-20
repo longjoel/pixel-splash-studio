@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Minimap from './Minimap';
 import PastePreview from './PastePreview';
+import NavigationPanel from './NavigationPanel';
 import { useClipboardStore } from '@/state/clipboardStore';
 
-type TabId = 'minimap' | 'paste';
+type TabId = 'minimap' | 'nav' | 'paste';
 
 const MinimapPanel = () => {
   const hasClipboard = useClipboardStore(
@@ -20,12 +21,12 @@ const MinimapPanel = () => {
 
   useEffect(() => {
     if (hasClipboard && !hadClipboardRef.current) {
-      setActiveTab('paste');
+      setActiveTab((prev) => (prev === 'minimap' ? 'paste' : prev));
     }
     hadClipboardRef.current = hasClipboard;
   }, [hasClipboard]);
 
-  const showTabs = hasClipboard;
+  const showTabs = true;
 
   return (
     <div className="minimap-panel">
@@ -45,15 +46,32 @@ const MinimapPanel = () => {
             type="button"
             role="tab"
             className="minimap__tab"
+            aria-selected={activeTab === 'nav'}
+            data-active={activeTab === 'nav'}
+            onClick={() => setActiveTab('nav')}
+          >
+            Nav
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className="minimap__tab"
             aria-selected={activeTab === 'paste'}
             data-active={activeTab === 'paste'}
             onClick={() => setActiveTab('paste')}
+            style={{ display: hasClipboard ? undefined : 'none' }}
           >
             Paste Preview
           </button>
         </div>
       )}
-      {activeTab === 'paste' && hasClipboard ? <PastePreview /> : <Minimap />}
+      {activeTab === 'nav' ? (
+        <NavigationPanel />
+      ) : activeTab === 'paste' && hasClipboard ? (
+        <PastePreview />
+      ) : (
+        <Minimap />
+      )}
     </div>
   );
 };
