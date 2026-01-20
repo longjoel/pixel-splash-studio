@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 export type ToolId =
   | 'pen'
+  | 'spray'
   | 'line'
   | 'rectangle'
   | 'oval'
