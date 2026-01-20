@@ -3,6 +3,7 @@ import ViewportCanvas from './canvas/ViewportCanvas';
 import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
 import TileBar from './ui/TileBar';
+import DropdownSelect from './ui/DropdownSelect';
 import { loadProject, newProject, saveProject } from './services/project';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
@@ -1253,39 +1254,37 @@ const App = () => {
                         <>
                           <div className="panel__group">
                             <span className="panel__label">Direction</span>
-                            <select
-                              className="panel__select"
+                            <DropdownSelect
+                              ariaLabel="Gradient direction"
                               value={fillGradientDirection}
-                              onChange={(event) =>
-                                setFillGradientDirection(event.target.value as typeof fillGradientDirection)
-                              }
-                            >
-                              <option value="top-bottom">Top → Bottom</option>
-                              <option value="bottom-top">Bottom → Top</option>
-                              <option value="left-right">Left → Right</option>
-                              <option value="right-left">Right → Left</option>
-                            </select>
+                              onChange={setFillGradientDirection}
+                              options={[
+                                { value: 'top-bottom', label: 'Top → Bottom' },
+                                { value: 'bottom-top', label: 'Bottom → Top' },
+                                { value: 'left-right', label: 'Left → Right' },
+                                { value: 'right-left', label: 'Right → Left' },
+                              ]}
+                            />
                           </div>
                           <div className="panel__group">
                             <span className="panel__label">Dither</span>
-                            <select
-                              className="panel__select"
+                            <DropdownSelect
+                              ariaLabel="Gradient dither"
                               value={fillGradientDither}
-                              onChange={(event) =>
-                                setFillGradientDither(event.target.value as typeof fillGradientDither)
-                              }
-                            >
-                              <option value="bayer2">Ordered (Bayer 2×2)</option>
-                              <option value="bayer4">Ordered (Bayer 4×4)</option>
-                              <option value="bayer8">Ordered (Bayer 8×8)</option>
-                              <option value="none">None</option>
-                              <option value="random">Random (stable)</option>
-                              <option value="blue-noise">Blue noise (interleaved)</option>
-                              <option value="floyd-steinberg">Error diffusion (Floyd–Steinberg)</option>
-                              <option value="atkinson">Error diffusion (Atkinson)</option>
-                              <option value="jarvis-judice-ninke">Error diffusion (Jarvis–Judice–Ninke)</option>
-                              <option value="stucki">Error diffusion (Stucki)</option>
-                            </select>
+                              onChange={setFillGradientDither}
+                              options={[
+                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                                { value: 'none', label: 'None' },
+                                { value: 'random', label: 'Random (stable)' },
+                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                              ]}
+                            />
                           </div>
                         </>
                       )}
@@ -1395,39 +1394,35 @@ const App = () => {
                       <div className="panel__row panel__row--dual">
                         <div className="panel__group">
                           <span className="panel__label">Scale</span>
-                          <select
-                            className="panel__select"
-                            aria-label="Scale"
-                            value={stampScale}
-                            onChange={(event) =>
-                              setStampScale(Number(event.target.value) as 1 | 2 | 4 | 8)
-                            }
-                          >
-                            {[1, 2, 4, 8].map((scale) => (
-                              <option key={scale} value={scale}>
-                                {scale}x
-                              </option>
-                            ))}
-                          </select>
+                          <DropdownSelect
+                            ariaLabel="Scale"
+                            value={String(stampScale) as '1' | '2' | '4' | '8'}
+                            onChange={(next) => setStampScale(Number(next) as 1 | 2 | 4 | 8)}
+                            options={[
+                              { value: '1', label: '1x' },
+                              { value: '2', label: '2x' },
+                              { value: '4', label: '4x' },
+                              { value: '8', label: '8x' },
+                            ]}
+                          />
                         </div>
                         <div className="panel__group">
                           <span className="panel__label">Rotate</span>
-                          <select
-                            className="panel__select"
-                            aria-label="Rotate"
-                            value={stampRotation}
-                            onChange={(event) =>
-                              setStampRotation(
-                                Number(event.target.value) as 0 | 90 | 180 | 270
-                              )
+                          <DropdownSelect
+                            ariaLabel="Rotate"
+                            value={
+                              String(stampRotation) as '0' | '90' | '180' | '270'
                             }
-                          >
-                            {[0, 90, 180, 270].map((rotation) => (
-                              <option key={rotation} value={rotation}>
-                                {rotation}deg
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(next) =>
+                              setStampRotation(Number(next) as 0 | 90 | 180 | 270)
+                            }
+                            options={[
+                              { value: '0', label: '0deg' },
+                              { value: '90', label: '90deg' },
+                              { value: '180', label: '180deg' },
+                              { value: '270', label: '270deg' },
+                            ]}
+                          />
                         </div>
                       </div>
                       <div className="panel__row">

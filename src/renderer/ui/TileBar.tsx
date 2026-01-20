@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePaletteStore } from '@/state/paletteStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import DropdownSelect from './DropdownSelect';
 
 const MAX_TILE_PALETTE_COLUMNS = 64;
 const TILE_BAR_PIXEL_SIZE = 6;
@@ -290,18 +291,12 @@ const TileBar = () => {
                 <label className="panel__label" htmlFor="tile-set-select">
                   Tile Set
                 </label>
-                <select
-                  id="tile-set-select"
-                  className="panel__select"
+                <DropdownSelect
+                  ariaLabel="Tile Set"
                   value={activeTileSet.id}
-                  onChange={(event) => setActiveTileSet(event.target.value)}
-                >
-                  {tileSets.map((set) => (
-                    <option key={set.id} value={set.id}>
-                      {set.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setActiveTileSet}
+                  options={tileSets.map((set) => ({ value: set.id, label: set.name }))}
+                />
               </div>
               <div className="tilebar__select">
                 <label className="panel__label" htmlFor="tile-cols-input">
