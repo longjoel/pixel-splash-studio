@@ -6,7 +6,6 @@ import { usePixelStore } from '@/state/pixelStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useSprayStore } from '@/state/sprayStore';
-import { useViewportStore } from '@/state/viewportStore';
 
 type PixelChange = { x: number; y: number; prev: number; next: number };
 
@@ -21,22 +20,9 @@ const cancelFrame =
     ? (handle: number) => cancelAnimationFrame(handle)
     : (handle: number) => globalThis.clearTimeout(handle);
 
-const withinViewportBounds = (cursor: CursorState, dx: number, dy: number) => {
-  const viewport = useViewportStore.getState();
-  const zoom = viewport.camera.zoom;
-  const screenX = cursor.screenX + dx * PIXEL_SIZE * zoom;
-  const screenY = cursor.screenY + dy * PIXEL_SIZE * zoom;
-  return screenX >= 0 && screenY >= 0 && screenX < viewport.width && screenY < viewport.height;
-};
-
 const setPreviewPixel = (cursor: CursorState, x: number, y: number, paletteIndex: number) => {
   const selection = useSelectionStore.getState();
   if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
-    return;
-  }
-  const dx = x - Math.floor(cursor.canvasX / PIXEL_SIZE);
-  const dy = y - Math.floor(cursor.canvasY / PIXEL_SIZE);
-  if (!withinViewportBounds(cursor, dx, dy)) {
     return;
   }
   usePreviewStore.getState().setPixel(x, y, paletteIndex);
