@@ -362,6 +362,10 @@ const App = () => {
   const setSelectionSnap = useSelectionRectangleStore((state) => state.setSnap);
   const fillMode = useFillBucketStore((state) => state.mode);
   const setFillMode = useFillBucketStore((state) => state.setMode);
+  const fillGradientDirection = useFillBucketStore((state) => state.gradientDirection);
+  const setFillGradientDirection = useFillBucketStore((state) => state.setGradientDirection);
+  const fillGradientDither = useFillBucketStore((state) => state.gradientDither);
+  const setFillGradientDither = useFillBucketStore((state) => state.setGradientDither);
   const paletteSelectionCount = usePaletteStore((state) => state.selectedIndices.length);
   const stampMode = useStampStore((state) => state.mode);
   const stampSnap = useStampStore((state) => state.snap);
@@ -1198,45 +1202,98 @@ const App = () => {
                       </div>
                     </div>
                   ) : activeTool === 'fill-bucket' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Mode</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="fill-mode"
-                            value="color"
-                            checked={fillMode === 'color'}
-                            onChange={() => setFillMode('color')}
-                          />
-                          Color
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="fill-mode"
-                            value="selection"
-                            checked={fillMode === 'selection'}
-                            onChange={() => setFillMode('selection')}
-                          />
-                          Selection
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="fill-mode"
-                            value="gradient"
-                            checked={fillMode === 'gradient'}
-                            onChange={() => setFillMode('gradient')}
-                            disabled={paletteSelectionCount < 2}
-                          />
-                          Gradient Dither (palette selection, top → bottom)
-                        </label>
+                    <>
+                      <div className="panel__group">
+                        <span className="panel__label">Mode</span>
+                        <div className="panel__row">
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="fill-mode"
+                              value="color"
+                              checked={fillMode === 'color'}
+                              onChange={() => setFillMode('color')}
+                            />
+                            Color
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="fill-mode"
+                              value="selection"
+                              checked={fillMode === 'selection'}
+                              onChange={() => setFillMode('selection')}
+                            />
+                            Selection
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="fill-mode"
+                              value="gradient"
+                              checked={fillMode === 'gradient'}
+                              onChange={() => setFillMode('gradient')}
+                              disabled={paletteSelectionCount < 2}
+                            />
+                            Gradient Dither
+                          </label>
+                        </div>
+                        <div className="panel__note">
+                          Select 2+ palette swatches (Shift-click) for gradient ramp.
+                        </div>
                       </div>
-                      <div className="panel__note">
-                        Select 2+ palette swatches (Shift-click) to enable gradient dither.
-                      </div>
-                    </div>
+                      {fillMode === 'gradient' && (
+                        <>
+                          <div className="panel__group">
+                            <span className="panel__label">Direction</span>
+                            <div className="panel__row">
+                              {([
+                                { id: 'top-bottom', label: 'Top → Bottom' },
+                                { id: 'bottom-top', label: 'Bottom → Top' },
+                                { id: 'left-right', label: 'Left → Right' },
+                                { id: 'right-left', label: 'Right → Left' },
+                              ] as const).map((entry) => (
+                                <label key={entry.id} className="panel__radio">
+                                  <input
+                                    type="radio"
+                                    name="fill-gradient-direction"
+                                    value={entry.id}
+                                    checked={fillGradientDirection === entry.id}
+                                    onChange={() => setFillGradientDirection(entry.id)}
+                                  />
+                                  {entry.label}
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                          <div className="panel__group">
+                            <span className="panel__label">Dither</span>
+                            <div className="panel__row">
+                              <label className="panel__radio">
+                                <input
+                                  type="radio"
+                                  name="fill-gradient-dither"
+                                  value="bayer2"
+                                  checked={fillGradientDither === 'bayer2'}
+                                  onChange={() => setFillGradientDither('bayer2')}
+                                />
+                                Bayer 2×2
+                              </label>
+                              <label className="panel__radio">
+                                <input
+                                  type="radio"
+                                  name="fill-gradient-dither"
+                                  value="none"
+                                  checked={fillGradientDither === 'none'}
+                                  onChange={() => setFillGradientDither('none')}
+                                />
+                                None
+                              </label>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
                   ) : activeTool === 'stamp' ? (
                     <>
                       <div className="panel__row panel__row--dual">

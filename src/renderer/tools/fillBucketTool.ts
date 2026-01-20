@@ -5,7 +5,7 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useViewportStore } from '@/state/viewportStore';
-import { useFillBucketStore } from '@/state/fillBucketStore';
+import { useFillBucketStore, type FillBucketGradientDirection, type FillBucketGradientDither } from '@/state/fillBucketStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { collectSelectionPixels } from '@/services/selectionData';
 import { enqueuePixelChanges } from '@/services/largeOperationQueue';
@@ -228,23 +228,41 @@ const collectFloodRegion = (
 const applyGradientFill = (
   pixels: FilledPixel[],
   bounds: Bounds,
-  ramp: number[]
+  ramp: number[],
+  direction: FillBucketGradientDirection,
+  dither: FillBucketGradientDither
 ) => {
   const changes: Array<{ x: number; y: number; prev: number; next: number }> = [];
+  const dx = bounds.maxX - bounds.minX;
   const dy = bounds.maxY - bounds.minY;
-  const denom = dy === 0 ? 1 : dy;
+  const denomX = dx === 0 ? 1 : dx;
+  const denomY = dy === 0 ? 1 : dy;
   const bayer2 = [
     [0, 2],
     [3, 1],
   ];
 
   for (const pixel of pixels) {
+    const ux = pixel.x - bounds.minX;
     const uy = pixel.y - bounds.minY;
-    const t = Math.min(1, Math.max(0, uy / denom));
+    let t = 0;
+    if (direction === 'top-bottom') {
+      t = uy / denomY;
+    } else if (direction === 'bottom-top') {
+      t = 1 - uy / denomY;
+    } else if (direction === 'left-right') {
+      t = ux / denomX;
+    } else if (direction === 'right-left') {
+      t = 1 - ux / denomX;
+    }
+    t = Math.min(1, Math.max(0, t));
     const position = t * (ramp.length - 1);
     const baseIndex = Math.floor(position);
     const frac = position - baseIndex;
-    const threshold = (bayer2[pixel.y & 1][pixel.x & 1] + 0.5) / 4;
+    const threshold =
+      dither === 'bayer2'
+        ? (bayer2[pixel.y & 1][pixel.x & 1] + 0.5) / 4
+        : 0.5;
     const choice = frac > threshold ? baseIndex + 1 : baseIndex;
     const rampIndex = Math.min(ramp.length - 1, Math.max(0, choice));
     const next = ramp[rampIndex];
@@ -281,6 +299,7 @@ export class FillBucketTool implements Tool {
       if (ramp.length === 0) {
         return;
       }
+      const { gradientDirection, gradientDither } = useFillBucketStore.getState();
       const selection = useSelectionStore.getState();
       if (selection.selectedCount > 0) {
         const collected = collectSelectionPixels();
@@ -300,7 +319,9 @@ export class FillBucketTool implements Tool {
             minY: collected.minY,
             maxY: collected.maxY,
           },
-          ramp
+          ramp,
+          gradientDirection,
+          gradientDither
         );
         return;
       }
@@ -309,7 +330,7 @@ export class FillBucketTool implements Tool {
       if (!region) {
         return;
       }
-      applyGradientFill(region.pixels, region.bounds, ramp);
+      applyGradientFill(region.pixels, region.bounds, ramp, gradientDirection, gradientDither);
       return;
     }
 
