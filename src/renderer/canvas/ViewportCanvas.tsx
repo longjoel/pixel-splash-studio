@@ -640,6 +640,11 @@ const ViewportCanvas = () => {
     cameraY: number;
     zoom: number;
   } | null>(null);
+  const wheelZoomRef = useRef<{
+    remainingDelta: number;
+    anchor: { x: number; y: number } | null;
+    frame: number | null;
+  }>({ remainingDelta: 0, anchor: null, frame: null });
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -905,6 +910,10 @@ const ViewportCanvas = () => {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
+      if (wheelZoomRef.current.frame) {
+        cancelAnimationFrame(wheelZoomRef.current.frame);
+        wheelZoomRef.current.frame = null;
+      }
     };
   }, []);
 
@@ -1040,7 +1049,31 @@ const ViewportCanvas = () => {
     } else if (zoomDelta < -WHEEL_ZOOM_MAX_STEP) {
       zoomDelta = -WHEEL_ZOOM_MAX_STEP;
     }
-    useViewportStore.getState().zoomBy(zoomDelta, anchor);
+
+    wheelZoomRef.current.remainingDelta += zoomDelta;
+    wheelZoomRef.current.anchor = anchor;
+    if (wheelZoomRef.current.frame) {
+      return;
+    }
+
+    const tick = () => {
+      const wheelState = wheelZoomRef.current;
+      const remaining = wheelState.remainingDelta;
+      if (!Number.isFinite(remaining) || Math.abs(remaining) < 0.0005) {
+        wheelState.remainingDelta = 0;
+        wheelState.frame = null;
+        return;
+      }
+      const eased = remaining * 0.35;
+      const minStep = 0.02;
+      const maxStep = Math.max(minStep, WHEEL_ZOOM_MAX_STEP * 0.25);
+      const applyDelta = Math.sign(eased) * Math.min(Math.abs(eased), maxStep);
+      useViewportStore.getState().zoomBy(applyDelta, wheelState.anchor ?? undefined);
+      wheelState.remainingDelta -= applyDelta;
+      wheelState.frame = requestAnimationFrame(tick);
+    };
+
+    wheelZoomRef.current.frame = requestAnimationFrame(tick);
   };
 
   return (
