@@ -531,6 +531,8 @@ body {
   position: absolute;
   bottom: 16px;
   right: 16px;
+  pointer-events: auto;
+  z-index: 3;
 }
 
 .panel__section h2 {

@@ -1814,7 +1814,7 @@ const App = () => {
             <MinimapPanel />
           </div>
         ) : (
-          <div className="app__minimap-launch">
+          <div className="app__minimap-launch panel panel--collapsed">
             <button type="button" className="panel__toggle" onClick={() => setMinimapCollapsed(false)}>
               Minimap
             </button>
