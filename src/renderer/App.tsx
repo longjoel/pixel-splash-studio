@@ -333,7 +333,7 @@ const App = () => {
   const [showLicense, setShowLicense] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
-  const [minimapCollapsed, setMinimapCollapsed] = useState(false);
+  const [minimapCollapsed, setMinimapCollapsed] = useState(true);
   const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
   const [memoryLabel, setMemoryLabel] = useState('');
   const [paletteHeight, setPaletteHeight] = useState(96);
@@ -475,7 +475,7 @@ const App = () => {
       window.removeEventListener('pointerup', handlePointerUp);
     };
   }, [isTilingTool]);
-  const paletteRightOffset = (minimapCollapsed ? 180 : 324) + 24;
+  const paletteRightOffset = (minimapCollapsed ? 0 : 324) + 24;
 
   useEffect(() => {
     setTracePaletteStart((value) => clamp(value, 0, paletteMaxIndex));
@@ -1860,21 +1860,27 @@ const App = () => {
           />
           {isTilingTool ? <TileBar /> : <PaletteBar />}
         </div>
-        <div
-          className={`app__minimap panel${minimapCollapsed ? ' app__minimap--collapsed panel--collapsed' : ''}`}
-        >
-          <div className="panel__header">
-            <h2>Minimap</h2>
-            <button
-              type="button"
-              className="panel__toggle"
-              onClick={() => setMinimapCollapsed((prev) => !prev)}
-            >
-              {minimapCollapsed ? 'Expand' : 'Collapse'}
+        {!minimapCollapsed ? (
+          <div className="app__minimap panel">
+            <div className="panel__header">
+              <h2>Minimap</h2>
+              <button
+                type="button"
+                className="panel__toggle"
+                onClick={() => setMinimapCollapsed(true)}
+              >
+                Hide
+              </button>
+            </div>
+            <MinimapPanel />
+          </div>
+        ) : (
+          <div className="app__minimap-launch panel panel--collapsed">
+            <button type="button" className="panel__toggle" onClick={() => setMinimapCollapsed(false)}>
+              Minimap
             </button>
           </div>
-          {!minimapCollapsed && <MinimapPanel />}
-        </div>
+        )}
       </div>
       {showShortcuts && (
         <div className="modal">
