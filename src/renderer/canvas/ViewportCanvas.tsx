@@ -964,11 +964,6 @@ const ViewportCanvas = () => {
       startPan(event);
       return;
     }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
-      return;
-    }
     event.currentTarget.setPointerCapture(event.pointerId);
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('begin', cursor);
@@ -977,11 +972,6 @@ const ViewportCanvas = () => {
   const handlePointerMove = (event: React.PointerEvent) => {
     if (panStartRef.current) {
       updatePan(event);
-      return;
-    }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
       return;
     }
     const cursor = toCursorState(event);
@@ -994,12 +984,6 @@ const ViewportCanvas = () => {
       stopPan(event);
       return;
     }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
-      event.currentTarget.releasePointerCapture(event.pointerId);
-      return;
-    }
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('end', cursor);
     event.currentTarget.releasePointerCapture(event.pointerId);
@@ -1008,11 +992,6 @@ const ViewportCanvas = () => {
   const handlePointerLeave = (event: React.PointerEvent) => {
     if (panStartRef.current) {
       stopPan(event);
-      return;
-    }
-    const state = useViewportStore.getState();
-    if (state.camera.zoom < MIN_TOOL_ZOOM) {
-      usePreviewStore.getState().clear();
       return;
     }
     const cursor = toCursorState(event);
@@ -1076,7 +1055,7 @@ const ViewportCanvas = () => {
         onDrop={handleDrop}
         onWheel={handleWheel}
         style={{
-          cursor: isPanning ? 'grabbing' : zoom < MIN_TOOL_ZOOM ? 'not-allowed' : 'crosshair',
+          cursor: isPanning ? 'grabbing' : 'crosshair',
         }}
       />
     </div>
