@@ -1253,50 +1253,39 @@ const App = () => {
                         <>
                           <div className="panel__group">
                             <span className="panel__label">Direction</span>
-                            <div className="panel__row">
-                              {([
-                                { id: 'top-bottom', label: 'Top → Bottom' },
-                                { id: 'bottom-top', label: 'Bottom → Top' },
-                                { id: 'left-right', label: 'Left → Right' },
-                                { id: 'right-left', label: 'Right → Left' },
-                              ] as const).map((entry) => (
-                                <label key={entry.id} className="panel__radio">
-                                  <input
-                                    type="radio"
-                                    name="fill-gradient-direction"
-                                    value={entry.id}
-                                    checked={fillGradientDirection === entry.id}
-                                    onChange={() => setFillGradientDirection(entry.id)}
-                                  />
-                                  {entry.label}
-                                </label>
-                              ))}
-                            </div>
+                            <select
+                              className="panel__select"
+                              value={fillGradientDirection}
+                              onChange={(event) =>
+                                setFillGradientDirection(event.target.value as typeof fillGradientDirection)
+                              }
+                            >
+                              <option value="top-bottom">Top → Bottom</option>
+                              <option value="bottom-top">Bottom → Top</option>
+                              <option value="left-right">Left → Right</option>
+                              <option value="right-left">Right → Left</option>
+                            </select>
                           </div>
                           <div className="panel__group">
                             <span className="panel__label">Dither</span>
-                            <div className="panel__row">
-                              <label className="panel__radio">
-                                <input
-                                  type="radio"
-                                  name="fill-gradient-dither"
-                                  value="bayer2"
-                                  checked={fillGradientDither === 'bayer2'}
-                                  onChange={() => setFillGradientDither('bayer2')}
-                                />
-                                Bayer 2×2
-                              </label>
-                              <label className="panel__radio">
-                                <input
-                                  type="radio"
-                                  name="fill-gradient-dither"
-                                  value="none"
-                                  checked={fillGradientDither === 'none'}
-                                  onChange={() => setFillGradientDither('none')}
-                                />
-                                None
-                              </label>
-                            </div>
+                            <select
+                              className="panel__select"
+                              value={fillGradientDither}
+                              onChange={(event) =>
+                                setFillGradientDither(event.target.value as typeof fillGradientDither)
+                              }
+                            >
+                              <option value="bayer2">Ordered (Bayer 2×2)</option>
+                              <option value="bayer4">Ordered (Bayer 4×4)</option>
+                              <option value="bayer8">Ordered (Bayer 8×8)</option>
+                              <option value="none">None</option>
+                              <option value="random">Random (stable)</option>
+                              <option value="blue-noise">Blue noise (interleaved)</option>
+                              <option value="floyd-steinberg">Error diffusion (Floyd–Steinberg)</option>
+                              <option value="atkinson">Error diffusion (Atkinson)</option>
+                              <option value="jarvis-judice-ninke">Error diffusion (Jarvis–Judice–Ninke)</option>
+                              <option value="stucki">Error diffusion (Stucki)</option>
+                            </select>
                           </div>
                         </>
                       )}

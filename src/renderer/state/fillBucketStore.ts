@@ -8,7 +8,17 @@ export type FillBucketGradientDirection =
   | 'left-right'
   | 'right-left';
 
-export type FillBucketGradientDither = 'bayer2' | 'none';
+export type FillBucketGradientDither =
+  | 'none'
+  | 'bayer2'
+  | 'bayer4'
+  | 'bayer8'
+  | 'random'
+  | 'blue-noise'
+  | 'floyd-steinberg'
+  | 'atkinson'
+  | 'jarvis-judice-ninke'
+  | 'stucki';
 
 type FillBucketState = {
   mode: FillBucketMode;
