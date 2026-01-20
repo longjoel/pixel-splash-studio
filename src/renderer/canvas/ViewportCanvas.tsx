@@ -27,6 +27,7 @@ import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useTileMapStore } from '@/state/tileMapStore';
 import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
+import { getBlocksUnderConstruction } from '@/services/largeOperationQueue';
 import { addReferencesFromFiles } from '@/services/references';
 import {
   getReferenceBounds,
@@ -64,6 +65,48 @@ const drawGrid = (
     context.lineTo(viewX + viewWidth, y + 0.5);
     context.stroke();
   }
+};
+
+const drawConstructionOverlay = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number,
+  fillColor: string,
+  strokeColor: string
+) => {
+  const blocks = getBlocksUnderConstruction();
+  if (blocks.length === 0) {
+    return;
+  }
+  context.save();
+  context.fillStyle = fillColor;
+  context.strokeStyle = strokeColor;
+  context.lineWidth = Math.max(1, PIXEL_SIZE * 0.08);
+
+  for (const block of blocks) {
+    const left = block.col * BLOCK_SIZE * PIXEL_SIZE;
+    const top = block.row * BLOCK_SIZE * PIXEL_SIZE;
+    const right = left + BLOCK_SIZE * PIXEL_SIZE;
+    const bottom = top + BLOCK_SIZE * PIXEL_SIZE;
+    if (
+      right < viewX ||
+      bottom < viewY ||
+      left > viewX + viewWidth ||
+      top > viewY + viewHeight
+    ) {
+      continue;
+    }
+    context.fillRect(left, top, BLOCK_SIZE * PIXEL_SIZE, BLOCK_SIZE * PIXEL_SIZE);
+    context.strokeRect(
+      left + 0.5,
+      top + 0.5,
+      BLOCK_SIZE * PIXEL_SIZE - 1,
+      BLOCK_SIZE * PIXEL_SIZE - 1
+    );
+  }
+  context.restore();
 };
 
 const drawAxes = (
@@ -663,6 +706,8 @@ const ViewportCanvas = () => {
       const gridColor = toRgba(accent, 0.08);
       const tileGridColor = toRgba(accent, 0.18);
       const axisColor = toRgba(accent, 0.5);
+      const constructionFill = toRgba(accent, 0.08);
+      const constructionStroke = toRgba(accent, 0.35);
 
       context.fillStyle = bgHex;
       context.fillRect(0, 0, state.width, state.height);
@@ -749,6 +794,15 @@ const ViewportCanvas = () => {
           tileCacheRef.current
         );
       }
+      drawConstructionOverlay(
+        context,
+        state.camera.x,
+        state.camera.y,
+        viewWidth,
+        viewHeight,
+        constructionFill,
+        constructionStroke
+      );
       drawSelectionLayer(
         context,
         state.camera.x,
