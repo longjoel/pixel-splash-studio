@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useBookmarkStore } from '@/state/bookmarkStore';
 import { useViewportStore } from '@/state/viewportStore';
+import { newProject } from '@/services/project';
 
 describe('bookmarkStore', () => {
   beforeEach(() => {
@@ -51,5 +52,11 @@ describe('bookmarkStore', () => {
     expect(camera.x).toBe(50);
     expect(camera.y).toBe(25);
   });
-});
 
+  it('clears bookmarks on new project', () => {
+    useBookmarkStore.getState().addFromCamera();
+    expect(useBookmarkStore.getState().items.length).toBe(1);
+    newProject();
+    expect(useBookmarkStore.getState().items.length).toBe(0);
+  });
+});
