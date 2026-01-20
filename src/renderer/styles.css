@@ -642,6 +642,55 @@ body {
   color: rgba(255, 255, 255, 0.9);
   font-size: 12px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dropdown-select__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-select__chevron {
+  opacity: 0.75;
+  flex: 0 0 auto;
+}
+
+.dropdown-select__menu {
+  position: fixed;
+  z-index: 9999;
+  padding: 6px;
+  overflow: auto;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(18, 22, 32, 0.98);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+}
+
+.dropdown-select__option {
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.dropdown-select__option:hover,
+.dropdown-select__option[data-highlighted='true'] {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.dropdown-select__option[data-active='true'] {
+  border-color: rgba(245, 197, 66, 0.45);
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.12);
 }
 
 .panel__range {

@@ -3,6 +3,7 @@ import ViewportCanvas from './canvas/ViewportCanvas';
 import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
 import TileBar from './ui/TileBar';
+import DropdownSelect from './ui/DropdownSelect';
 import { loadProject, newProject, saveProject } from './services/project';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
@@ -323,6 +324,7 @@ const App = () => {
   const redo = useHistoryStore((state) => state.redo);
   const undoAvailable = useHistoryStore((state) => state.undoStack.length > 0);
   const redoAvailable = useHistoryStore((state) => state.redoStack.length > 0);
+  const historyLocked = useHistoryStore((state) => state.locked);
   const selectionCount = useSelectionStore((state) => state.selectedCount);
   const clearSelection = useSelectionStore((state) => state.clear);
   const projectPath = useProjectStore((state) => state.path);
@@ -362,6 +364,10 @@ const App = () => {
   const setSelectionSnap = useSelectionRectangleStore((state) => state.setSnap);
   const fillMode = useFillBucketStore((state) => state.mode);
   const setFillMode = useFillBucketStore((state) => state.setMode);
+  const fillGradientDirection = useFillBucketStore((state) => state.gradientDirection);
+  const setFillGradientDirection = useFillBucketStore((state) => state.setGradientDirection);
+  const fillGradientDither = useFillBucketStore((state) => state.gradientDither);
+  const setFillGradientDither = useFillBucketStore((state) => state.setGradientDither);
   const paletteSelectionCount = usePaletteStore((state) => state.selectedIndices.length);
   const stampMode = useStampStore((state) => state.mode);
   const stampSnap = useStampStore((state) => state.snap);
@@ -525,6 +531,9 @@ const App = () => {
       }
       if (key === 'z') {
         event.preventDefault();
+        if (useHistoryStore.getState().locked) {
+          return;
+        }
         if (event.shiftKey) {
           redo();
         } else {
@@ -533,6 +542,9 @@ const App = () => {
       }
       if (key === 'y') {
         event.preventDefault();
+        if (useHistoryStore.getState().locked) {
+          return;
+        }
         redo();
       }
       if (key === 's') {
@@ -1198,45 +1210,85 @@ const App = () => {
                       </div>
                     </div>
                   ) : activeTool === 'fill-bucket' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Mode</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="fill-mode"
-                            value="color"
-                            checked={fillMode === 'color'}
-                            onChange={() => setFillMode('color')}
-                          />
-                          Color
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="fill-mode"
-                            value="selection"
-                            checked={fillMode === 'selection'}
-                            onChange={() => setFillMode('selection')}
-                          />
-                          Selection
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="fill-mode"
-                            value="gradient"
-                            checked={fillMode === 'gradient'}
-                            onChange={() => setFillMode('gradient')}
-                            disabled={paletteSelectionCount < 2}
-                          />
-                          Gradient Dither (palette selection, top → bottom)
-                        </label>
+                    <>
+                      <div className="panel__group">
+                        <span className="panel__label">Mode</span>
+                        <div className="panel__row">
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="fill-mode"
+                              value="color"
+                              checked={fillMode === 'color'}
+                              onChange={() => setFillMode('color')}
+                            />
+                            Color
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="fill-mode"
+                              value="selection"
+                              checked={fillMode === 'selection'}
+                              onChange={() => setFillMode('selection')}
+                            />
+                            Selection
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="fill-mode"
+                              value="gradient"
+                              checked={fillMode === 'gradient'}
+                              onChange={() => setFillMode('gradient')}
+                              disabled={paletteSelectionCount < 2}
+                            />
+                            Gradient Dither
+                          </label>
+                        </div>
+                        <div className="panel__note">
+                          Select 2+ palette swatches (Shift-click) for gradient ramp.
+                        </div>
                       </div>
-                      <div className="panel__note">
-                        Select 2+ palette swatches (Shift-click) to enable gradient dither.
-                      </div>
-                    </div>
+                      {fillMode === 'gradient' && (
+                        <>
+                          <div className="panel__group">
+                            <span className="panel__label">Direction</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient direction"
+                              value={fillGradientDirection}
+                              onChange={setFillGradientDirection}
+                              options={[
+                                { value: 'top-bottom', label: 'Top → Bottom' },
+                                { value: 'bottom-top', label: 'Bottom → Top' },
+                                { value: 'left-right', label: 'Left → Right' },
+                                { value: 'right-left', label: 'Right → Left' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__group">
+                            <span className="panel__label">Dither</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient dither"
+                              value={fillGradientDither}
+                              onChange={setFillGradientDither}
+                              options={[
+                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                                { value: 'none', label: 'None' },
+                                { value: 'random', label: 'Random (stable)' },
+                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                              ]}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </>
                   ) : activeTool === 'stamp' ? (
                     <>
                       <div className="panel__row panel__row--dual">
@@ -1342,39 +1394,35 @@ const App = () => {
                       <div className="panel__row panel__row--dual">
                         <div className="panel__group">
                           <span className="panel__label">Scale</span>
-                          <select
-                            className="panel__select"
-                            aria-label="Scale"
-                            value={stampScale}
-                            onChange={(event) =>
-                              setStampScale(Number(event.target.value) as 1 | 2 | 4 | 8)
-                            }
-                          >
-                            {[1, 2, 4, 8].map((scale) => (
-                              <option key={scale} value={scale}>
-                                {scale}x
-                              </option>
-                            ))}
-                          </select>
+                          <DropdownSelect
+                            ariaLabel="Scale"
+                            value={String(stampScale) as '1' | '2' | '4' | '8'}
+                            onChange={(next) => setStampScale(Number(next) as 1 | 2 | 4 | 8)}
+                            options={[
+                              { value: '1', label: '1x' },
+                              { value: '2', label: '2x' },
+                              { value: '4', label: '4x' },
+                              { value: '8', label: '8x' },
+                            ]}
+                          />
                         </div>
                         <div className="panel__group">
                           <span className="panel__label">Rotate</span>
-                          <select
-                            className="panel__select"
-                            aria-label="Rotate"
-                            value={stampRotation}
-                            onChange={(event) =>
-                              setStampRotation(
-                                Number(event.target.value) as 0 | 90 | 180 | 270
-                              )
+                          <DropdownSelect
+                            ariaLabel="Rotate"
+                            value={
+                              String(stampRotation) as '0' | '90' | '180' | '270'
                             }
-                          >
-                            {[0, 90, 180, 270].map((rotation) => (
-                              <option key={rotation} value={rotation}>
-                                {rotation}deg
-                              </option>
-                            ))}
-                          </select>
+                            onChange={(next) =>
+                              setStampRotation(Number(next) as 0 | 90 | 180 | 270)
+                            }
+                            options={[
+                              { value: '0', label: '0deg' },
+                              { value: '90', label: '90deg' },
+                              { value: '180', label: '180deg' },
+                              { value: '270', label: '270deg' },
+                            ]}
+                          />
                         </div>
                       </div>
                       <div className="panel__row">
@@ -1735,14 +1783,27 @@ const App = () => {
                     Add Reference
                   </button>
                   {undoAvailable && (
-                    <button type="button" className="panel__item" onClick={undo}>
+                    <button
+                      type="button"
+                      className="panel__item"
+                      onClick={undo}
+                      disabled={historyLocked}
+                    >
                       Undo
                     </button>
                   )}
                   {redoAvailable && (
-                    <button type="button" className="panel__item" onClick={redo}>
+                    <button
+                      type="button"
+                      className="panel__item"
+                      onClick={redo}
+                      disabled={historyLocked}
+                    >
                       Redo
                     </button>
+                  )}
+                  {historyLocked && (
+                    <div className="panel__note">Undo/redo disabled while operation runs.</div>
                   )}
                   {selectionCount > 0 && (
                     <button
