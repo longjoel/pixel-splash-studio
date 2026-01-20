@@ -235,7 +235,7 @@ body {
   display: grid;
   padding: 12px;
   gap: 10px;
-  width: max-content;
+  width: min(280px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
 }
 
@@ -250,7 +250,8 @@ body {
 
 .toolbar__tools {
   display: grid;
-  grid-auto-flow: column;
+  grid-auto-flow: row;
+  grid-template-columns: 1fr;
   gap: 12px;
   align-items: start;
 }
@@ -259,7 +260,7 @@ body {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  max-width: 160px;
+  max-width: 100%;
 }
 
 .toolbar__tool-group {
@@ -526,8 +527,10 @@ body {
   width: 324px;
 }
 
-.app__minimap--collapsed {
-  width: 180px;
+.app__minimap-launch {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
 }
 
 .panel__section h2 {
@@ -792,6 +795,7 @@ body {
     top: 12px;
     left: 12px;
     right: auto;
+    width: min(260px, calc(100vw - 24px));
     max-width: calc(100vw - 24px);
   }
 
@@ -808,8 +812,8 @@ body {
     width: 284px;
   }
 
-  .app__minimap--collapsed {
-    width: 160px;
+  .app__minimap-launch {
+    right: 12px;
   }
 }
 
