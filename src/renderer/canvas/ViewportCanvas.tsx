@@ -5,6 +5,7 @@ import { usePixelStore } from '@/state/pixelStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { CursorState, ToolController } from '@/core/tools';
 import { PenTool } from '@/tools/penTool';
+import { SprayTool } from '@/tools/sprayTool';
 import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { ensureContrast, getComplement, hexToRgb, toRgba } from '@/core/colorUtils';
@@ -658,6 +659,7 @@ const ViewportCanvas = () => {
     controllerRef.current = new ToolController();
     const tools = {
       pen: new PenTool(),
+      spray: new SprayTool(),
       line: new LineTool(),
       rectangle: new RectangleTool(),
       oval: new OvalTool(),

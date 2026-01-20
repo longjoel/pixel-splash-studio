@@ -79,6 +79,7 @@ export const DEFAULT_COLORS = [
 
 export const TOOL_LABELS = {
   pen: 'Pen',
+  spray: 'Spray',
   line: 'Line',
   rectangle: 'Rectangle',
   oval: 'Oval',

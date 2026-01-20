@@ -1,0 +1,205 @@
+import { CursorState, Tool } from '@/core/tools';
+import { PIXEL_SIZE } from '@/core/grid';
+import { useHistoryStore } from '@/state/historyStore';
+import { usePaletteStore } from '@/state/paletteStore';
+import { usePixelStore } from '@/state/pixelStore';
+import { usePreviewStore } from '@/state/previewStore';
+import { useSelectionStore } from '@/state/selectionStore';
+import { useSprayStore } from '@/state/sprayStore';
+
+type PixelChange = { x: number; y: number; prev: number; next: number };
+
+const scheduleFrame =
+  typeof requestAnimationFrame === 'function'
+    ? (callback: FrameRequestCallback) => requestAnimationFrame(callback)
+    : (callback: FrameRequestCallback) =>
+        globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number;
+
+const cancelFrame =
+  typeof cancelAnimationFrame === 'function'
+    ? (handle: number) => cancelAnimationFrame(handle)
+    : (handle: number) => globalThis.clearTimeout(handle);
+
+const setPreviewPixel = (cursor: CursorState, x: number, y: number, paletteIndex: number) => {
+  const selection = useSelectionStore.getState();
+  if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
+    return;
+  }
+  usePreviewStore.getState().setPixel(x, y, paletteIndex);
+};
+
+const getDitherPaletteIndices = () => {
+  const palette = usePaletteStore.getState();
+  const selection = palette.selectedIndices.filter(
+    (idx, pos, arr) => arr.indexOf(idx) === pos && idx >= 0 && idx < palette.colors.length
+  );
+  if (selection.length > 0) {
+    return selection;
+  }
+  const fallback = [palette.primaryIndex, palette.secondaryIndex].filter(
+    (idx, pos, arr) => arr.indexOf(idx) === pos
+  );
+  return fallback.length > 0 ? fallback : [0];
+};
+
+// Mulberry32 PRNG
+const mulberry32 = (seed: number) => {
+  let value = seed >>> 0;
+  return () => {
+    value += 0x6d2b79f5;
+    let t = value;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+};
+
+export class SprayTool implements Tool {
+  id = 'spray';
+
+  private drawing = false;
+  private activeIndex = 0;
+  private lastCursor: CursorState | null = null;
+  private frameHandle: number | null = null;
+  private lastFrameTime = 0;
+  private emissionBudget = 0;
+  private changes = new Map<string, PixelChange>();
+  private rng: (() => number) | null = null;
+
+  private stopLoop() {
+    if (this.frameHandle != null) {
+      cancelFrame(this.frameHandle);
+      this.frameHandle = null;
+    }
+  }
+
+  private step = (now: number) => {
+    if (!this.drawing || !this.lastCursor) {
+      this.stopLoop();
+      return;
+    }
+
+    const settings = useSprayStore.getState();
+    const cursor = this.lastCursor;
+    const dtMs = this.lastFrameTime === 0 ? 0 : now - this.lastFrameTime;
+    this.lastFrameTime = now;
+    const dt = Math.min(0.1, Math.max(0, dtMs / 1000));
+    this.emissionBudget += settings.density * dt;
+
+    const maxPerFrame = 1500;
+    const emitCount = Math.min(maxPerFrame, Math.floor(this.emissionBudget));
+    this.emissionBudget -= emitCount;
+
+    if (emitCount > 0) {
+      const centerX = Math.floor(cursor.canvasX / PIXEL_SIZE);
+      const centerY = Math.floor(cursor.canvasY / PIXEL_SIZE);
+      const radius = Math.max(1, settings.radius);
+      const falloff = Math.min(1, Math.max(0, settings.falloff));
+      const exp = 0.5 + falloff * 2.5;
+      const useDither = settings.mode === 'dither';
+      const random = this.rng ?? Math.random;
+      const ditherIndices = useDither ? getDitherPaletteIndices() : null;
+
+      for (let i = 0; i < emitCount; i += 1) {
+        const angle = random() * Math.PI * 2;
+        const u = random();
+        const r = Math.pow(u, exp) * radius;
+        const dx = Math.round(Math.cos(angle) * r);
+        const dy = Math.round(Math.sin(angle) * r);
+        const paletteIndex = useDither
+          ? (ditherIndices?.[Math.floor(random() * (ditherIndices?.length ?? 1))] ??
+            0)
+          : this.activeIndex;
+        setPreviewPixel(cursor, centerX + dx, centerY + dy, paletteIndex);
+      }
+    }
+
+    this.frameHandle = scheduleFrame(this.step);
+  };
+
+  onHover = (cursor: CursorState) => {
+    if (this.drawing) {
+      return;
+    }
+    const preview = usePreviewStore.getState();
+    preview.clear();
+    const palette = usePaletteStore.getState();
+    const x = Math.floor(cursor.canvasX / PIXEL_SIZE);
+    const y = Math.floor(cursor.canvasY / PIXEL_SIZE);
+    setPreviewPixel(cursor, x, y, palette.primaryIndex);
+  };
+
+  onBegin = (cursor: CursorState) => {
+    const preview = usePreviewStore.getState();
+    preview.clear();
+    const palette = usePaletteStore.getState();
+    this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
+    this.drawing = true;
+    this.changes.clear();
+    this.lastCursor = cursor;
+    this.emissionBudget = 0;
+    this.lastFrameTime =
+      typeof requestAnimationFrame === 'function' ? performance.now() : Date.now();
+    const { deterministic, seed } = useSprayStore.getState();
+    this.rng = deterministic ? mulberry32(seed) : null;
+    this.stopLoop();
+    this.frameHandle = scheduleFrame(this.step);
+  };
+
+  onMove = (cursor: CursorState) => {
+    if (!this.drawing) {
+      this.onHover(cursor);
+      return;
+    }
+    this.lastCursor = cursor;
+  };
+
+  onEnd = () => {
+    if (!this.drawing) {
+      return;
+    }
+    this.stopLoop();
+    const preview = usePreviewStore.getState();
+    const pixelStore = usePixelStore.getState();
+    const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
+
+    for (const pixel of preview.entries()) {
+      const key = `${pixel.x}:${pixel.y}`;
+      if (!this.changes.has(key)) {
+        this.changes.set(key, {
+          x: pixel.x,
+          y: pixel.y,
+          prev: pixelStore.getPixel(pixel.x, pixel.y),
+          next: pixel.paletteIndex,
+        });
+      } else {
+        const entry = this.changes.get(key);
+        if (entry) {
+          entry.next = pixel.paletteIndex;
+        }
+      }
+      pixelsToCommit.push({ x: pixel.x, y: pixel.y, paletteIndex: pixel.paletteIndex });
+    }
+
+    pixelStore.setPixels(pixelsToCommit);
+    useHistoryStore.getState().pushBatch({ changes: Array.from(this.changes.values()) });
+    preview.clear();
+    this.changes.clear();
+    this.drawing = false;
+    this.lastCursor = null;
+    this.rng = null;
+    this.lastFrameTime = 0;
+    this.emissionBudget = 0;
+  };
+
+  onCancel = () => {
+    this.stopLoop();
+    usePreviewStore.getState().clear();
+    this.changes.clear();
+    this.drawing = false;
+    this.lastCursor = null;
+    this.rng = null;
+    this.lastFrameTime = 0;
+    this.emissionBudget = 0;
+  };
+}

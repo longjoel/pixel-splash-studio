@@ -9,6 +9,7 @@ import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
 import { useToolStore } from './state/toolStore';
 import { useBrushStore } from './state/brushStore';
+import { useSprayStore } from './state/sprayStore';
 import { useRectangleStore } from './state/rectangleStore';
 import { useOvalStore } from './state/ovalStore';
 import { useSelectionRectangleStore } from './state/selectionRectangleStore';
@@ -125,6 +126,15 @@ const TOOL_ICONS = {
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M4 20l4-1 10-10-3-3-10 10-1 4z" />
       <path d="M14 6l3 3" />
+    </svg>
+  ),
+  spray: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M8 10h6l2 2v2H8z" />
+      <path d="M6 12h2" />
+      <path d="M17 12h1.5" />
+      <path d="M12 6v4" />
+      <path d="M15 16l.8.8M13 17.5l.5 1M10.5 17.2l-.7.9M9 16l-1 1" />
     </svg>
   ),
   line: (
@@ -290,6 +300,7 @@ const buildMemorySummary = () => {
   const uiState = {
     tool: stripFunctions(useToolStore.getState() as Record<string, unknown>),
     brush: stripFunctions(useBrushStore.getState() as Record<string, unknown>),
+    spray: stripFunctions(useSprayStore.getState() as Record<string, unknown>),
     rectangle: stripFunctions(useRectangleStore.getState() as Record<string, unknown>),
     oval: stripFunctions(useOvalStore.getState() as Record<string, unknown>),
     selection: stripFunctions(useSelectionRectangleStore.getState() as Record<string, unknown>),
@@ -356,6 +367,12 @@ const App = () => {
   const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
   const brushSize = useBrushStore((state) => state.size);
   const brushShape = useBrushStore((state) => state.shape);
+  const sprayRadius = useSprayStore((state) => state.radius);
+  const sprayDensity = useSprayStore((state) => state.density);
+  const sprayFalloff = useSprayStore((state) => state.falloff);
+  const sprayMode = useSprayStore((state) => state.mode);
+  const sprayDeterministic = useSprayStore((state) => state.deterministic);
+  const spraySeed = useSprayStore((state) => state.seed);
   const rectangleMode = useRectangleStore((state) => state.mode);
   const setRectangleMode = useRectangleStore((state) => state.setMode);
   const ovalMode = useOvalStore((state) => state.mode);
@@ -418,6 +435,12 @@ const App = () => {
   );
   const setBrushSize = useBrushStore((state) => state.setSize);
   const setBrushShape = useBrushStore((state) => state.setShape);
+  const setSprayRadius = useSprayStore((state) => state.setRadius);
+  const setSprayDensity = useSprayStore((state) => state.setDensity);
+  const setSprayFalloff = useSprayStore((state) => state.setFalloff);
+  const setSprayMode = useSprayStore((state) => state.setMode);
+  const setSprayDeterministic = useSprayStore((state) => state.setDeterministic);
+  const setSpraySeed = useSprayStore((state) => state.setSeed);
   const paletteColors = usePaletteStore((state) => state.colors);
   const referenceSnap = useReferenceHandleStore((state) => state.snap);
   const setReferenceSnap = useReferenceHandleStore((state) => state.setSnap);
@@ -906,6 +929,16 @@ const App = () => {
                     <button
                       type="button"
                       className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'spray'}
+                      onClick={() => setActiveTool('spray')}
+                      title="Spray"
+                      aria-label="Spray"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.spray}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
                       data-active={activeTool === 'line'}
                       onClick={() => setActiveTool('line')}
                       title="Line"
@@ -1134,6 +1167,154 @@ const App = () => {
                               </span>
                             </button>
                           ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : activeTool === 'spray' ? (
+                    <>
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Radius</span>
+                          <div className="panel__stack">
+                            <input
+                              type="range"
+                              className="panel__range"
+                              aria-label="Radius"
+                              min={1}
+                              max={64}
+                              step={1}
+                              value={sprayRadius}
+                              onChange={(event) =>
+                                setSprayRadius(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Radius"
+                              min={1}
+                              max={64}
+                              step={1}
+                              value={sprayRadius}
+                              onChange={(event) =>
+                                setSprayRadius(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                          </div>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Density</span>
+                          <div className="panel__stack">
+                            <input
+                              type="range"
+                              className="panel__range"
+                              aria-label="Density"
+                              min={10}
+                              max={2000}
+                              step={10}
+                              value={Math.min(2000, sprayDensity)}
+                              onChange={(event) =>
+                                setSprayDensity(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Density"
+                              min={1}
+                              max={20000}
+                              step={10}
+                              value={sprayDensity}
+                              onChange={(event) =>
+                                setSprayDensity(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="panel__row">
+                        <div className="panel__group">
+                          <span className="panel__label">Falloff</span>
+                          <div className="panel__stack">
+                            <input
+                              type="range"
+                              className="panel__range"
+                              aria-label="Falloff"
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={sprayFalloff}
+                              onChange={(event) =>
+                                setSprayFalloff(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Falloff"
+                              min={0}
+                              max={1}
+                              step={0.05}
+                              value={sprayFalloff}
+                              onChange={(event) =>
+                                setSprayFalloff(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="panel__row panel__row--dual">
+                        <div className="panel__group">
+                          <span className="panel__label">Mode</span>
+                          <div className="panel__toggle-group">
+                            <button
+                              type="button"
+                              className="panel__toggle"
+                              data-active={sprayMode === 'single-color'}
+                              onClick={() => setSprayMode('single-color')}
+                            >
+                              Single
+                            </button>
+                            <button
+                              type="button"
+                              className="panel__toggle"
+                              data-active={sprayMode === 'dither'}
+                              onClick={() => setSprayMode('dither')}
+                            >
+                              Dither
+                            </button>
+                          </div>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Tests</span>
+                          <div className="panel__stack">
+                            <label
+                              className="panel__toggle"
+                              data-active={sprayDeterministic}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={sprayDeterministic}
+                                onChange={() =>
+                                  setSprayDeterministic(!sprayDeterministic)
+                                }
+                              />
+                              Deterministic
+                            </label>
+                            <input
+                              type="number"
+                              className="panel__number"
+                              aria-label="Seed"
+                              min={0}
+                              max={4294967295}
+                              step={1}
+                              value={spraySeed}
+                              disabled={!sprayDeterministic}
+                              onChange={(event) =>
+                                setSpraySeed(event.currentTarget.valueAsNumber)
+                              }
+                            />
+                          </div>
                         </div>
                       </div>
                     </>
