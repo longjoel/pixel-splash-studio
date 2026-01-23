@@ -23,6 +23,16 @@ type TileMapPayload = {
   tiles: number[];
 };
 
+type PixelLayerInfoPayload = {
+  id: string;
+  name: string;
+  visible: boolean;
+};
+
+type PixelLayerPayload = PixelLayerInfoPayload & {
+  blocks: Array<{ row: number; col: number; data: Uint8Array }>;
+};
+
 type ProjectPayload = {
   data: {
     palette: {
@@ -36,8 +46,14 @@ type ProjectPayload = {
       zoom: number;
     };
     history?: {
-      undoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
-      redoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
+      undoStack: Array<{
+        layerId?: string;
+        changes: Array<{ x: number; y: number; prev: number; next: number }>;
+      }>;
+      redoStack: Array<{
+        layerId?: string;
+        changes: Array<{ x: number; y: number; prev: number; next: number }>;
+      }>;
     };
     references?: Array<{
       id: string;
@@ -55,8 +71,13 @@ type ProjectPayload = {
     }>;
     tileSets?: TileSetPayload[];
     tileMaps?: TileMapPayload[];
+    pixelLayers?: {
+      layers: PixelLayerInfoPayload[];
+      activeLayerId?: string;
+    };
   };
-  blocks: Array<{ row: number; col: number; data: Uint8Array }>;
+  layers?: PixelLayerPayload[];
+  blocks?: Array<{ row: number; col: number; data: Uint8Array }>;
   referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
 };
 

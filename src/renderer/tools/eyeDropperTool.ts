@@ -7,7 +7,7 @@ import { usePreviewStore } from '@/state/previewStore';
 const pickColorAtCursor = (cursor: CursorState) => {
   const gridX = Math.floor(cursor.canvasX / PIXEL_SIZE);
   const gridY = Math.floor(cursor.canvasY / PIXEL_SIZE);
-  const paletteIndex = usePixelStore.getState().getPixel(gridX, gridY);
+  const paletteIndex = usePixelStore.getState().getPixelComposite(gridX, gridY);
   const palette = usePaletteStore.getState();
   if (cursor.secondary || cursor.ctrl) {
     palette.setSecondary(paletteIndex);

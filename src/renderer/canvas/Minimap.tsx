@@ -10,25 +10,26 @@ import { MIN_WORLD_SIZE } from '../../constants';
 
 const getPixelBounds = () => {
   const pixelStore = usePixelStore.getState();
-  const blocks = pixelStore.store.getBlocks();
   let minX = Infinity;
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
 
-  for (const { row, col, block } of blocks) {
-    for (let y = 0; y < BLOCK_SIZE; y += 1) {
-      for (let x = 0; x < BLOCK_SIZE; x += 1) {
-        const paletteIndex = block[y * BLOCK_SIZE + x];
-        if (paletteIndex === 0) {
-          continue;
+  for (const layer of pixelStore.layers) {
+    for (const { row, col, block } of layer.store.getBlocks()) {
+      for (let y = 0; y < BLOCK_SIZE; y += 1) {
+        for (let x = 0; x < BLOCK_SIZE; x += 1) {
+          const paletteIndex = block[y * BLOCK_SIZE + x];
+          if (paletteIndex === 0) {
+            continue;
+          }
+          const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
+          const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
+          minX = Math.min(minX, worldX);
+          minY = Math.min(minY, worldY);
+          maxX = Math.max(maxX, worldX + PIXEL_SIZE);
+          maxY = Math.max(maxY, worldY + PIXEL_SIZE);
         }
-        const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
-        const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
-        minX = Math.min(minX, worldX);
-        minY = Math.min(minY, worldY);
-        maxX = Math.max(maxX, worldX + PIXEL_SIZE);
-        maxY = Math.max(maxY, worldY + PIXEL_SIZE);
       }
     }
   }
@@ -140,31 +141,35 @@ const drawMinimap = (
   context.stroke();
 
   const pixelStore = usePixelStore.getState();
-  const blocks = pixelStore.store.getBlocks();
   let blocksDrawn = 0;
   let pixelsDrawn = 0;
   if (useLayerVisibilityStore.getState().showPixelLayer) {
     const pixelScale = scale * PIXEL_SIZE;
     const sampleStride = Math.max(1, Math.floor(1 / Math.max(pixelScale * 0.75, 0.01)));
-    for (const { row, col, block } of blocks) {
-      blocksDrawn += 1;
-      for (let y = 0; y < BLOCK_SIZE; y += sampleStride) {
-        for (let x = 0; x < BLOCK_SIZE; x += sampleStride) {
-          const paletteIndex = block[y * BLOCK_SIZE + x];
-          if (paletteIndex === 0) {
-            continue;
+    for (const layer of pixelStore.layers) {
+      if (!layer.visible) {
+        continue;
+      }
+      for (const { row, col, block } of layer.store.getBlocks()) {
+        blocksDrawn += 1;
+        for (let y = 0; y < BLOCK_SIZE; y += sampleStride) {
+          for (let x = 0; x < BLOCK_SIZE; x += sampleStride) {
+            const paletteIndex = block[y * BLOCK_SIZE + x];
+            if (paletteIndex === 0) {
+              continue;
+            }
+            pixelsDrawn += 1;
+            const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
+            const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
+            context.fillStyle = palette[paletteIndex] ?? palette[0];
+            const pixelSize = Math.max(1, pixelScale * sampleStride);
+            context.fillRect(
+              offsetX + worldX * scale,
+              offsetY + worldY * scale,
+              pixelSize,
+              pixelSize
+            );
           }
-          pixelsDrawn += 1;
-          const worldX = (col * BLOCK_SIZE + x) * PIXEL_SIZE;
-          const worldY = (row * BLOCK_SIZE + y) * PIXEL_SIZE;
-          context.fillStyle = palette[paletteIndex] ?? palette[0];
-          const pixelSize = Math.max(1, pixelScale * sampleStride);
-          context.fillRect(
-            offsetX + worldX * scale,
-            offsetY + worldY * scale,
-            pixelSize,
-            pixelSize
-          );
         }
       }
     }

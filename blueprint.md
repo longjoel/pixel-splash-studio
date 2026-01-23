@@ -8,11 +8,15 @@ Canvas
  - pixels are written to the canvas as batches
  - these batches will be stored to handle undo / redo
  - pixels (x, y, color) are indexed against a Palette
- - pixels are stored in blocks, 64 x 64 pixels (layer 1)
+ - pixel layers are stored in blocks, 64 x 64 pixels (per pixel layer)
     - blocks are stored in rows. block[row][col] - this keeps it quick to look up, densly packed
     - to set a pixel, you must find it's block address [row] (divide y by 64) (keep in mind negitive space) [col] how far away from 0 the block is on the y axis.
     - take the remainder (remember for negitive space) to find the local x,y
     - fastest to copy line by line, block by block, or even block spans
+ - pixel layers (stacked, editable)
+    - active pixel layer is the only layer tools write to
+    - visibility toggles affect rendering + composite reads (eyedropper / tile sampling / deep-copy)
+    - reorder changes stacking order (topmost visible non-zero pixel wins)
  - Selection mask (layer 2)
     - a collection of blocks similar to the pixel layer, but a boolean mask for each pixel, in a given range over a viewport
     - you can paint the selection layer just like the pixel layer, but only two values, on and off, 0x00000000 | 0xFFFFFFFF
@@ -118,6 +122,13 @@ UI layout
  - drawing tools are disabled below 0.6 zoom with a disabled cursor
  - options menu includes a performance logging toggle
  - options menu includes a memory usage toggle that reports state sizes in the window bar
+ - selection copy modes
+    - Copy Selection (Ctrl+C): copies from the active pixel layer only
+    - Deep Copy Selection (Ctrl+Shift+C): copies a merged view of the active layer + all visible layers
+    - paste/stamp always writes into the active pixel layer (never spreads across layers)
+ - documentation
+    - `docs/index.html` is the public “help site” (GitHub Pages-style)
+    - `docs/tutorials.html` contains short, practical tool tutorials (screenshots optional)
 
 File menu and persistence
  - New/Open/Save/Save As live in the app menu (no header buttons)

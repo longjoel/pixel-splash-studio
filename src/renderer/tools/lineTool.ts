@@ -47,6 +47,7 @@ const drawLine = (
 export class LineTool implements Tool {
   id = 'line';
   private start: { x: number; y: number } | null = null;
+  private layerId: string | null = null;
   private activeIndex = 0;
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
 
@@ -66,6 +67,7 @@ export class LineTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     const palette = usePaletteStore.getState();
+    this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
@@ -104,6 +106,7 @@ export class LineTool implements Tool {
     }
     const preview = usePreviewStore.getState();
     const pixelStore = usePixelStore.getState();
+    const layerId = this.layerId ?? pixelStore.activeLayerId;
     this.changes.clear();
     for (const pixel of preview.entries()) {
       const key = `${pixel.x}:${pixel.y}`;
@@ -111,7 +114,7 @@ export class LineTool implements Tool {
         this.changes.set(key, {
           x: pixel.x,
           y: pixel.y,
-          prev: pixelStore.getPixel(pixel.x, pixel.y),
+          prev: pixelStore.getPixelInLayer(layerId, pixel.x, pixel.y),
           next: pixel.paletteIndex,
         });
       } else {
@@ -120,12 +123,13 @@ export class LineTool implements Tool {
           entry.next = pixel.paletteIndex;
         }
       }
-      pixelStore.setPixel(pixel.x, pixel.y, pixel.paletteIndex);
+      pixelStore.setPixelInLayer(layerId, pixel.x, pixel.y, pixel.paletteIndex);
     }
     const history = useHistoryStore.getState();
-    history.pushBatch({ changes: Array.from(this.changes.values()) });
+    history.pushBatch({ layerId, changes: Array.from(this.changes.values()) });
     preview.clear();
     this.start = null;
+    this.layerId = null;
     this.changes.clear();
   };
 
@@ -133,6 +137,7 @@ export class LineTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     this.start = null;
+    this.layerId = null;
     this.changes.clear();
   };
 }

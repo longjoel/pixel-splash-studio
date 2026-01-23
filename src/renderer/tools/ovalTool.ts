@@ -146,6 +146,7 @@ const drawOutlineOval = (
 export class OvalTool implements Tool {
   id = 'oval';
   private start: { x: number; y: number } | null = null;
+  private layerId: string | null = null;
   private activeIndex = 0;
   private activePrimary = 0;
   private activeSecondary = 0;
@@ -155,6 +156,7 @@ export class OvalTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     const palette = usePaletteStore.getState();
+    this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
     this.activePrimary = palette.primaryIndex;
     this.activeSecondary = palette.secondaryIndex;
@@ -193,6 +195,7 @@ export class OvalTool implements Tool {
     }
     const preview = usePreviewStore.getState();
     const pixelStore = usePixelStore.getState();
+    const layerId = this.layerId ?? pixelStore.activeLayerId;
     this.changes.clear();
     const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
     for (const pixel of preview.entries()) {
@@ -201,7 +204,7 @@ export class OvalTool implements Tool {
         this.changes.set(key, {
           x: pixel.x,
           y: pixel.y,
-          prev: pixelStore.getPixel(pixel.x, pixel.y),
+          prev: pixelStore.getPixelInLayer(layerId, pixel.x, pixel.y),
           next: pixel.paletteIndex,
         });
       } else {
@@ -213,12 +216,13 @@ export class OvalTool implements Tool {
       pixelsToCommit.push({ x: pixel.x, y: pixel.y, paletteIndex: pixel.paletteIndex });
     }
     if (pixelsToCommit.length > 0) {
-      pixelStore.setPixels(pixelsToCommit);
+      pixelStore.setPixelsInLayer(layerId, pixelsToCommit);
       const history = useHistoryStore.getState();
-      history.pushBatch({ changes: Array.from(this.changes.values()) });
+      history.pushBatch({ layerId, changes: Array.from(this.changes.values()) });
     }
     preview.clear();
     this.start = null;
+    this.layerId = null;
     this.changes.clear();
   };
 
@@ -226,6 +230,7 @@ export class OvalTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     this.start = null;
+    this.layerId = null;
     this.changes.clear();
   };
 }

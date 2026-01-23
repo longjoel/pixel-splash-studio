@@ -10,6 +10,7 @@ type PixelChange = {
 };
 
 type HistoryBatch = {
+  layerId?: string;
   changes: PixelChange[];
 };
 
@@ -34,8 +35,12 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
       return;
     }
     useProjectStore.getState().setDirty(true);
+    const resolvedBatch = {
+      layerId: batch.layerId ?? usePixelStore.getState().activeLayerId,
+      changes: batch.changes,
+    } satisfies HistoryBatch;
     set((state) => ({
-      undoStack: [...state.undoStack, batch].slice(-8),
+      undoStack: [...state.undoStack, resolvedBatch].slice(-8),
       redoStack: [],
     }));
   },
@@ -50,8 +55,9 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     }
     useProjectStore.getState().setDirty(true);
     const pixelStore = usePixelStore.getState();
+    const layerId = batch.layerId ?? pixelStore.activeLayerId;
     for (const change of batch.changes) {
-      pixelStore.setPixel(change.x, change.y, change.prev);
+      pixelStore.setPixelInLayer(layerId, change.x, change.y, change.prev);
     }
     set((storeState) => ({
       undoStack: storeState.undoStack.slice(0, -1),
@@ -69,8 +75,9 @@ export const useHistoryStore = create<HistoryState>((set, get) => ({
     }
     useProjectStore.getState().setDirty(true);
     const pixelStore = usePixelStore.getState();
+    const layerId = batch.layerId ?? pixelStore.activeLayerId;
     for (const change of batch.changes) {
-      pixelStore.setPixel(change.x, change.y, change.next);
+      pixelStore.setPixelInLayer(layerId, change.x, change.y, change.next);
     }
     set((storeState) => ({
       undoStack: [...storeState.undoStack, batch].slice(-8),

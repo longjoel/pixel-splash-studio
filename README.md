@@ -24,6 +24,11 @@ It focuses on a responsive “infinite canvas” workflow: paint pixels in block
 ![Tracing references](docs/003-%20tracing%20references.png)
 ![Example art](docs/marty%20the%20wizzard.png)
 
+## Docs
+
+- Home: `docs/index.html`
+- Tutorials: `docs/tutorials.html`
+
 ## Getting Started
 
 ### Prerequisites

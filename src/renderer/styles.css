@@ -781,6 +781,59 @@ body {
   gap: 12px;
 }
 
+.layers-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.layers-panel__actions {
+  display: flex;
+  gap: 8px;
+}
+
+.layers-panel__list {
+  display: grid;
+  gap: 8px;
+}
+
+.layers-panel__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  cursor: pointer;
+}
+
+.layers-panel__row[data-active='true'] {
+  border-color: rgba(245, 197, 66, 0.8);
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.2);
+}
+
+.layers-panel__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.layers-panel__name {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.25);
+  color: rgba(255, 255, 255, 0.85);
+  padding: 6px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+.layers-panel__move {
+  display: flex;
+  gap: 6px;
+}
+
 .nav-panel__section {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);

@@ -5,6 +5,7 @@ import { usePixelStore } from '@/state/pixelStore';
 type LargeOperation = {
   id: string;
   label: string;
+  layerId: string;
   changes: PixelChange[];
   index: number;
   chunkSize: number;
@@ -94,11 +95,11 @@ const processFrame = () => {
     }
 
     if (pixels.length > 0) {
-      pixelStore.setPixels(pixels);
+      pixelStore.setPixelsInLayer(operation.layerId, pixels);
     }
 
     if (operation.index >= operation.changes.length) {
-      useHistoryStore.getState().pushBatch({ changes: operation.changes });
+      useHistoryStore.getState().pushBatch({ layerId: operation.layerId, changes: operation.changes });
       queue.shift();
       if (queue.length === 0) {
         useHistoryStore.getState().setLocked(false);
@@ -133,6 +134,7 @@ export const enqueuePixelChanges = (changes: PixelChange[], options: EnqueueOpti
   nextOperationId += 1;
 
   const label = options.label?.trim() ? options.label.trim() : 'Operation';
+  const layerId = usePixelStore.getState().activeLayerId;
   const chunkSize =
     typeof options.chunkSize === 'number' && options.chunkSize > 0
       ? Math.floor(options.chunkSize)
@@ -141,7 +143,7 @@ export const enqueuePixelChanges = (changes: PixelChange[], options: EnqueueOpti
     typeof options.timeBudgetMs === 'number' && options.timeBudgetMs > 0
       ? options.timeBudgetMs
       : DEFAULT_TIME_BUDGET_MS;
-  queue.push({ id, label, changes, index: 0, chunkSize, timeBudgetMs });
+  queue.push({ id, label, layerId, changes, index: 0, chunkSize, timeBudgetMs });
 
   const opBlockCounts = new Map<string, number>();
   for (const change of changes) {
