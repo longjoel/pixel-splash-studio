@@ -13,7 +13,32 @@ type CollectedSelection = {
   maxY: number;
 };
 
-const collectSelectionPixels = (): CollectedSelection | null => {
+type CopySelectionOptions = {
+  deep?: boolean;
+};
+
+const getDeepCopyPaletteIndex = (x: number, y: number) => {
+  const pixelStore = usePixelStore.getState();
+  const activeLayerId = pixelStore.activeLayerId;
+  const included = new Set(
+    pixelStore.layers
+      .filter((layer) => layer.id === activeLayerId || layer.visible)
+      .map((layer) => layer.id)
+  );
+  for (let i = pixelStore.layers.length - 1; i >= 0; i -= 1) {
+    const layer = pixelStore.layers[i];
+    if (!included.has(layer.id)) {
+      continue;
+    }
+    const value = layer.store.getPixel(x, y);
+    if (value !== 0) {
+      return value;
+    }
+  }
+  return 0;
+};
+
+const collectSelectionPixels = (options: CopySelectionOptions = {}): CollectedSelection | null => {
   const selection = useSelectionStore.getState();
   if (selection.selectedCount === 0) {
     return null;
@@ -24,6 +49,7 @@ const collectSelectionPixels = (): CollectedSelection | null => {
   let maxX = Number.NEGATIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
+  const deep = options.deep === true;
 
   const blocks = selection.store.getBlocks();
   for (const { row, col, block } of blocks) {
@@ -36,7 +62,9 @@ const collectSelectionPixels = (): CollectedSelection | null => {
         }
         const worldX = baseX + x;
         const worldY = baseY + y;
-        const paletteIndex = pixelStore.getPixel(worldX, worldY);
+        const paletteIndex = deep
+          ? getDeepCopyPaletteIndex(worldX, worldY)
+          : pixelStore.getPixel(worldX, worldY);
         pixels.push({ x: worldX, y: worldY, paletteIndex });
         minX = Math.min(minX, worldX);
         maxX = Math.max(maxX, worldX);
@@ -70,8 +98,8 @@ const commitClipboard = (selection: CollectedSelection) => {
   });
 };
 
-export const copySelectionToClipboard = () => {
-  const selection = collectSelectionPixels();
+export const copySelectionToClipboard = (options: CopySelectionOptions = {}) => {
+  const selection = collectSelectionPixels(options);
   if (!selection) {
     return;
   }

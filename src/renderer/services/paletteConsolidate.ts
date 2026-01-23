@@ -46,14 +46,17 @@ export const consolidatePalette = () => {
   );
 
   const pixelStore = usePixelStore.getState();
-  const remappedBlocks = pixelStore.store.getBlocks().map(({ row, col, block }) => {
-    const data = new Uint8Array(block.length);
-    for (let i = 0; i < block.length; i += 1) {
-      data[i] = mapIndex(block[i]);
-    }
-    return { row, col, data };
-  });
-  pixelStore.loadBlocks(remappedBlocks);
+  const remappedLayers = pixelStore.exportLayerPayloads().map((layer) => ({
+    ...layer,
+    blocks: layer.blocks.map(({ row, col, data: source }) => {
+      const data = new Uint8Array(source.length);
+      for (let i = 0; i < source.length; i += 1) {
+        data[i] = mapIndex(source[i]);
+      }
+      return { row, col, data };
+    }),
+  }));
+  pixelStore.loadLayerPayloads(remappedLayers, pixelStore.activeLayerId);
 
   const previewStore = usePreviewStore.getState();
   for (const [key, pixel] of previewStore.pixels.entries()) {
@@ -79,7 +82,11 @@ export const consolidatePalette = () => {
   }
 
   const historyStore = useHistoryStore.getState();
-  const remapBatch = (batch: { changes: Array<{ x: number; y: number; prev: number; next: number }> }) => ({
+  const remapBatch = (batch: {
+    layerId?: string;
+    changes: Array<{ x: number; y: number; prev: number; next: number }>;
+  }) => ({
+    layerId: batch.layerId,
     changes: batch.changes.map((change) => ({
       ...change,
       prev: mapIndex(change.prev),

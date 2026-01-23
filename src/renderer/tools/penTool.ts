@@ -53,6 +53,7 @@ const drawPoint = (cursor: CursorState, paletteIndex: number) => {
 export class PenTool implements Tool {
   id = 'pen';
   private drawing = false;
+  private layerId: string | null = null;
   private activeIndex = 0;
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
   private lastPoint: { x: number; y: number } | null = null;
@@ -71,6 +72,7 @@ export class PenTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     const palette = usePaletteStore.getState();
+    this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
     this.drawing = true;
     this.changes.clear();
@@ -128,6 +130,7 @@ export class PenTool implements Tool {
     const start = performance.now();
     const preview = usePreviewStore.getState();
     const pixelStore = usePixelStore.getState();
+    const layerId = this.layerId ?? pixelStore.activeLayerId;
     const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
     let entryCount = 0;
     for (const pixel of preview.entries()) {
@@ -137,7 +140,7 @@ export class PenTool implements Tool {
         this.changes.set(key, {
           x: pixel.x,
           y: pixel.y,
-          prev: pixelStore.getPixel(pixel.x, pixel.y),
+          prev: pixelStore.getPixelInLayer(layerId, pixel.x, pixel.y),
           next: pixel.paletteIndex,
         });
       } else {
@@ -148,14 +151,15 @@ export class PenTool implements Tool {
       }
       pixelsToCommit.push({ x: pixel.x, y: pixel.y, paletteIndex: pixel.paletteIndex });
     }
-    pixelStore.setPixels(pixelsToCommit);
+    pixelStore.setPixelsInLayer(layerId, pixelsToCommit);
     const afterPixels = performance.now();
     const history = useHistoryStore.getState();
-    history.pushBatch({ changes: Array.from(this.changes.values()) });
+    history.pushBatch({ layerId, changes: Array.from(this.changes.values()) });
     const afterHistory = performance.now();
     this.changes.clear();
     preview.clear();
     this.drawing = false;
+    this.layerId = null;
     this.lastPoint = null;
     const end = performance.now();
     window.debugApi?.logPerf(
@@ -174,6 +178,7 @@ export class PenTool implements Tool {
     preview.clear();
     this.changes.clear();
     this.drawing = false;
+    this.layerId = null;
     this.lastPoint = null;
   };
 }

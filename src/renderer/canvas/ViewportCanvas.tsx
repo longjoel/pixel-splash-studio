@@ -218,7 +218,7 @@ const buildTileCanvas = (
   return { canvas };
 };
 
-const drawPixelLayer = (
+const drawPixelLayers = (
   context: CanvasRenderingContext2D,
   viewX: number,
   viewY: number,
@@ -228,39 +228,44 @@ const drawPixelLayer = (
   blockCache: Map<string, BlockCacheEntry>
 ) => {
   const pixelStore = usePixelStore.getState();
-  const blocks = pixelStore.store.getBlocks();
   let blocksDrawn = 0;
   let pixelsDrawn = 0;
-  for (const { row, col, block } of blocks) {
-    const blockX = col * BLOCK_SIZE;
-    const blockY = row * BLOCK_SIZE;
-    const blockLeft = blockX * PIXEL_SIZE;
-    const blockTop = blockY * PIXEL_SIZE;
-    const blockRight = blockLeft + BLOCK_SIZE * PIXEL_SIZE;
-    const blockBottom = blockTop + BLOCK_SIZE * PIXEL_SIZE;
-    if (
-      blockRight < viewX ||
-      blockBottom < viewY ||
-      blockLeft > viewX + viewWidth ||
-      blockTop > viewY + viewHeight
-    ) {
+  for (const layer of pixelStore.layers) {
+    if (!layer.visible) {
       continue;
     }
-
-    blocksDrawn += 1;
-    const key = `${row}:${col}`;
-    let cached = blockCache.get(key);
-    if (!cached) {
-      const rebuilt = buildBlockCanvas(block, palette);
-      if (rebuilt) {
-        cached = rebuilt;
-        blockCache.set(key, rebuilt);
+    const blocks = layer.store.getBlocks();
+    for (const { row, col, block } of blocks) {
+      const blockX = col * BLOCK_SIZE;
+      const blockY = row * BLOCK_SIZE;
+      const blockLeft = blockX * PIXEL_SIZE;
+      const blockTop = blockY * PIXEL_SIZE;
+      const blockRight = blockLeft + BLOCK_SIZE * PIXEL_SIZE;
+      const blockBottom = blockTop + BLOCK_SIZE * PIXEL_SIZE;
+      if (
+        blockRight < viewX ||
+        blockBottom < viewY ||
+        blockLeft > viewX + viewWidth ||
+        blockTop > viewY + viewHeight
+      ) {
+        continue;
       }
-    }
 
-    if (cached) {
-      pixelsDrawn += cached.pixels;
-      context.drawImage(cached.canvas, blockLeft, blockTop);
+      blocksDrawn += 1;
+      const key = `${layer.id}:${row}:${col}`;
+      let cached = blockCache.get(key);
+      if (!cached) {
+        const rebuilt = buildBlockCanvas(block, palette);
+        if (rebuilt) {
+          cached = rebuilt;
+          blockCache.set(key, rebuilt);
+        }
+      }
+
+      if (cached) {
+        pixelsDrawn += cached.pixels;
+        context.drawImage(cached.canvas, blockLeft, blockTop);
+      }
     }
   }
   return { blocksDrawn, pixelsDrawn };
@@ -737,8 +742,11 @@ const ViewportCanvas = () => {
         blockCacheRef.current.clear();
       }
       for (const dirty of dirtyBlocks) {
-        const key = `${dirty.row}:${dirty.col}`;
-        const block = usePixelStore.getState().store.getBlock(dirty.row, dirty.col);
+        const key = `${dirty.layerId}:${dirty.row}:${dirty.col}`;
+        const layer = usePixelStore
+          .getState()
+          .layers.find((candidate) => candidate.id === dirty.layerId);
+        const block = layer?.store.getBlock(dirty.row, dirty.col);
         if (!block) {
           blockCacheRef.current.delete(key);
           continue;
@@ -777,7 +785,7 @@ const ViewportCanvas = () => {
       let blocksDrawn = 0;
       let pixelsDrawn = 0;
       if (layers.showPixelLayer) {
-        const pixelMetrics = drawPixelLayer(
+        const pixelMetrics = drawPixelLayers(
           context,
           state.camera.x,
           state.camera.y,

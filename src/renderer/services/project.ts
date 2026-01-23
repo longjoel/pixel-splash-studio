@@ -78,12 +78,16 @@ export const buildProjectPayload = () => {
       references: referenceData.length > 0 ? referenceData : undefined,
       tileSets: tileStore.tileSets.length > 0 ? tileStore.tileSets : undefined,
       tileMaps: tileStore.tileMaps.length > 0 ? tileStore.tileMaps : undefined,
+      pixelLayers: {
+        layers: pixelStore.layers.map((layer) => ({
+          id: layer.id,
+          name: layer.name,
+          visible: layer.visible,
+        })),
+        activeLayerId: pixelStore.activeLayerId,
+      },
     },
-    blocks: pixelStore.store.getBlocks().map((block) => ({
-      row: block.row,
-      col: block.col,
-      data: block.block,
-    })),
+    layers: pixelStore.exportLayerPayloads(),
     referenceFiles:
       referenceFiles.size > 0 ? Array.from(referenceFiles.values()) : undefined,
   } satisfies ProjectPayload;
@@ -103,7 +107,13 @@ export const applyProjectPayload = async (payload: ProjectPayload) => {
   viewport.setCamera(payload.data.camera);
 
   const pixelStore = usePixelStore.getState();
-  pixelStore.loadBlocks(payload.blocks);
+  if (payload.layers && payload.layers.length > 0) {
+    pixelStore.loadLayerPayloads(payload.layers, payload.data.pixelLayers?.activeLayerId);
+  } else if (payload.blocks) {
+    pixelStore.loadBlocks(payload.blocks);
+  } else {
+    pixelStore.clear();
+  }
 
   const preview = usePreviewStore.getState();
   preview.clear();

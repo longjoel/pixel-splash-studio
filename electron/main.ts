@@ -431,8 +431,14 @@ export type ProjectPayload = {
       zoom: number;
     };
     history?: {
-      undoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
-      redoStack: Array<{ changes: Array<{ x: number; y: number; prev: number; next: number }> }>;
+      undoStack: Array<{
+        layerId?: string;
+        changes: Array<{ x: number; y: number; prev: number; next: number }>;
+      }>;
+      redoStack: Array<{
+        layerId?: string;
+        changes: Array<{ x: number; y: number; prev: number; next: number }>;
+      }>;
     };
     references?: Array<{
       id: string;
@@ -469,8 +475,18 @@ export type ProjectPayload = {
       rows: number;
       tiles: number[];
     }>;
+    pixelLayers?: {
+      layers: Array<{ id: string; name: string; visible: boolean }>;
+      activeLayerId?: string;
+    };
   };
-  blocks: Array<{ row: number; col: number; data: Uint8Array }>;
+  layers?: Array<{
+    id: string;
+    name: string;
+    visible: boolean;
+    blocks: Array<{ row: number; col: number; data: Uint8Array }>;
+  }>;
+  blocks?: Array<{ row: number; col: number; data: Uint8Array }>;
   referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
 };
 
@@ -483,11 +499,19 @@ const writeProjectToPath = (payload: ProjectPayload, filePath: string) =>
   new Promise<void>((resolve, reject) => {
     const transferList: ArrayBuffer[] = [];
     const seenBuffers = new Set<ArrayBuffer>();
-    for (const block of payload.blocks) {
-      const buffer = block.data.buffer;
-      if (buffer instanceof ArrayBuffer && !seenBuffers.has(buffer)) {
-        seenBuffers.add(buffer);
-        transferList.push(buffer);
+    const layerEntries =
+      payload.layers && payload.layers.length > 0
+        ? payload.layers
+        : payload.blocks
+          ? [{ id: 'legacy', name: 'Layer 1', visible: true, blocks: payload.blocks }]
+          : [];
+    for (const layer of layerEntries) {
+      for (const block of layer.blocks) {
+        const buffer = block.data.buffer;
+        if (buffer instanceof ArrayBuffer && !seenBuffers.has(buffer)) {
+          seenBuffers.add(buffer);
+          transferList.push(buffer);
+        }
       }
     }
     for (const reference of payload.referenceFiles ?? []) {
@@ -531,28 +555,74 @@ const readProjectZip = async (buffer: Buffer) => {
     throw new Error('Missing data.json in project');
   }
   const data = JSON.parse(await dataEntry.async('string'));
+  const layers: Array<{
+    id: string;
+    name: string;
+    visible: boolean;
+    blocks: Array<{ row: number; col: number; data: Uint8Array }>;
+  }> = [];
   const blocks: Array<{ row: number; col: number; data: Uint8Array }> = [];
-  const pixelEntries = zip.folder('pixels');
-  if (pixelEntries) {
-    for (const filename of Object.keys(pixelEntries.files)) {
-      if (!filename.endsWith('.bin')) {
+  const layerEntries = data?.pixelLayers?.layers;
+  if (Array.isArray(layerEntries) && layerEntries.length > 0) {
+    for (const layer of layerEntries) {
+      const layerId = layer?.id;
+      if (typeof layerId !== 'string' || !layerId) {
         continue;
       }
-      const basename = filename.split('/').pop();
-      if (!basename) {
-        continue;
+      const layerFolder = zip.folder(`pixels/${layerId}`);
+      const layerBlocks: Array<{ row: number; col: number; data: Uint8Array }> = [];
+      if (layerFolder) {
+        for (const filename of Object.keys(layerFolder.files)) {
+          if (!filename.endsWith('.bin')) {
+            continue;
+          }
+          const basename = filename.split('/').pop();
+          if (!basename) {
+            continue;
+          }
+          const match = basename.match(/(-?\d+)-(-?\d+)\.bin$/);
+          if (!match) {
+            continue;
+          }
+          const row = Number(match[1]);
+          const col = Number(match[2]);
+          const dataBuffer = await zip.file(filename)?.async('uint8array');
+          if (!dataBuffer) {
+            continue;
+          }
+          layerBlocks.push({ row, col, data: dataBuffer });
+        }
       }
-      const match = basename.match(/(-?\d+)-(-?\d+)\.bin$/);
-      if (!match) {
-        continue;
+      layers.push({
+        id: layerId,
+        name: typeof layer?.name === 'string' ? layer.name : 'Layer',
+        visible: layer?.visible !== false,
+        blocks: layerBlocks,
+      });
+    }
+  } else {
+    const pixelEntries = zip.folder('pixels');
+    if (pixelEntries) {
+      for (const filename of Object.keys(pixelEntries.files)) {
+        if (!filename.endsWith('.bin')) {
+          continue;
+        }
+        const basename = filename.split('/').pop();
+        if (!basename) {
+          continue;
+        }
+        const match = basename.match(/(-?\d+)-(-?\d+)\.bin$/);
+        if (!match) {
+          continue;
+        }
+        const row = Number(match[1]);
+        const col = Number(match[2]);
+        const dataBuffer = await zip.file(filename)?.async('uint8array');
+        if (!dataBuffer) {
+          continue;
+        }
+        blocks.push({ row, col, data: dataBuffer });
       }
-      const row = Number(match[1]);
-      const col = Number(match[2]);
-      const dataBuffer = await zip.file(filename)?.async('uint8array');
-      if (!dataBuffer) {
-        continue;
-      }
-      blocks.push({ row, col, data: dataBuffer });
     }
   }
   const referenceFiles: Array<{ filename: string; data: Uint8Array; type: string }> = [];
@@ -578,7 +648,12 @@ const readProjectZip = async (buffer: Buffer) => {
       referenceTypes.get(basename) || getMimeTypeFromFilename(basename) || 'image/png';
     referenceFiles.push({ filename: basename, data: dataBuffer, type });
   }
-  return { data, blocks, referenceFiles };
+  return {
+    data,
+    layers: layers.length > 0 ? layers : undefined,
+    blocks: blocks.length > 0 ? blocks : undefined,
+    referenceFiles,
+  };
 };
 
 ipcMain.handle('project:save', async (_event, payload: ProjectPayload, existingPath?: string) => {

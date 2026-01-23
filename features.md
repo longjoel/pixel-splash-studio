@@ -6,6 +6,7 @@
 - Pixel grid + tile grid overlays with axis lines
 - Selection mask layer and live preview layer
 - Reference layer rendered under pixels
+- Multiple pixel layers (create, rename, delete, reorder, visibility; tools edit active layer)
 - Block-based rendering (64x64) for performance
 - Minimap with zoom, pan, axis lines, camera readout, and home controls
 - Minimap can collapse/expand
@@ -24,7 +25,8 @@
 - Rectangle selection
 - Oval selection
 - Selection snap modes: pixel or tile
-- Copy selection to clipboard
+- Copy selection to clipboard (active layer only)
+- Deep copy selection (Ctrl+Shift+C): merged active layer + visible layers
 - Cut selection to clipboard
 - Clear selection
 

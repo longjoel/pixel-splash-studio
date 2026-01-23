@@ -276,7 +276,11 @@ const isEditableTarget = (target: EventTarget | null) => {
 };
 
 const buildMemorySummary = () => {
-  const pixelBytes = sumBlockBytes(usePixelStore.getState().store.getBlocks());
+  const pixelStore = usePixelStore.getState();
+  const pixelBytes = pixelStore.layers.reduce(
+    (total, layer) => total + sumBlockBytes(layer.store.getBlocks()),
+    0
+  );
   const selectionBytes = sumBlockBytes(useSelectionStore.getState().store.getBlocks());
   const previewBytes = usePreviewStore.getState().pixels.size * PIXEL_RECORD_BYTES;
   const clipboardBytes = useClipboardStore.getState().pixels.length * PIXEL_RECORD_BYTES;
@@ -587,7 +591,11 @@ const App = () => {
           return;
         }
         event.preventDefault();
-        copySelectionToClipboard();
+        if (event.shiftKey) {
+          copySelectionToClipboard({ deep: true });
+        } else {
+          copySelectionToClipboard();
+        }
       }
       if (key === 'x') {
         if (useSelectionStore.getState().selectedCount === 0) {
@@ -1990,16 +1998,25 @@ const App = () => {
                     <button
                       type="button"
                       className="panel__item"
-                      onClick={copySelectionToClipboard}
+                      onClick={() => copySelectionToClipboard()}
                     >
-                      Copy Selection
+                      Copy Selection (Active Layer)
                     </button>
                   )}
                   {selectionCount > 0 && (
                     <button
                       type="button"
                       className="panel__item"
-                      onClick={cutSelectionToClipboard}
+                      onClick={() => copySelectionToClipboard({ deep: true })}
+                    >
+                      Deep Copy Selection (Merged)
+                    </button>
+                  )}
+                  {selectionCount > 0 && (
+                    <button
+                      type="button"
+                      className="panel__item"
+                      onClick={() => cutSelectionToClipboard()}
                     >
                       Cut Selection
                     </button>
@@ -2105,6 +2122,18 @@ const App = () => {
               <div className="modal__row">
                 <span>Redo</span>
                 <span>Ctrl+Y / Ctrl+Shift+Z</span>
+              </div>
+              <div className="modal__row">
+                <span>Copy Selection (active layer)</span>
+                <span>Ctrl+C</span>
+              </div>
+              <div className="modal__row">
+                <span>Deep Copy Selection (merged)</span>
+                <span>Ctrl+Shift+C</span>
+              </div>
+              <div className="modal__row">
+                <span>Cut Selection</span>
+                <span>Ctrl+X</span>
               </div>
               <div className="modal__row">
                 <span>Trace Palette Range</span>

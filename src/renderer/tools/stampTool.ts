@@ -95,6 +95,7 @@ export class StampTool implements Tool {
   id = 'stamp';
   private cache: TransformCache | null = null;
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
+  private layerId: string | null = null;
   private dragging = false;
   private lastPoint: { x: number; y: number } | null = null;
   private lastAnchor: { x: number; y: number } | null = null;
@@ -196,6 +197,7 @@ export class StampTool implements Tool {
     const selection = useSelectionStore.getState();
     const restrictToSelection = selection.selectedCount > 0;
     const pixelStore = usePixelStore.getState();
+    const layerId = this.layerId ?? pixelStore.activeLayerId;
     const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
 
     for (const pixel of transformed.pixels) {
@@ -207,7 +209,7 @@ export class StampTool implements Tool {
       if (restrictToSelection && !selection.isSelected(worldX, worldY)) {
         continue;
       }
-      const current = pixelStore.getPixel(worldX, worldY);
+      const current = pixelStore.getPixelInLayer(layerId, worldX, worldY);
       if (current === pixel.paletteIndex) {
         continue;
       }
@@ -227,14 +229,18 @@ export class StampTool implements Tool {
       return;
     }
 
-    pixelStore.setPixels(pixelsToCommit);
+    pixelStore.setPixelsInLayer(layerId, pixelsToCommit);
   };
 
   private flushChanges = () => {
     if (this.changes.size === 0) {
       return;
     }
-    useHistoryStore.getState().pushBatch({ changes: Array.from(this.changes.values()) });
+    const pixelStore = usePixelStore.getState();
+    const layerId = this.layerId ?? pixelStore.activeLayerId;
+    useHistoryStore
+      .getState()
+      .pushBatch({ layerId, changes: Array.from(this.changes.values()) });
     this.changes.clear();
   };
 
@@ -282,6 +288,7 @@ export class StampTool implements Tool {
 
   onBegin = (cursor: CursorState) => {
     this.changes.clear();
+    this.layerId = usePixelStore.getState().activeLayerId;
     this.lastAnchor = null;
     const stamp = useStampStore.getState();
     const dragEnabled = stamp.drag;
@@ -320,6 +327,7 @@ export class StampTool implements Tool {
       this.flushChanges();
     }
     this.dragging = false;
+    this.layerId = null;
     this.lastPoint = null;
     this.lastAnchor = null;
     usePreviewStore.getState().clear();
@@ -328,6 +336,7 @@ export class StampTool implements Tool {
   onCancel = () => {
     usePreviewStore.getState().clear();
     this.dragging = false;
+    this.layerId = null;
     this.lastPoint = null;
     this.lastAnchor = null;
     this.changes.clear();

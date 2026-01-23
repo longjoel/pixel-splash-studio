@@ -10,9 +10,29 @@ type WorkerPayload = {
 
 const writeProjectZip = async (payload: ProjectPayload) => {
   const zip = new JSZip();
-  zip.file('data.json', JSON.stringify(payload.data, null, 2));
-  for (const block of payload.blocks) {
-    zip.file(`pixels/${block.row}-${block.col}.bin`, block.data);
+  const data = { ...payload.data };
+  if (!data.pixelLayers && payload.layers && payload.layers.length > 0) {
+    data.pixelLayers = {
+      layers: payload.layers.map((layer) => ({
+        id: layer.id,
+        name: layer.name,
+        visible: layer.visible,
+      })),
+      activeLayerId: payload.layers[0]?.id,
+    };
+  }
+  zip.file('data.json', JSON.stringify(data, null, 2));
+
+  if (payload.layers && payload.layers.length > 0) {
+    for (const layer of payload.layers) {
+      for (const block of layer.blocks) {
+        zip.file(`pixels/${layer.id}/${block.row}-${block.col}.bin`, block.data);
+      }
+    }
+  } else if (payload.blocks) {
+    for (const block of payload.blocks) {
+      zip.file(`pixels/${block.row}-${block.col}.bin`, block.data);
+    }
   }
   for (const reference of payload.referenceFiles ?? []) {
     zip.file(`references/${reference.filename}`, reference.data);

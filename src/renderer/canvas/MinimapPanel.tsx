@@ -2,9 +2,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import Minimap from './Minimap';
 import PastePreview from './PastePreview';
 import NavigationPanel from './NavigationPanel';
+import LayersPanel from './LayersPanel';
 import { useClipboardStore } from '@/state/clipboardStore';
 
-type TabId = 'minimap' | 'nav' | 'paste';
+type TabId = 'minimap' | 'nav' | 'layers' | 'paste';
 
 const MinimapPanel = () => {
   const hasClipboard = useClipboardStore(
@@ -56,6 +57,16 @@ const MinimapPanel = () => {
             type="button"
             role="tab"
             className="minimap__tab"
+            aria-selected={activeTab === 'layers'}
+            data-active={activeTab === 'layers'}
+            onClick={() => setActiveTab('layers')}
+          >
+            Layers
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className="minimap__tab"
             aria-selected={activeTab === 'paste'}
             data-active={activeTab === 'paste'}
             onClick={() => setActiveTab('paste')}
@@ -67,6 +78,8 @@ const MinimapPanel = () => {
       )}
       {activeTab === 'nav' ? (
         <NavigationPanel />
+      ) : activeTab === 'layers' ? (
+        <LayersPanel />
       ) : activeTab === 'paste' && hasClipboard ? (
         <PastePreview />
       ) : (

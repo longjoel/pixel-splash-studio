@@ -52,7 +52,11 @@ describe('SprayTool', () => {
 
     tool.onEnd?.(makeCursor());
 
-    const pixels = usePixelStore.getState().store.getBlocks();
+    const pixelStore = usePixelStore.getState();
+    const activeLayer =
+      pixelStore.layers.find((layer) => layer.id === pixelStore.activeLayerId) ??
+      pixelStore.layers[0];
+    const pixels = activeLayer?.store.getBlocks() ?? [];
     expect(pixels.length).toBeGreaterThan(0);
 
     const history = useHistoryStore.getState();

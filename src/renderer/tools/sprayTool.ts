@@ -58,6 +58,7 @@ export class SprayTool implements Tool {
   id = 'spray';
 
   private drawing = false;
+  private layerId: string | null = null;
   private activeIndex = 0;
   private lastCursor: CursorState | null = null;
   private frameHandle: number | null = null;
@@ -133,6 +134,7 @@ export class SprayTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     const palette = usePaletteStore.getState();
+    this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
     this.drawing = true;
     this.changes.clear();
@@ -161,6 +163,7 @@ export class SprayTool implements Tool {
     this.stopLoop();
     const preview = usePreviewStore.getState();
     const pixelStore = usePixelStore.getState();
+    const layerId = this.layerId ?? pixelStore.activeLayerId;
     const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
 
     for (const pixel of preview.entries()) {
@@ -169,7 +172,7 @@ export class SprayTool implements Tool {
         this.changes.set(key, {
           x: pixel.x,
           y: pixel.y,
-          prev: pixelStore.getPixel(pixel.x, pixel.y),
+          prev: pixelStore.getPixelInLayer(layerId, pixel.x, pixel.y),
           next: pixel.paletteIndex,
         });
       } else {
@@ -181,11 +184,14 @@ export class SprayTool implements Tool {
       pixelsToCommit.push({ x: pixel.x, y: pixel.y, paletteIndex: pixel.paletteIndex });
     }
 
-    pixelStore.setPixels(pixelsToCommit);
-    useHistoryStore.getState().pushBatch({ changes: Array.from(this.changes.values()) });
+    pixelStore.setPixelsInLayer(layerId, pixelsToCommit);
+    useHistoryStore
+      .getState()
+      .pushBatch({ layerId, changes: Array.from(this.changes.values()) });
     preview.clear();
     this.changes.clear();
     this.drawing = false;
+    this.layerId = null;
     this.lastCursor = null;
     this.rng = null;
     this.lastFrameTime = 0;
@@ -197,6 +203,7 @@ export class SprayTool implements Tool {
     usePreviewStore.getState().clear();
     this.changes.clear();
     this.drawing = false;
+    this.layerId = null;
     this.lastCursor = null;
     this.rng = null;
     this.lastFrameTime = 0;

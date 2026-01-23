@@ -99,7 +99,7 @@ export class TileSamplerTool implements Tool {
         const startY = ty * TILE_SIZE;
         for (let y = 0; y < TILE_SIZE; y += 1) {
           for (let x = 0; x < TILE_SIZE; x += 1) {
-            tilePixels.push(pixelStore.getPixel(startX + x, startY + y));
+            tilePixels.push(pixelStore.getPixelComposite(startX + x, startY + y));
           }
         }
         tilesToAdd.push({ pixels: tilePixels });

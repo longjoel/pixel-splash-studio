@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pixel Splash Studio — Tutorials</title>
+    <meta
+      name="description"
+      content="Pixel Splash Studio tutorials: layers, selection, deep copy, references, and tile mapping."
+    />
+
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg0: #070a10;
+        --bg1: #0b101b;
+        --bg2: #10182a;
+        --panel: rgba(255, 255, 255, 0.06);
+        --panel-strong: rgba(255, 255, 255, 0.08);
+        --line: rgba(255, 255, 255, 0.12);
+        --text: rgba(255, 255, 255, 0.92);
+        --muted: rgba(255, 255, 255, 0.68);
+        --dim: rgba(255, 255, 255, 0.52);
+        --shadow: rgba(0, 0, 0, 0.45);
+
+        --accent: #ff4a64;
+        --accent2: #4ea7ff;
+        --accent3: #2dd4bf;
+        --accent4: #f5c542;
+
+        --radius-lg: 20px;
+        --radius-md: 14px;
+        --radius-sm: 12px;
+        --max: 1180px;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        height: 100%;
+      }
+
+      body {
+        margin: 0;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell,
+          Noto Sans, Arial, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(900px 520px at 12% 18%, rgba(78, 167, 255, 0.22), transparent 60%),
+          radial-gradient(900px 520px at 82% 16%, rgba(255, 74, 100, 0.16), transparent 60%),
+          radial-gradient(1000px 700px at 50% 95%, rgba(45, 212, 191, 0.14), transparent 55%),
+          linear-gradient(160deg, var(--bg0) 0%, var(--bg1) 38%, var(--bg0) 100%);
+        overflow-x: hidden;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      code {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono,
+          Courier New, monospace;
+        font-size: 0.95em;
+        color: rgba(255, 255, 255, 0.88);
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 1px 6px;
+        border-radius: 8px;
+      }
+
+      .grid {
+        position: fixed;
+        inset: -40px;
+        pointer-events: none;
+        opacity: 0.4;
+        background:
+          radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.08), transparent 46%),
+          repeating-linear-gradient(
+            90deg,
+            rgba(255, 255, 255, 0.06) 0,
+            rgba(255, 255, 255, 0.06) 1px,
+            transparent 1px,
+            transparent 28px
+          ),
+          repeating-linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.06) 0,
+            rgba(255, 255, 255, 0.06) 1px,
+            transparent 1px,
+            transparent 28px
+          );
+        mask-image: radial-gradient(circle at 50% 25%, black 35%, transparent 70%);
+      }
+
+      .wrap {
+        width: min(var(--max), calc(100% - 48px));
+        margin: 0 auto;
+      }
+
+      .topbar {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        backdrop-filter: blur(14px);
+        background: rgba(7, 10, 16, 0.6);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .nav {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 14px 0;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 220px;
+      }
+
+      .mark {
+        width: 34px;
+        height: 34px;
+        border-radius: 12px;
+        background: conic-gradient(
+          from 180deg,
+          var(--accent),
+          var(--accent4),
+          var(--accent3),
+          var(--accent2),
+          var(--accent)
+        );
+        box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+      }
+
+      .brand h1 {
+        font-size: 13px;
+        margin: 0;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.86);
+      }
+
+      .links {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .links a {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--muted);
+        padding: 10px 12px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        transition: background 160ms ease, color 160ms ease, border-color 160ms ease,
+          transform 160ms ease;
+      }
+
+      .links a:hover {
+        color: rgba(255, 255, 255, 0.92);
+        background: rgba(255, 255, 255, 0.06);
+        border-color: rgba(255, 255, 255, 0.12);
+        transform: translateY(-1px);
+      }
+
+      .cta {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        font-weight: 650;
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0.04) 100%),
+          radial-gradient(circle at 30% 30%, rgba(255, 74, 100, 0.3), transparent 55%),
+          radial-gradient(circle at 70% 30%, rgba(78, 167, 255, 0.22), transparent 55%);
+        box-shadow: 0 22px 48px rgba(0, 0, 0, 0.35);
+        transition: transform 160ms ease, border-color 160ms ease;
+      }
+
+      .cta:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 255, 255, 0.24);
+      }
+
+      .section {
+        padding: 54px 0;
+      }
+
+      h2 {
+        font-size: clamp(30px, 5.8vw, 44px);
+        line-height: 1.02;
+        margin: 0 0 14px;
+        letter-spacing: -0.03em;
+      }
+
+      h3 {
+        margin: 0 0 14px;
+        font-size: 22px;
+        letter-spacing: -0.02em;
+      }
+
+      h4 {
+        margin: 0 0 10px;
+        font-size: 14px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      p {
+        margin: 0 0 12px;
+        color: rgba(255, 255, 255, 0.82);
+        line-height: 1.55;
+      }
+
+      .lead {
+        color: rgba(255, 255, 255, 0.76);
+      }
+
+      .grid-2 {
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 18px;
+        align-items: start;
+      }
+
+      @media (max-width: 920px) {
+        .grid-2 {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: var(--radius-lg);
+        padding: 16px 16px;
+        box-shadow: 0 28px 70px var(--shadow);
+      }
+
+      .shot {
+        width: 100%;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        background: rgba(0, 0, 0, 0.2);
+        box-shadow: 0 26px 70px rgba(0, 0, 0, 0.45);
+      }
+
+      .caption {
+        margin-top: 8px;
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.62);
+        line-height: 1.4;
+      }
+
+      .steps {
+        margin: 0;
+        padding: 0 0 0 18px;
+        color: rgba(255, 255, 255, 0.76);
+        line-height: 1.6;
+      }
+
+      .callout {
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.04);
+        padding: 12px 12px;
+        color: rgba(255, 255, 255, 0.78);
+      }
+
+      .footer {
+        padding: 26px 0 44px;
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        color: rgba(255, 255, 255, 0.6);
+      }
+
+      .footer-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+
+      .fine {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.62);
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="grid" aria-hidden="true"></div>
+
+    <div class="topbar">
+      <div class="wrap">
+        <div class="nav">
+          <div class="brand">
+            <div class="mark" aria-hidden="true"></div>
+            <h1>Pixel Splash Studio</h1>
+          </div>
+
+          <div class="links">
+            <a href="./index.html">Home</a>
+            <a href="#tutorials">Tutorials</a>
+            <a href="#drawing-tools">Drawing Tools</a>
+            <a href="https://github.com/longjoel/pixel-splash-studio" rel="noreferrer">GitHub</a>
+            <a
+              class="cta"
+              href="https://github.com/longjoel/pixel-splash-studio/releases"
+              rel="noreferrer"
+            >
+              Get the app
+              <span aria-hidden="true">→</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <main>
+      <section id="tutorials" class="section">
+        <div class="wrap">
+          <h2>Tutorials</h2>
+          <p class="lead">
+            Short, practical workflows for common tasks. These match the current behavior:
+            tools always edit the active pixel layer; “deep copy” only affects what gets copied.
+          </p>
+
+          <div class="panel" id="drawing-tools" style="margin-top: 18px">
+            <h3>Drawing tools: quick mini-tutorials</h3>
+            <p class="lead">
+              Each tool is a small, self-contained workflow. (Add screenshots later if you’d like.)
+            </p>
+
+            <h4>Pen</h4>
+            <ol class="steps">
+              <li>Select <strong>Pen</strong> in the toolbar.</li>
+              <li>Pick a palette swatch (left-click = primary color).</li>
+              <li>Click to place single pixels; click-drag to draw strokes.</li>
+              <li>Right-click draws with the secondary color (set it with <code>Ctrl+click</code> on a swatch).</li>
+            </ol>
+            <div class="callout" style="margin-top: 12px">
+              Tip: If a stroke looks “blocky”, change the pen <code>Size</code> and <code>Brush</code> options.
+            </div>
+
+            <h4 style="margin-top: 16px">Pen options: size + brush</h4>
+            <ol class="steps">
+              <li>With <strong>Pen</strong> active, set <code>Size</code> to <code>1px</code>, <code>4px</code>, or <code>8px</code>.</li>
+              <li>Choose a <code>Brush</code> shape: <code>fine-point</code>, <code>rectangle</code>, or <code>circle</code>.</li>
+              <li>Draw the same stroke a few times to feel the difference.</li>
+            </ol>
+            <div class="callout" style="margin-top: 12px">
+              Quick exercise: make a 3-step ramp (dark → mid → light) and practice shading with a larger brush.
+            </div>
+
+            <h4 style="margin-top: 16px">Line</h4>
+            <ol class="steps">
+              <li>Select <strong>Line</strong>.</li>
+              <li>Press, drag, release to place a straight line.</li>
+              <li>Hold <code>Shift</code> while dragging to snap to 45° angles.</li>
+            </ol>
+            <div class="callout" style="margin-top: 12px">
+              Tip: Use line previews to “aim” your endpoints before committing.
+            </div>
+
+            <h4 style="margin-top: 16px">Rectangle</h4>
+            <ol class="steps">
+              <li>Select <strong>Rectangle</strong>.</li>
+              <li>Pick a mode: <code>Filled</code>, <code>Outlined</code>, or <code>Outline + Fill</code>.</li>
+              <li>Click-drag to set two corners, then release to commit.</li>
+            </ol>
+            <div class="callout" style="margin-top: 12px">
+              Quick exercise: draw a “button” by using <code>Outline + Fill</code>, then add a 1px highlight with Pen.
+            </div>
+
+            <h4 style="margin-top: 16px">Fill (bucket)</h4>
+            <ol class="steps">
+              <li>Select <strong>Fill</strong>.</li>
+              <li>Use <code>Mode: Color</code> to flood-fill a region connected to the pixel under your cursor.</li>
+              <li>If you have an active selection, use <code>Mode: Selection</code> to fill the entire selection.</li>
+              <li>For a ramped fill, use <code>Gradient Dither</code> and pick 2+ palette swatches (<code>Shift+click</code>).</li>
+            </ol>
+            <div class="callout" style="margin-top: 12px">
+              Tip: Fill affects the <strong>active layer</strong> only. If you want to fill a different layer, select it first.
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 18px">
+            <div class="panel">
+              <h3>1) Layers: draw, reorder, hide</h3>
+              <ol class="steps">
+                <li>Open the <strong>Layers</strong> tab in the minimap panel.</li>
+                <li>Click <code>+ Layer</code> to create a new layer (it becomes active).</li>
+                <li>Click a layer row to make it the <strong>active</strong> layer.</li>
+                <li>Toggle the checkbox to show/hide a layer.</li>
+                <li>Use <code>↑</code>/<code>↓</code> to reorder layers (top = drawn last).</li>
+              </ol>
+              <div class="callout" style="margin-top: 12px">
+                Tip: Visibility affects rendering and “merged” reads (like deep copy / eyedropper),
+                but tools still write only to the active layer.
+              </div>
+            </div>
+
+            <div class="panel">
+              <h4>Shortcut mental model</h4>
+              <p>
+                <strong>Active layer</strong> is where pixels are written. <strong>Visible layers</strong>
+                are what you see (and what “merged” operations can sample from).
+              </p>
+              <p class="fine" style="margin-top: 8px">
+                If you want to paste into a different layer, select that layer first.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 18px">
+            <div class="panel">
+              <h3>2) Selection: copy vs deep copy</h3>
+              <ol class="steps">
+                <li>Make a selection with rectangle/oval selection tools.</li>
+                <li>
+                  Copy from the <strong>active layer only</strong> with <code>Ctrl+C</code>.
+                </li>
+                <li>
+                  Deep copy a <strong>merged</strong> selection with <code>Ctrl+Shift+C</code>:
+                  active layer + all visible layers (stacked top-to-bottom).
+                </li>
+                <li>Cut from the active layer with <code>Ctrl+X</code>.</li>
+                <li>Paste with the <strong>Stamp</strong> tool (or auto-switch after copy/cut).</li>
+              </ol>
+              <div class="callout" style="margin-top: 12px">
+                Paste behavior: clipboard pixels always paste into the <strong>currently active</strong>
+                pixel layer — even if the clipboard was created via deep copy.
+              </div>
+            </div>
+
+            <div class="panel">
+              <h4>When to use deep copy</h4>
+              <p>
+                Deep copy is best for “flattening” a composed view into one layer, like turning
+                shading/linework across layers into a single stamp.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 18px">
+            <div class="panel">
+              <h3>3) References: paste, transform, trace</h3>
+              <ol class="steps">
+                <li>Paste an image to add it as a <strong>reference underlay</strong>.</li>
+                <li>Use the reference handle tool to move/rotate/scale/flip and adjust opacity.</li>
+                <li>Use trace actions to convert reference pixels into palette-indexed pixels.</li>
+              </ol>
+              <p class="fine" style="margin-top: 10px">
+                References don’t modify pixel layers until you trace or paint.
+              </p>
+            </div>
+
+            <div class="panel">
+              <h4>Suggested workflow</h4>
+              <p>
+                Keep references on for alignment, paint into one layer, then add additional layers
+                for highlights/cleanup and deep-copy when you want to flatten.
+              </p>
+            </div>
+          </div>
+
+          <div class="grid-2" style="margin-top: 18px">
+            <div class="panel">
+              <h3>4) Tile mapping: sample → paint → export</h3>
+              <ol class="steps">
+                <li>Use <strong>Tile Sampler</strong> to capture tiles from pixel data.</li>
+                <li>Paint into a tile map with <strong>Tile Pen</strong> / <strong>Tile Rectangle</strong>.</li>
+                <li>Export a region with <strong>Tile Export</strong> to <code>tiles.png</code> + <code>tiles.tmx</code>.</li>
+              </ol>
+            </div>
+
+            <div class="panel">
+              <h4>Tiles sample what you see</h4>
+              <p>
+                Tile sampling uses the rendered/merged pixel view (topmost visible pixels).
+                If you need a clean source, hide layers or deep-copy into a single layer first.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="wrap">
+        <div class="footer-row">
+          <div class="brand" style="min-width: unset">
+            <div class="mark" aria-hidden="true" style="width: 28px; height: 28px"></div>
+            <div class="fine">
+              <strong style="color: rgba(255, 255, 255, 0.86)">Pixel Splash Studio</strong><br />
+              MIT licensed • Built with Electron + React
+            </div>
+          </div>
+          <div class="fine">
+            <a href="./index.html">Home</a>
+            &nbsp;•&nbsp;
+            <a href="https://github.com/longjoel/pixel-splash-studio/blob/main/features.md" rel="noreferrer">Features</a>
+            &nbsp;•&nbsp;
+            <a href="https://github.com/longjoel/pixel-splash-studio/blob/main/blueprint.md" rel="noreferrer">Blueprint</a>
+          </div>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>
