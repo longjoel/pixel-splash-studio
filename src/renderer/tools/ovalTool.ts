@@ -6,7 +6,9 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useOvalStore } from '@/state/ovalStore';
 import { useSelectionStore } from '@/state/selectionStore';
-import { getPaletteSelectionRamp, paletteIndexFromRamp } from '@/services/paletteRamp';
+import { useFillBucketStore } from '@/state/fillBucketStore';
+import { getPaletteSelectionRamp } from '@/services/paletteRamp';
+import { computeGradientPaletteMap, type Bounds } from '@/services/gradientRamp';
 
 const setPreviewPixel = (x: number, y: number, paletteIndex: number) => {
   const selection = useSelectionStore.getState();
@@ -87,60 +89,6 @@ const drawFilledOval = (
   }
 };
 
-const drawFilledOvalGradient = (
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  ramp: number[]
-) => {
-  if (ramp.length === 0) {
-    return;
-  }
-  const minX = Math.min(start.x, end.x);
-  const maxX = Math.max(start.x, end.x);
-  const minY = Math.min(start.y, end.y);
-  const maxY = Math.max(start.y, end.y);
-  const rx = (maxX - minX) / 2;
-  const ry = (maxY - minY) / 2;
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-  const width = Math.max(1, maxX - minX);
-  const height = Math.max(1, maxY - minY);
-  const horizontal = width >= height;
-
-  if (rx === 0 && ry === 0) {
-    setPreviewPixel(minX, minY, paletteIndexFromRamp(ramp, 0));
-    return;
-  }
-  if (rx === 0) {
-    for (let y = minY; y <= maxY; y += 1) {
-      const t = height === 0 ? 0 : (y - minY) / height;
-      setPreviewPixel(minX, y, paletteIndexFromRamp(ramp, t));
-    }
-    return;
-  }
-  if (ry === 0) {
-    drawLine(minX, minY, maxX, minY, paletteIndexFromRamp(ramp, 0));
-    return;
-  }
-
-  const rxSq = rx * rx;
-  const rySq = ry * ry;
-  for (let y = minY; y <= maxY; y += 1) {
-    const dy = y - centerY;
-    const ty = height === 0 ? 0 : (y - minY) / height;
-    for (let x = minX; x <= maxX; x += 1) {
-      const tx = width === 0 ? 0 : (x - minX) / width;
-      const t = horizontal ? tx : ty;
-      const paletteIndex = paletteIndexFromRamp(ramp, t);
-      const dx = x - centerX;
-      const value = (dx * dx) / rxSq + (dy * dy) / rySq;
-      if (value <= 1) {
-        setPreviewPixel(x, y, paletteIndex);
-      }
-    }
-  }
-};
-
 const drawOutlineOval = (
   start: { x: number; y: number },
   end: { x: number; y: number },
@@ -198,75 +146,6 @@ const drawOutlineOval = (
   }
 };
 
-const drawOutlineOvalGradient = (
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  ramp: number[]
-) => {
-  if (ramp.length === 0) {
-    return;
-  }
-  const minX = Math.min(start.x, end.x);
-  const maxX = Math.max(start.x, end.x);
-  const minY = Math.min(start.y, end.y);
-  const maxY = Math.max(start.y, end.y);
-  const rx = (maxX - minX) / 2;
-  const ry = (maxY - minY) / 2;
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-  const width = Math.max(1, maxX - minX);
-  const height = Math.max(1, maxY - minY);
-  const horizontal = width >= height;
-  const tFor = (x: number, y: number) =>
-    horizontal ? (x - minX) / width : (y - minY) / height;
-
-  if (rx === 0 && ry === 0) {
-    setPreviewPixel(minX, minY, paletteIndexFromRamp(ramp, 0));
-    return;
-  }
-  if (rx === 0) {
-    for (let y = minY; y <= maxY; y += 1) {
-      setPreviewPixel(minX, y, paletteIndexFromRamp(ramp, tFor(minX, y)));
-    }
-    return;
-  }
-  if (ry === 0) {
-    for (let x = minX; x <= maxX; x += 1) {
-      setPreviewPixel(x, minY, paletteIndexFromRamp(ramp, tFor(x, minY)));
-    }
-    return;
-  }
-
-  const rxSq = rx * rx;
-  const rySq = ry * ry;
-
-  for (let x = minX; x <= maxX; x += 1) {
-    const dx = x - centerX;
-    const value = 1 - (dx * dx) / rxSq;
-    if (value < 0) {
-      continue;
-    }
-    const yOffset = Math.sqrt(value) * ry;
-    const yTop = Math.round(centerY - yOffset);
-    const yBottom = Math.round(centerY + yOffset);
-    setPreviewPixel(x, yTop, paletteIndexFromRamp(ramp, tFor(x, yTop)));
-    setPreviewPixel(x, yBottom, paletteIndexFromRamp(ramp, tFor(x, yBottom)));
-  }
-
-  for (let y = minY; y <= maxY; y += 1) {
-    const dy = y - centerY;
-    const value = 1 - (dy * dy) / rySq;
-    if (value < 0) {
-      continue;
-    }
-    const xOffset = Math.sqrt(value) * rx;
-    const xLeft = Math.round(centerX - xOffset);
-    const xRight = Math.round(centerX + xOffset);
-    setPreviewPixel(xLeft, y, paletteIndexFromRamp(ramp, tFor(xLeft, y)));
-    setPreviewPixel(xRight, y, paletteIndexFromRamp(ramp, tFor(xRight, y)));
-  }
-};
-
 export class OvalTool implements Tool {
   id = 'oval';
   private start: { x: number; y: number } | null = null;
@@ -300,19 +179,97 @@ export class OvalTool implements Tool {
     };
     const mode = useOvalStore.getState().mode;
     const ramp = this.activeRamp.length > 1 ? this.activeRamp : [];
-    if (mode === 'filled') {
-      if (ramp.length > 0) {
-        drawFilledOvalGradient(this.start, end, ramp);
+    const bounds: Bounds = {
+      minX: Math.min(this.start.x, end.x),
+      maxX: Math.max(this.start.x, end.x),
+      minY: Math.min(this.start.y, end.y),
+      maxY: Math.max(this.start.y, end.y),
+    };
+
+    if (ramp.length > 1) {
+      const selection = useSelectionStore.getState();
+      const points: Array<{ x: number; y: number }> = [];
+      const rx = (bounds.maxX - bounds.minX) / 2;
+      const ry = (bounds.maxY - bounds.minY) / 2;
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+
+      const allow = (x: number, y: number) =>
+        selection.selectedCount === 0 || selection.isSelected(x, y);
+
+      const add = (x: number, y: number) => {
+        if (!allow(x, y)) {
+          return;
+        }
+        points.push({ x, y });
+      };
+
+      if (rx === 0 && ry === 0) {
+        add(bounds.minX, bounds.minY);
+      } else if (rx === 0) {
+        for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+          add(bounds.minX, y);
+        }
+      } else if (ry === 0) {
+        for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+          add(x, bounds.minY);
+        }
+      } else if (mode === 'filled') {
+        const rxSq = rx * rx;
+        const rySq = ry * ry;
+        for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+          const dy = y - centerY;
+          for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+            const dx = x - centerX;
+            const value = (dx * dx) / rxSq + (dy * dy) / rySq;
+            if (value <= 1) {
+              add(x, y);
+            }
+          }
+        }
       } else {
-        drawFilledOval(this.start, end, this.activeIndex);
+        const rxSq = rx * rx;
+        const rySq = ry * ry;
+        for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+          const dx = x - centerX;
+          const value = 1 - (dx * dx) / rxSq;
+          if (value < 0) {
+            continue;
+          }
+          const yOffset = Math.sqrt(value) * ry;
+          add(x, Math.round(centerY - yOffset));
+          add(x, Math.round(centerY + yOffset));
+        }
+        for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+          const dy = y - centerY;
+          const value = 1 - (dy * dy) / rySq;
+          if (value < 0) {
+            continue;
+          }
+          const xOffset = Math.sqrt(value) * rx;
+          add(Math.round(centerX - xOffset), y);
+          add(Math.round(centerX + xOffset), y);
+        }
+      }
+
+      const { gradientDirection, gradientDither } = useFillBucketStore.getState();
+      const paletteMap = computeGradientPaletteMap(
+        points,
+        bounds,
+        ramp,
+        gradientDirection,
+        gradientDither
+      );
+      for (const point of points) {
+        preview.setPixel(point.x, point.y, paletteMap.get(`${point.x}:${point.y}`) ?? ramp[0] ?? 0);
       }
       return;
     }
-    if (ramp.length > 0) {
-      drawOutlineOvalGradient(this.start, end, ramp);
-    } else {
-      drawOutlineOval(this.start, end, this.activeIndex);
+    if (mode === 'filled') {
+      drawFilledOval(this.start, end, this.activeIndex);
+      return;
     }
+    drawOutlineOval(this.start, end, this.activeIndex);
   };
 
   onEnd = () => {

@@ -6,7 +6,9 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useRectangleStore } from '@/state/rectangleStore';
 import { useSelectionStore } from '@/state/selectionStore';
-import { getPaletteSelectionRamp, paletteIndexFromRamp } from '@/services/paletteRamp';
+import { useFillBucketStore } from '@/state/fillBucketStore';
+import { getPaletteSelectionRamp } from '@/services/paletteRamp';
+import { computeGradientPaletteMap, type Bounds } from '@/services/gradientRamp';
 
 const drawFilledRect = (
   start: { x: number; y: number },
@@ -22,38 +24,6 @@ const drawFilledRect = (
 
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
-      if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
-        continue;
-      }
-      preview.setPixel(x, y, paletteIndex);
-    }
-  }
-};
-
-const drawFilledRectGradient = (
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  ramp: number[]
-) => {
-  if (ramp.length === 0) {
-    return;
-  }
-  const selection = useSelectionStore.getState();
-  const preview = usePreviewStore.getState();
-  const minX = Math.min(start.x, end.x);
-  const maxX = Math.max(start.x, end.x);
-  const minY = Math.min(start.y, end.y);
-  const maxY = Math.max(start.y, end.y);
-  const width = Math.max(1, maxX - minX);
-  const height = Math.max(1, maxY - minY);
-  const horizontal = width >= height;
-
-  for (let y = minY; y <= maxY; y += 1) {
-    const ty = height === 0 ? 0 : (y - minY) / height;
-    for (let x = minX; x <= maxX; x += 1) {
-      const tx = width === 0 ? 0 : (x - minX) / width;
-      const t = horizontal ? tx : ty;
-      const paletteIndex = paletteIndexFromRamp(ramp, t);
       if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
         continue;
       }
@@ -92,48 +62,6 @@ const drawOutlineRect = (
   }
 };
 
-const drawOutlineRectGradient = (
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  ramp: number[]
-) => {
-  if (ramp.length === 0) {
-    return;
-  }
-  const selection = useSelectionStore.getState();
-  const preview = usePreviewStore.getState();
-  const minX = Math.min(start.x, end.x);
-  const maxX = Math.max(start.x, end.x);
-  const minY = Math.min(start.y, end.y);
-  const maxY = Math.max(start.y, end.y);
-  const width = Math.max(1, maxX - minX);
-  const height = Math.max(1, maxY - minY);
-  const horizontal = width >= height;
-  const tFor = (x: number, y: number) =>
-    horizontal ? (x - minX) / width : (y - minY) / height;
-
-  for (let x = minX; x <= maxX; x += 1) {
-    const t = tFor(x, minY);
-    const paletteIndex = paletteIndexFromRamp(ramp, t);
-    if (selection.selectedCount === 0 || selection.isSelected(x, minY)) {
-      preview.setPixel(x, minY, paletteIndex);
-    }
-    if (selection.selectedCount === 0 || selection.isSelected(x, maxY)) {
-      preview.setPixel(x, maxY, paletteIndexFromRamp(ramp, tFor(x, maxY)));
-    }
-  }
-  for (let y = minY + 1; y <= maxY - 1; y += 1) {
-    const leftT = tFor(minX, y);
-    const rightT = tFor(maxX, y);
-    if (selection.selectedCount === 0 || selection.isSelected(minX, y)) {
-      preview.setPixel(minX, y, paletteIndexFromRamp(ramp, leftT));
-    }
-    if (selection.selectedCount === 0 || selection.isSelected(maxX, y)) {
-      preview.setPixel(maxX, y, paletteIndexFromRamp(ramp, rightT));
-    }
-  }
-};
-
 export class RectangleTool implements Tool {
   id = 'rectangle';
   private start: { x: number; y: number } | null = null;
@@ -167,19 +95,63 @@ export class RectangleTool implements Tool {
     };
     const mode = useRectangleStore.getState().mode;
     const ramp = this.activeRamp.length > 1 ? this.activeRamp : [];
-    if (mode === 'filled') {
-      if (ramp.length > 0) {
-        drawFilledRectGradient(this.start, end, ramp);
+    const bounds: Bounds = {
+      minX: Math.min(this.start.x, end.x),
+      maxX: Math.max(this.start.x, end.x),
+      minY: Math.min(this.start.y, end.y),
+      maxY: Math.max(this.start.y, end.y),
+    };
+
+    if (ramp.length > 1) {
+      const selection = useSelectionStore.getState();
+      const points: Array<{ x: number; y: number }> = [];
+
+      if (mode === 'filled') {
+        for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+          for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+            if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
+              continue;
+            }
+            points.push({ x, y });
+          }
+        }
       } else {
-        drawFilledRect(this.start, end, this.activeIndex);
+        for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+          if (selection.selectedCount === 0 || selection.isSelected(x, bounds.minY)) {
+            points.push({ x, y: bounds.minY });
+          }
+          if (selection.selectedCount === 0 || selection.isSelected(x, bounds.maxY)) {
+            points.push({ x, y: bounds.maxY });
+          }
+        }
+        for (let y = bounds.minY + 1; y <= bounds.maxY - 1; y += 1) {
+          if (selection.selectedCount === 0 || selection.isSelected(bounds.minX, y)) {
+            points.push({ x: bounds.minX, y });
+          }
+          if (selection.selectedCount === 0 || selection.isSelected(bounds.maxX, y)) {
+            points.push({ x: bounds.maxX, y });
+          }
+        }
+      }
+
+      const { gradientDirection, gradientDither } = useFillBucketStore.getState();
+      const paletteMap = computeGradientPaletteMap(
+        points,
+        bounds,
+        ramp,
+        gradientDirection,
+        gradientDither
+      );
+      for (const point of points) {
+        preview.setPixel(point.x, point.y, paletteMap.get(`${point.x}:${point.y}`) ?? ramp[0] ?? 0);
       }
       return;
     }
-    if (ramp.length > 0) {
-      drawOutlineRectGradient(this.start, end, ramp);
-    } else {
-      drawOutlineRect(this.start, end, this.activeIndex);
+    if (mode === 'filled') {
+      drawFilledRect(this.start, end, this.activeIndex);
+      return;
     }
+    drawOutlineRect(this.start, end, this.activeIndex);
   };
 
   onEnd = () => {

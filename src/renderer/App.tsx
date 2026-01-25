@@ -1334,58 +1334,190 @@ const App = () => {
                         </div>
                       </div>
                     </>
+                  ) : activeTool === 'line' ? (
+                    paletteSelectionCount >= 2 ? (
+                      <>
+                        <div className="panel__group">
+                          <span className="panel__label">Direction</span>
+                          <DropdownSelect
+                            ariaLabel="Gradient direction"
+                            value={fillGradientDirection}
+                            onChange={setFillGradientDirection}
+                            options={[
+                              { value: 'top-bottom', label: 'Top → Bottom' },
+                              { value: 'bottom-top', label: 'Bottom → Top' },
+                              { value: 'left-right', label: 'Left → Right' },
+                              { value: 'right-left', label: 'Right → Left' },
+                            ]}
+                          />
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Dither</span>
+                          <DropdownSelect
+                            ariaLabel="Gradient dither"
+                            value={fillGradientDither}
+                            onChange={setFillGradientDither}
+                            options={[
+                              { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                              { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                              { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                              { value: 'none', label: 'None' },
+                              { value: 'random', label: 'Random (stable)' },
+                              { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                              { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                              { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                              { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                              { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                            ]}
+                          />
+                        </div>
+                        <div className="panel__note">
+                          Select 2+ palette swatches (Shift-click) for gradient ramp.
+                        </div>
+                      </>
+                    ) : (
+                      <div className="panel__note">
+                        Select 2+ palette swatches (Shift-click) for gradient ramp.
+                      </div>
+                    )
                   ) : activeTool === 'rectangle' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Mode</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="rectangle-mode"
-                            value="filled"
-                            checked={rectangleMode === 'filled'}
-                            onChange={() => setRectangleMode('filled')}
-                          />
-                          Filled
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="rectangle-mode"
-                            value="outlined"
-                            checked={rectangleMode === 'outlined'}
-                            onChange={() => setRectangleMode('outlined')}
-                          />
-                          Outlined
-                        </label>
+                    <>
+                      <div className="panel__group">
+                        <span className="panel__label">Mode</span>
+                        <div className="panel__row">
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="rectangle-mode"
+                              value="filled"
+                              checked={rectangleMode === 'filled'}
+                              onChange={() => setRectangleMode('filled')}
+                            />
+                            Filled
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="rectangle-mode"
+                              value="outlined"
+                              checked={rectangleMode === 'outlined'}
+                              onChange={() => setRectangleMode('outlined')}
+                            />
+                            Outlined
+                          </label>
+                        </div>
                       </div>
-                    </div>
+                      {paletteSelectionCount >= 2 && (
+                        <>
+                          <div className="panel__group">
+                            <span className="panel__label">Direction</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient direction"
+                              value={fillGradientDirection}
+                              onChange={setFillGradientDirection}
+                              options={[
+                                { value: 'top-bottom', label: 'Top → Bottom' },
+                                { value: 'bottom-top', label: 'Bottom → Top' },
+                                { value: 'left-right', label: 'Left → Right' },
+                                { value: 'right-left', label: 'Right → Left' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__group">
+                            <span className="panel__label">Dither</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient dither"
+                              value={fillGradientDither}
+                              onChange={setFillGradientDither}
+                              options={[
+                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                                { value: 'none', label: 'None' },
+                                { value: 'random', label: 'Random (stable)' },
+                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__note">
+                            Select 2+ palette swatches (Shift-click) for gradient ramp.
+                          </div>
+                        </>
+                      )}
+                    </>
                   ) : activeTool === 'oval' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Mode</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="oval-mode"
-                            value="filled"
-                            checked={ovalMode === 'filled'}
-                            onChange={() => setOvalMode('filled')}
-                          />
-                          Filled
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="oval-mode"
-                            value="outlined"
-                            checked={ovalMode === 'outlined'}
-                            onChange={() => setOvalMode('outlined')}
-                          />
-                          Outlined
-                        </label>
+                    <>
+                      <div className="panel__group">
+                        <span className="panel__label">Mode</span>
+                        <div className="panel__row">
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="oval-mode"
+                              value="filled"
+                              checked={ovalMode === 'filled'}
+                              onChange={() => setOvalMode('filled')}
+                            />
+                            Filled
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="oval-mode"
+                              value="outlined"
+                              checked={ovalMode === 'outlined'}
+                              onChange={() => setOvalMode('outlined')}
+                            />
+                            Outlined
+                          </label>
+                        </div>
                       </div>
-                    </div>
+                      {paletteSelectionCount >= 2 && (
+                        <>
+                          <div className="panel__group">
+                            <span className="panel__label">Direction</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient direction"
+                              value={fillGradientDirection}
+                              onChange={setFillGradientDirection}
+                              options={[
+                                { value: 'top-bottom', label: 'Top → Bottom' },
+                                { value: 'bottom-top', label: 'Bottom → Top' },
+                                { value: 'left-right', label: 'Left → Right' },
+                                { value: 'right-left', label: 'Right → Left' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__group">
+                            <span className="panel__label">Dither</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient dither"
+                              value={fillGradientDither}
+                              onChange={setFillGradientDither}
+                              options={[
+                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                                { value: 'none', label: 'None' },
+                                { value: 'random', label: 'Random (stable)' },
+                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__note">
+                            Select 2+ palette swatches (Shift-click) for gradient ramp.
+                          </div>
+                        </>
+                      )}
+                    </>
                   ) : activeTool === 'fill-bucket' ? (
                     <>
                       <div className="panel__group">
