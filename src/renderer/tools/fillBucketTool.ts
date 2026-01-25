@@ -258,46 +258,42 @@ export class FillBucketTool implements Tool {
     const palette = usePaletteStore.getState();
     const paletteIndex = palette.primaryIndex;
     const mode = useFillBucketStore.getState().mode;
+    const ramp = buildGradientRampFromPalette();
+    const hasGradient = ramp.length > 1;
+    const { gradientDirection, gradientDither } = useFillBucketStore.getState();
     const startX = Math.floor(cursor.canvasX / PIXEL_SIZE);
     const startY = Math.floor(cursor.canvasY / PIXEL_SIZE);
 
     if (mode === 'selection') {
-      fillSelection(paletteIndex);
+      if (!hasGradient) {
+        fillSelection(paletteIndex);
+        return;
+      }
+      const collected = collectSelectionPixels();
+      if (!collected) {
+        return;
+      }
+      const pixels = collected.pixels.map((pixel) => ({
+        x: pixel.x,
+        y: pixel.y,
+        prev: pixel.paletteIndex,
+      }));
+      applyGradientFill(
+        pixels,
+        {
+          minX: collected.minX,
+          maxX: collected.maxX,
+          minY: collected.minY,
+          maxY: collected.maxY,
+        },
+        ramp,
+        gradientDirection,
+        gradientDither
+      );
       return;
     }
 
-    if (mode === 'gradient') {
-      const ramp = buildGradientRampFromPalette();
-      if (ramp.length === 0) {
-        return;
-      }
-      const { gradientDirection } = useFillBucketStore.getState();
-      const gradientDither: FillBucketGradientDither = 'bayer2';
-      const selection = useSelectionStore.getState();
-      if (selection.selectedCount > 0) {
-        const collected = collectSelectionPixels();
-        if (!collected) {
-          return;
-        }
-        const pixels = collected.pixels.map((pixel) => ({
-          x: pixel.x,
-          y: pixel.y,
-          prev: pixel.paletteIndex,
-        }));
-        applyGradientFill(
-          pixels,
-          {
-            minX: collected.minX,
-            maxX: collected.maxX,
-            minY: collected.minY,
-            maxY: collected.maxY,
-          },
-          ramp,
-          gradientDirection,
-          gradientDither
-        );
-        return;
-      }
+    if (hasGradient) {
       const sourceIndex = usePixelStore.getState().getPixel(startX, startY);
       const region = collectFloodRegion(startX, startY, sourceIndex);
       if (!region) {
