@@ -6,17 +6,7 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useRectangleStore } from '@/state/rectangleStore';
 import { useSelectionStore } from '@/state/selectionStore';
-
-const getGradientRampFromSelection = () => {
-  const palette = usePaletteStore.getState();
-  const unique = palette.selectedIndices
-    .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
-    .filter((idx) => idx >= 0 && idx < palette.colors.length);
-  if (unique.length <= 1) {
-    return [];
-  }
-  return unique.sort((a, b) => a - b);
-};
+import { getPaletteSelectionRamp, paletteIndexFromRamp } from '@/services/paletteRamp';
 
 const drawFilledRect = (
   start: { x: number; y: number },
@@ -54,14 +44,16 @@ const drawFilledRectGradient = (
   const maxX = Math.max(start.x, end.x);
   const minY = Math.min(start.y, end.y);
   const maxY = Math.max(start.y, end.y);
-  const rampMax = Math.max(1, ramp.length - 1);
+  const width = Math.max(1, maxX - minX);
   const height = Math.max(1, maxY - minY);
+  const horizontal = width >= height;
 
   for (let y = minY; y <= maxY; y += 1) {
-    const t = height === 0 ? 0 : (y - minY) / height;
-    const rampIndex = Math.min(rampMax, Math.max(0, Math.floor(t * rampMax)));
-    const paletteIndex = ramp[rampIndex] ?? ramp[0] ?? 0;
+    const ty = height === 0 ? 0 : (y - minY) / height;
     for (let x = minX; x <= maxX; x += 1) {
+      const tx = width === 0 ? 0 : (x - minX) / width;
+      const t = horizontal ? tx : ty;
+      const paletteIndex = paletteIndexFromRamp(ramp, t);
       if (selection.selectedCount > 0 && !selection.isSelected(x, y)) {
         continue;
       }
@@ -108,7 +100,6 @@ export class RectangleTool implements Tool {
   private activePrimary = 0;
   private activeSecondary = 0;
   private activeRamp: number[] = [];
-  private reverseRamp = false;
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
 
   onBegin = (cursor: CursorState) => {
@@ -119,8 +110,7 @@ export class RectangleTool implements Tool {
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
     this.activePrimary = palette.primaryIndex;
     this.activeSecondary = palette.secondaryIndex;
-    this.activeRamp = getGradientRampFromSelection();
-    this.reverseRamp = cursor.secondary;
+    this.activeRamp = getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
@@ -138,13 +128,7 @@ export class RectangleTool implements Tool {
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
     };
     const mode = useRectangleStore.getState().mode;
-    const gradientFill = useRectangleStore.getState().gradientFill;
-    const ramp =
-      gradientFill && this.activeRamp.length > 1
-        ? this.reverseRamp
-          ? [...this.activeRamp].reverse()
-          : this.activeRamp
-        : [];
+    const ramp = this.activeRamp.length > 1 ? this.activeRamp : [];
     if (mode === 'filled') {
       if (ramp.length > 0) {
         drawFilledRectGradient(this.start, end, ramp);
@@ -201,7 +185,6 @@ export class RectangleTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 
   onCancel = () => {
@@ -211,6 +194,5 @@ export class RectangleTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 }

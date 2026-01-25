@@ -6,17 +6,7 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useOvalStore } from '@/state/ovalStore';
 import { useSelectionStore } from '@/state/selectionStore';
-
-const getGradientRampFromSelection = () => {
-  const palette = usePaletteStore.getState();
-  const unique = palette.selectedIndices
-    .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
-    .filter((idx) => idx >= 0 && idx < palette.colors.length);
-  if (unique.length <= 1) {
-    return [];
-  }
-  return unique.sort((a, b) => a - b);
-};
+import { getPaletteSelectionRamp, paletteIndexFromRamp } from '@/services/paletteRamp';
 
 const setPreviewPixel = (x: number, y: number, paletteIndex: number) => {
   const selection = useSelectionStore.getState();
@@ -113,24 +103,23 @@ const drawFilledOvalGradient = (
   const ry = (maxY - minY) / 2;
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
-  const rampMax = Math.max(1, ramp.length - 1);
+  const width = Math.max(1, maxX - minX);
   const height = Math.max(1, maxY - minY);
+  const horizontal = width >= height;
 
   if (rx === 0 && ry === 0) {
-    setPreviewPixel(minX, minY, ramp[0] ?? 0);
+    setPreviewPixel(minX, minY, paletteIndexFromRamp(ramp, 0));
     return;
   }
   if (rx === 0) {
     for (let y = minY; y <= maxY; y += 1) {
       const t = height === 0 ? 0 : (y - minY) / height;
-      const rampIndex = Math.min(rampMax, Math.max(0, Math.floor(t * rampMax)));
-      setPreviewPixel(minX, y, ramp[rampIndex] ?? ramp[0] ?? 0);
+      setPreviewPixel(minX, y, paletteIndexFromRamp(ramp, t));
     }
     return;
   }
   if (ry === 0) {
-    const paletteIndex = ramp[0] ?? 0;
-    drawLine(minX, minY, maxX, minY, paletteIndex);
+    drawLine(minX, minY, maxX, minY, paletteIndexFromRamp(ramp, 0));
     return;
   }
 
@@ -138,10 +127,11 @@ const drawFilledOvalGradient = (
   const rySq = ry * ry;
   for (let y = minY; y <= maxY; y += 1) {
     const dy = y - centerY;
-    const t = height === 0 ? 0 : (y - minY) / height;
-    const rampIndex = Math.min(rampMax, Math.max(0, Math.floor(t * rampMax)));
-    const paletteIndex = ramp[rampIndex] ?? ramp[0] ?? 0;
+    const ty = height === 0 ? 0 : (y - minY) / height;
     for (let x = minX; x <= maxX; x += 1) {
+      const tx = width === 0 ? 0 : (x - minX) / width;
+      const t = horizontal ? tx : ty;
+      const paletteIndex = paletteIndexFromRamp(ramp, t);
       const dx = x - centerX;
       const value = (dx * dx) / rxSq + (dy * dy) / rySq;
       if (value <= 1) {
@@ -216,7 +206,6 @@ export class OvalTool implements Tool {
   private activePrimary = 0;
   private activeSecondary = 0;
   private activeRamp: number[] = [];
-  private reverseRamp = false;
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
 
   onBegin = (cursor: CursorState) => {
@@ -227,8 +216,7 @@ export class OvalTool implements Tool {
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
     this.activePrimary = palette.primaryIndex;
     this.activeSecondary = palette.secondaryIndex;
-    this.activeRamp = getGradientRampFromSelection();
-    this.reverseRamp = cursor.secondary;
+    this.activeRamp = getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
@@ -246,13 +234,7 @@ export class OvalTool implements Tool {
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
     };
     const mode = useOvalStore.getState().mode;
-    const gradientFill = useOvalStore.getState().gradientFill;
-    const ramp =
-      gradientFill && this.activeRamp.length > 1
-        ? this.reverseRamp
-          ? [...this.activeRamp].reverse()
-          : this.activeRamp
-        : [];
+    const ramp = this.activeRamp.length > 1 ? this.activeRamp : [];
     if (mode === 'filled') {
       if (ramp.length > 0) {
         drawFilledOvalGradient(this.start, end, ramp);
@@ -309,7 +291,6 @@ export class OvalTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 
   onCancel = () => {
@@ -319,6 +300,5 @@ export class OvalTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 }
