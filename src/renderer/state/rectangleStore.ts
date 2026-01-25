@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type RectangleMode = 'filled' | 'outlined' | 'outline-fill';
+export type RectangleMode = 'filled' | 'outlined';
 
 type RectangleState = {
   mode: RectangleMode;

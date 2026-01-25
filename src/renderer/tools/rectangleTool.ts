@@ -97,8 +97,6 @@ export class RectangleTool implements Tool {
   private start: { x: number; y: number } | null = null;
   private layerId: string | null = null;
   private activeIndex = 0;
-  private activePrimary = 0;
-  private activeSecondary = 0;
   private activeRamp: number[] = [];
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
 
@@ -108,8 +106,6 @@ export class RectangleTool implements Tool {
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
-    this.activePrimary = palette.primaryIndex;
-    this.activeSecondary = palette.secondaryIndex;
     this.activeRamp = getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
@@ -137,16 +133,7 @@ export class RectangleTool implements Tool {
       }
       return;
     }
-    if (mode === 'outlined') {
-      drawOutlineRect(this.start, end, this.activeIndex);
-      return;
-    }
-    if (ramp.length > 0) {
-      drawFilledRectGradient(this.start, end, ramp);
-    } else {
-      drawFilledRect(this.start, end, this.activeSecondary);
-    }
-    drawOutlineRect(this.start, end, this.activePrimary);
+    drawOutlineRect(this.start, end, this.activeIndex);
   };
 
   onEnd = () => {

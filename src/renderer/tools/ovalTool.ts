@@ -203,8 +203,6 @@ export class OvalTool implements Tool {
   private start: { x: number; y: number } | null = null;
   private layerId: string | null = null;
   private activeIndex = 0;
-  private activePrimary = 0;
-  private activeSecondary = 0;
   private activeRamp: number[] = [];
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
 
@@ -214,8 +212,6 @@ export class OvalTool implements Tool {
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
-    this.activePrimary = palette.primaryIndex;
-    this.activeSecondary = palette.secondaryIndex;
     this.activeRamp = getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
@@ -243,16 +239,7 @@ export class OvalTool implements Tool {
       }
       return;
     }
-    if (mode === 'outlined') {
-      drawOutlineOval(this.start, end, this.activeIndex);
-      return;
-    }
-    if (ramp.length > 0) {
-      drawFilledOvalGradient(this.start, end, ramp);
-    } else {
-      drawFilledOval(this.start, end, this.activeSecondary);
-    }
-    drawOutlineOval(this.start, end, this.activePrimary);
+    drawOutlineOval(this.start, end, this.activeIndex);
   };
 
   onEnd = () => {

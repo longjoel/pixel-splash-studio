@@ -1358,16 +1358,6 @@ const App = () => {
                           />
                           Outlined
                         </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="rectangle-mode"
-                            value="outline-fill"
-                            checked={rectangleMode === 'outline-fill'}
-                            onChange={() => setRectangleMode('outline-fill')}
-                          />
-                          Outline + Fill
-                        </label>
                       </div>
                     </div>
                   ) : activeTool === 'oval' ? (
@@ -1393,16 +1383,6 @@ const App = () => {
                             onChange={() => setOvalMode('outlined')}
                           />
                           Outlined
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="oval-mode"
-                            value="outline-fill"
-                            checked={ovalMode === 'outline-fill'}
-                            onChange={() => setOvalMode('outline-fill')}
-                          />
-                          Outline + Fill
                         </label>
                       </div>
                     </div>

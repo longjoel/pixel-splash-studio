@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type OvalMode = 'filled' | 'outlined' | 'outline-fill';
+export type OvalMode = 'filled' | 'outlined';
 
 type OvalState = {
   mode: OvalMode;

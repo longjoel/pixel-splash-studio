@@ -15,8 +15,8 @@
 ## Drawing Tools
 - Pen tool (point, square, round brush shapes; multiple sizes)
 - Line tool (automatic gradient with palette selection)
-- Rectangle tool (filled, outlined, outline+fill; automatic gradient when multiple palette swatches are selected)
-- Oval tool (filled, outlined, outline+fill; automatic gradient when multiple palette swatches are selected)
+- Rectangle tool (filled, outlined; automatic gradient when multiple palette swatches are selected)
+- Oval tool (filled, outlined; automatic gradient when multiple palette swatches are selected)
 - Fill bucket (color fill, selection fill, gradient dither)
 - Eyedropper (primary and secondary color selection)
 - Stamp tool (paste clipboard with rotate/scale/flip, soft/hard mode, drag mode, snap)
