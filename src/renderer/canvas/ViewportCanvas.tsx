@@ -843,26 +843,32 @@ const ViewportCanvas = () => {
           viewHeight
         );
       }
-      drawGrid(
-        context,
-        state.camera.x,
-        state.camera.y,
-        viewWidth,
-        viewHeight,
-        PIXEL_SIZE,
-        gridColor
-      );
-      drawGrid(
-        context,
-        state.camera.x,
-        state.camera.y,
-        viewWidth,
-        viewHeight,
-        PIXEL_SIZE * TILE_SIZE,
-        tileGridColor
-      );
+      if (layers.showPixelGrid) {
+        drawGrid(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight,
+          PIXEL_SIZE,
+          gridColor
+        );
+      }
+      if (layers.showTileGrid) {
+        drawGrid(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight,
+          PIXEL_SIZE * TILE_SIZE,
+          tileGridColor
+        );
+      }
 
-      drawAxes(context, state.camera.x, state.camera.y, viewWidth, viewHeight, axisColor);
+      if (layers.showAxes) {
+        drawAxes(context, state.camera.x, state.camera.y, viewWidth, viewHeight, axisColor);
+      }
       const activeTool = useToolStore.getState().activeTool;
       const previewColor =
         activeTool === 'selection-rect' ||
