@@ -383,9 +383,6 @@ const App = () => {
   const sprayRadius = useSprayStore((state) => state.radius);
   const sprayDensity = useSprayStore((state) => state.density);
   const sprayFalloff = useSprayStore((state) => state.falloff);
-  const sprayMode = useSprayStore((state) => state.mode);
-  const sprayDeterministic = useSprayStore((state) => state.deterministic);
-  const spraySeed = useSprayStore((state) => state.seed);
   const rectangleMode = useRectangleStore((state) => state.mode);
   const setRectangleMode = useRectangleStore((state) => state.setMode);
   const ovalMode = useOvalStore((state) => state.mode);
@@ -451,9 +448,6 @@ const App = () => {
   const setSprayRadius = useSprayStore((state) => state.setRadius);
   const setSprayDensity = useSprayStore((state) => state.setDensity);
   const setSprayFalloff = useSprayStore((state) => state.setFalloff);
-  const setSprayMode = useSprayStore((state) => state.setMode);
-  const setSprayDeterministic = useSprayStore((state) => state.setDeterministic);
-  const setSpraySeed = useSprayStore((state) => state.setSeed);
   const paletteColors = usePaletteStore((state) => state.colors);
   const referenceSnap = useReferenceHandleStore((state) => state.snap);
   const setReferenceSnap = useReferenceHandleStore((state) => state.setSnap);
@@ -1334,60 +1328,6 @@ const App = () => {
                               value={sprayFalloff}
                               onChange={(event) =>
                                 setSprayFalloff(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Mode</span>
-                          <div className="panel__toggle-group">
-                            <button
-                              type="button"
-                              className="panel__toggle"
-                              data-active={sprayMode === 'single-color'}
-                              onClick={() => setSprayMode('single-color')}
-                            >
-                              Single
-                            </button>
-                            <button
-                              type="button"
-                              className="panel__toggle"
-                              data-active={sprayMode === 'dither'}
-                              onClick={() => setSprayMode('dither')}
-                            >
-                              Dither
-                            </button>
-                          </div>
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Tests</span>
-                          <div className="panel__stack">
-                            <label
-                              className="panel__toggle"
-                              data-active={sprayDeterministic}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={sprayDeterministic}
-                                onChange={() =>
-                                  setSprayDeterministic(!sprayDeterministic)
-                                }
-                              />
-                              Deterministic
-                            </label>
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Seed"
-                              min={0}
-                              max={4294967295}
-                              step={1}
-                              value={spraySeed}
-                              disabled={!sprayDeterministic}
-                              onChange={(event) =>
-                                setSpraySeed(event.currentTarget.valueAsNumber)
                               }
                             />
                           </div>

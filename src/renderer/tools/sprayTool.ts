@@ -28,18 +28,12 @@ const setPreviewPixel = (cursor: CursorState, x: number, y: number, paletteIndex
   usePreviewStore.getState().setPixel(x, y, paletteIndex);
 };
 
-const getDitherPaletteIndices = () => {
+const getSelectedPaletteIndices = () => {
   const palette = usePaletteStore.getState();
   const selection = palette.selectedIndices.filter(
     (idx, pos, arr) => arr.indexOf(idx) === pos && idx >= 0 && idx < palette.colors.length
   );
-  if (selection.length > 0) {
-    return selection;
-  }
-  const fallback = [palette.primaryIndex, palette.secondaryIndex].filter(
-    (idx, pos, arr) => arr.indexOf(idx) === pos
-  );
-  return fallback.length > 0 ? fallback : [0];
+  return selection;
 };
 
 // Mulberry32 PRNG
@@ -97,9 +91,11 @@ export class SprayTool implements Tool {
       const radius = Math.max(1, settings.radius);
       const falloff = Math.min(1, Math.max(0, settings.falloff));
       const exp = 0.5 + falloff * 2.5;
-      const useDither = settings.mode === 'dither';
       const random = this.rng ?? Math.random;
-      const ditherIndices = useDither ? getDitherPaletteIndices() : null;
+      const selectedIndices = getSelectedPaletteIndices();
+      const useDither = selectedIndices.length > 1;
+      const ditherIndices = useDither ? selectedIndices : null;
+      const singleIndex = selectedIndices[0] ?? this.activeIndex;
 
       for (let i = 0; i < emitCount; i += 1) {
         const angle = random() * Math.PI * 2;
@@ -110,7 +106,7 @@ export class SprayTool implements Tool {
         const paletteIndex = useDither
           ? (ditherIndices?.[Math.floor(random() * (ditherIndices?.length ?? 1))] ??
             0)
-          : this.activeIndex;
+          : singleIndex;
         setPreviewPixel(cursor, centerX + dx, centerY + dy, paletteIndex);
       }
     }
