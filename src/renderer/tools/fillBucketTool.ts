@@ -271,7 +271,8 @@ export class FillBucketTool implements Tool {
       if (ramp.length === 0) {
         return;
       }
-      const { gradientDirection, gradientDither } = useFillBucketStore.getState();
+      const { gradientDirection } = useFillBucketStore.getState();
+      const gradientDither: FillBucketGradientDither = 'bayer2';
       const selection = useSelectionStore.getState();
       if (selection.selectedCount > 0) {
         const collected = collectSelectionPixels();

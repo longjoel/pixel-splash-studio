@@ -1552,7 +1552,7 @@ const App = () => {
                               onChange={() => setFillMode('gradient')}
                               disabled={paletteSelectionCount < 2}
                             />
-                            Gradient Dither
+                            Gradient
                           </label>
                         </div>
                         <div className="panel__note">
@@ -1572,26 +1572,6 @@ const App = () => {
                                 { value: 'bottom-top', label: 'Bottom → Top' },
                                 { value: 'left-right', label: 'Left → Right' },
                                 { value: 'right-left', label: 'Right → Left' },
-                              ]}
-                            />
-                          </div>
-                          <div className="panel__group">
-                            <span className="panel__label">Dither</span>
-                            <DropdownSelect
-                              ariaLabel="Gradient dither"
-                              value={fillGradientDither}
-                              onChange={setFillGradientDither}
-                              options={[
-                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
-                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
-                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
-                                { value: 'none', label: 'None' },
-                                { value: 'random', label: 'Random (stable)' },
-                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
-                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
-                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
-                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
-                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
                               ]}
                             />
                           </div>
