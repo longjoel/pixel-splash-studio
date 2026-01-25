@@ -12,6 +12,7 @@ import { useBrushStore } from './state/brushStore';
 import { useSprayStore } from './state/sprayStore';
 import { useRectangleStore } from './state/rectangleStore';
 import { useOvalStore } from './state/ovalStore';
+import { useLineStore } from './state/lineStore';
 import { useSelectionRectangleStore } from './state/selectionRectangleStore';
 import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
@@ -385,8 +386,14 @@ const App = () => {
   const sprayFalloff = useSprayStore((state) => state.falloff);
   const rectangleMode = useRectangleStore((state) => state.mode);
   const setRectangleMode = useRectangleStore((state) => state.setMode);
+  const rectangleGradientFill = useRectangleStore((state) => state.gradientFill);
+  const setRectangleGradientFill = useRectangleStore((state) => state.setGradientFill);
   const ovalMode = useOvalStore((state) => state.mode);
   const setOvalMode = useOvalStore((state) => state.setMode);
+  const ovalGradientFill = useOvalStore((state) => state.gradientFill);
+  const setOvalGradientFill = useOvalStore((state) => state.setGradientFill);
+  const lineGradient = useLineStore((state) => state.gradient);
+  const setLineGradient = useLineStore((state) => state.setGradient);
   const selectionSnap = useSelectionRectangleStore((state) => state.snap);
   const setSelectionSnap = useSelectionRectangleStore((state) => state.setSnap);
   const fillMode = useFillBucketStore((state) => state.mode);
@@ -1334,6 +1341,24 @@ const App = () => {
                         </div>
                       </div>
                     </>
+                  ) : activeTool === 'line' ? (
+                    <div className="panel__group">
+                      <span className="panel__label">Stroke</span>
+                      <div className="panel__toggle-group">
+                        <label className="panel__toggle" data-active={lineGradient}>
+                          <input
+                            type="checkbox"
+                            checked={lineGradient}
+                            disabled={paletteSelectionCount < 2}
+                            onChange={() => setLineGradient(!lineGradient)}
+                          />
+                          Gradient
+                        </label>
+                      </div>
+                      <div className="panel__note">
+                        Select 2+ palette swatches (Shift-click) for gradient ramp.
+                      </div>
+                    </div>
                   ) : activeTool === 'rectangle' ? (
                     <div className="panel__group">
                       <span className="panel__label">Mode</span>
@@ -1368,6 +1393,24 @@ const App = () => {
                           />
                           Outline + Fill
                         </label>
+                      </div>
+                      <div className="panel__toggle-group">
+                        <label
+                          className="panel__toggle"
+                          data-active={rectangleGradientFill}
+                          title="Gradient fill (requires multiple palette selections)"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={rectangleGradientFill}
+                            disabled={rectangleMode === 'outlined' || paletteSelectionCount < 2}
+                            onChange={() => setRectangleGradientFill(!rectangleGradientFill)}
+                          />
+                          Gradient Fill
+                        </label>
+                      </div>
+                      <div className="panel__note">
+                        Select 2+ palette swatches (Shift-click) for gradient ramp.
                       </div>
                     </div>
                   ) : activeTool === 'oval' ? (
@@ -1404,6 +1447,24 @@ const App = () => {
                           />
                           Outline + Fill
                         </label>
+                      </div>
+                      <div className="panel__toggle-group">
+                        <label
+                          className="panel__toggle"
+                          data-active={ovalGradientFill}
+                          title="Gradient fill (requires multiple palette selections)"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={ovalGradientFill}
+                            disabled={ovalMode === 'outlined' || paletteSelectionCount < 2}
+                            onChange={() => setOvalGradientFill(!ovalGradientFill)}
+                          />
+                          Gradient Fill
+                        </label>
+                      </div>
+                      <div className="panel__note">
+                        Select 2+ palette swatches (Shift-click) for gradient ramp.
                       </div>
                     </div>
                   ) : activeTool === 'fill-bucket' ? (
