@@ -198,6 +198,75 @@ const drawOutlineOval = (
   }
 };
 
+const drawOutlineOvalGradient = (
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  ramp: number[]
+) => {
+  if (ramp.length === 0) {
+    return;
+  }
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+  const rx = (maxX - minX) / 2;
+  const ry = (maxY - minY) / 2;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  const width = Math.max(1, maxX - minX);
+  const height = Math.max(1, maxY - minY);
+  const horizontal = width >= height;
+  const tFor = (x: number, y: number) =>
+    horizontal ? (x - minX) / width : (y - minY) / height;
+
+  if (rx === 0 && ry === 0) {
+    setPreviewPixel(minX, minY, paletteIndexFromRamp(ramp, 0));
+    return;
+  }
+  if (rx === 0) {
+    for (let y = minY; y <= maxY; y += 1) {
+      setPreviewPixel(minX, y, paletteIndexFromRamp(ramp, tFor(minX, y)));
+    }
+    return;
+  }
+  if (ry === 0) {
+    for (let x = minX; x <= maxX; x += 1) {
+      setPreviewPixel(x, minY, paletteIndexFromRamp(ramp, tFor(x, minY)));
+    }
+    return;
+  }
+
+  const rxSq = rx * rx;
+  const rySq = ry * ry;
+
+  for (let x = minX; x <= maxX; x += 1) {
+    const dx = x - centerX;
+    const value = 1 - (dx * dx) / rxSq;
+    if (value < 0) {
+      continue;
+    }
+    const yOffset = Math.sqrt(value) * ry;
+    const yTop = Math.round(centerY - yOffset);
+    const yBottom = Math.round(centerY + yOffset);
+    setPreviewPixel(x, yTop, paletteIndexFromRamp(ramp, tFor(x, yTop)));
+    setPreviewPixel(x, yBottom, paletteIndexFromRamp(ramp, tFor(x, yBottom)));
+  }
+
+  for (let y = minY; y <= maxY; y += 1) {
+    const dy = y - centerY;
+    const value = 1 - (dy * dy) / rySq;
+    if (value < 0) {
+      continue;
+    }
+    const xOffset = Math.sqrt(value) * rx;
+    const xLeft = Math.round(centerX - xOffset);
+    const xRight = Math.round(centerX + xOffset);
+    setPreviewPixel(xLeft, y, paletteIndexFromRamp(ramp, tFor(xLeft, y)));
+    setPreviewPixel(xRight, y, paletteIndexFromRamp(ramp, tFor(xRight, y)));
+  }
+};
+
 export class OvalTool implements Tool {
   id = 'oval';
   private start: { x: number; y: number } | null = null;
@@ -239,7 +308,11 @@ export class OvalTool implements Tool {
       }
       return;
     }
-    drawOutlineOval(this.start, end, this.activeIndex);
+    if (ramp.length > 0) {
+      drawOutlineOvalGradient(this.start, end, ramp);
+    } else {
+      drawOutlineOval(this.start, end, this.activeIndex);
+    }
   };
 
   onEnd = () => {

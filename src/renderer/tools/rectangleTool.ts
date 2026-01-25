@@ -92,6 +92,48 @@ const drawOutlineRect = (
   }
 };
 
+const drawOutlineRectGradient = (
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+  ramp: number[]
+) => {
+  if (ramp.length === 0) {
+    return;
+  }
+  const selection = useSelectionStore.getState();
+  const preview = usePreviewStore.getState();
+  const minX = Math.min(start.x, end.x);
+  const maxX = Math.max(start.x, end.x);
+  const minY = Math.min(start.y, end.y);
+  const maxY = Math.max(start.y, end.y);
+  const width = Math.max(1, maxX - minX);
+  const height = Math.max(1, maxY - minY);
+  const horizontal = width >= height;
+  const tFor = (x: number, y: number) =>
+    horizontal ? (x - minX) / width : (y - minY) / height;
+
+  for (let x = minX; x <= maxX; x += 1) {
+    const t = tFor(x, minY);
+    const paletteIndex = paletteIndexFromRamp(ramp, t);
+    if (selection.selectedCount === 0 || selection.isSelected(x, minY)) {
+      preview.setPixel(x, minY, paletteIndex);
+    }
+    if (selection.selectedCount === 0 || selection.isSelected(x, maxY)) {
+      preview.setPixel(x, maxY, paletteIndexFromRamp(ramp, tFor(x, maxY)));
+    }
+  }
+  for (let y = minY + 1; y <= maxY - 1; y += 1) {
+    const leftT = tFor(minX, y);
+    const rightT = tFor(maxX, y);
+    if (selection.selectedCount === 0 || selection.isSelected(minX, y)) {
+      preview.setPixel(minX, y, paletteIndexFromRamp(ramp, leftT));
+    }
+    if (selection.selectedCount === 0 || selection.isSelected(maxX, y)) {
+      preview.setPixel(maxX, y, paletteIndexFromRamp(ramp, rightT));
+    }
+  }
+};
+
 export class RectangleTool implements Tool {
   id = 'rectangle';
   private start: { x: number; y: number } | null = null;
@@ -133,7 +175,11 @@ export class RectangleTool implements Tool {
       }
       return;
     }
-    drawOutlineRect(this.start, end, this.activeIndex);
+    if (ramp.length > 0) {
+      drawOutlineRectGradient(this.start, end, ramp);
+    } else {
+      drawOutlineRect(this.start, end, this.activeIndex);
+    }
   };
 
   onEnd = () => {
