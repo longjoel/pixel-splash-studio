@@ -257,7 +257,6 @@ const PaletteBar = () => {
   const secondaryIndex = usePaletteStore((state) => state.secondaryIndex);
   const selectedIndices = usePaletteStore((state) => state.selectedIndices);
   const setPrimary = usePaletteStore((state) => state.setPrimary);
-  const setSecondary = usePaletteStore((state) => state.setSecondary);
   const setColor = usePaletteStore((state) => state.setColor);
   const setPalette = usePaletteStore((state) => state.setPalette);
   const setSelectedIndices = usePaletteStore((state) => state.setSelectedIndices);
@@ -271,7 +270,12 @@ const PaletteBar = () => {
     index: null,
   });
   const lastSelectedRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const isMac = React.useMemo(
+    () => typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac'),
+    []
+  );
 
   const closeMenu = () => {
     setMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
@@ -516,9 +520,17 @@ const PaletteBar = () => {
             className="palette-bar__swatch"
             style={{ background: color }}
             data-primary={index === primaryIndex}
-            data-secondary={index === secondaryIndex}
             data-selected={selectionSet.has(index)}
+            onMouseDown={(event) => {
+              if (isMac && event.button === 0 && event.ctrlKey) {
+                suppressClickRef.current = true;
+              }
+            }}
             onClick={(event) => {
+              if (suppressClickRef.current) {
+                suppressClickRef.current = false;
+                return;
+              }
               if (event.shiftKey && lastSelectedRef.current !== null) {
                 const start = Math.min(lastSelectedRef.current, index);
                 const end = Math.max(lastSelectedRef.current, index);
@@ -527,6 +539,8 @@ const PaletteBar = () => {
                   next.add(i);
                 }
                 setSelectedIndices(Array.from(next));
+                lastSelectedRef.current = index;
+                setPrimary(index);
               } else if (event.metaKey || event.altKey) {
                 const next = new Set(selectionSet);
                 if (next.has(index)) {
@@ -536,14 +550,21 @@ const PaletteBar = () => {
                 }
                 setSelectedIndices(Array.from(next));
                 lastSelectedRef.current = index;
+                setPrimary(index);
+              } else if (event.ctrlKey) {
+                const next = new Set(selectionSet);
+                if (next.has(index)) {
+                  next.delete(index);
+                } else {
+                  next.add(index);
+                }
+                setSelectedIndices(Array.from(next));
+                lastSelectedRef.current = index;
+                setPrimary(index);
               } else {
                 setSelection([index]);
                 lastSelectedRef.current = index;
-                if (event.ctrlKey) {
-                  setSecondary(index);
-                } else {
-                  setPrimary(index);
-                }
+                setPrimary(index);
               }
             }}
             onContextMenu={(event) => openMenu(event, index)}

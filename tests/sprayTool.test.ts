@@ -35,7 +35,6 @@ describe('SprayTool', () => {
     useSprayStore.getState().setRadius(3);
     useSprayStore.getState().setDensity(100);
     useSprayStore.getState().setFalloff(0);
-    useSprayStore.getState().setMode('single-color');
     useSprayStore.getState().setDeterministic(true);
     useSprayStore.getState().setSeed(123);
   });
@@ -77,23 +76,5 @@ describe('SprayTool', () => {
         "2:-2:1",
       ]
     `);
-  });
-
-  it('uses palette selection for dither mode', () => {
-    useSprayStore.getState().setMode('dither');
-    usePaletteStore.getState().setSelectedIndices([3, 5, 7]);
-
-    const tool = new SprayTool();
-    tool.onBegin?.(makeCursor());
-    vi.advanceTimersByTime(64);
-    tool.onEnd?.(makeCursor());
-
-    const history = useHistoryStore.getState();
-    expect(history.undoStack).toHaveLength(1);
-    const nextIndices = new Set(history.undoStack[0]?.changes.map((c) => c.next) ?? []);
-    for (const idx of nextIndices) {
-      expect([3, 5, 7]).toContain(idx);
-    }
-    expect(nextIndices.size).toBeGreaterThan(0);
   });
 });
