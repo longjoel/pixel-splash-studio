@@ -14,6 +14,9 @@ const viewMenuState = {
   showReferenceLayer: true,
   showPixelLayer: true,
   showTileLayer: true,
+  showPixelGrid: true,
+  showTileGrid: true,
+  showAxes: true,
   toolbarCollapsed: false,
   minimapCollapsed: false,
 };
@@ -38,6 +41,18 @@ const applyViewMenuState = (partial: Partial<typeof viewMenuState>) => {
   if (typeof partial.showTileLayer === 'boolean') {
     viewMenuState.showTileLayer = partial.showTileLayer;
     setMenuItemChecked('view:showTileLayer', partial.showTileLayer);
+  }
+  if (typeof partial.showPixelGrid === 'boolean') {
+    viewMenuState.showPixelGrid = partial.showPixelGrid;
+    setMenuItemChecked('view:showPixelGrid', partial.showPixelGrid);
+  }
+  if (typeof partial.showTileGrid === 'boolean') {
+    viewMenuState.showTileGrid = partial.showTileGrid;
+    setMenuItemChecked('view:showTileGrid', partial.showTileGrid);
+  }
+  if (typeof partial.showAxes === 'boolean') {
+    viewMenuState.showAxes = partial.showAxes;
+    setMenuItemChecked('view:showAxes', partial.showAxes);
   }
   if (typeof partial.toolbarCollapsed === 'boolean') {
     viewMenuState.toolbarCollapsed = partial.toolbarCollapsed;
@@ -299,6 +314,54 @@ app.whenReady().then(() => {
                 window?.webContents.send(
                   'menu:action',
                   `view:set:showTileLayer:${menuItem.checked}`
+                );
+              },
+            },
+          ],
+        },
+        { type: 'separator' as const },
+        {
+          label: 'Overlays',
+          submenu: [
+            {
+              id: 'view:showPixelGrid',
+              label: 'Pixel Grid',
+              type: 'checkbox' as const,
+              checked: viewMenuState.showPixelGrid,
+              click: (menuItem: Electron.MenuItem) => {
+                applyViewMenuState({ showPixelGrid: menuItem.checked });
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send(
+                  'menu:action',
+                  `view:set:showPixelGrid:${menuItem.checked}`
+                );
+              },
+            },
+            {
+              id: 'view:showTileGrid',
+              label: 'Tile Grid',
+              type: 'checkbox' as const,
+              checked: viewMenuState.showTileGrid,
+              click: (menuItem: Electron.MenuItem) => {
+                applyViewMenuState({ showTileGrid: menuItem.checked });
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send(
+                  'menu:action',
+                  `view:set:showTileGrid:${menuItem.checked}`
+                );
+              },
+            },
+            {
+              id: 'view:showAxes',
+              label: 'Axes',
+              type: 'checkbox' as const,
+              checked: viewMenuState.showAxes,
+              click: (menuItem: Electron.MenuItem) => {
+                applyViewMenuState({ showAxes: menuItem.checked });
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send(
+                  'menu:action',
+                  `view:set:showAxes:${menuItem.checked}`
                 );
               },
             },

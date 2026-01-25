@@ -132,6 +132,9 @@ interface Window {
       showReferenceLayer?: boolean;
       showPixelLayer?: boolean;
       showTileLayer?: boolean;
+      showPixelGrid?: boolean;
+      showTileGrid?: boolean;
+      showAxes?: boolean;
       toolbarCollapsed?: boolean;
       minimapCollapsed?: boolean;
     }) => void;

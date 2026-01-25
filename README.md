@@ -96,7 +96,7 @@ npm run test:e2e
 - The pixel layer is chunked into `64x64` blocks (`CanvasStore`) so rendering and operations can be localized.
 - Tools write to a preview layer while interacting, then commit a batch to the pixel store + history.
 - The viewport is camera-based (x/y + zoom) and maps screen coordinates to world coordinates.
-- References are rendered underneath the pixel grid and support transforms (move/rotate/scale/flip/opacity).
+- References are rendered underneath the pixel grid (toggleable) and support transforms (move/rotate/scale/flip/opacity).
 
 ## Contributing
 

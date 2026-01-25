@@ -358,12 +358,21 @@ const App = () => {
   const showReferenceLayer = useLayerVisibilityStore((state) => state.showReferenceLayer);
   const showPixelLayer = useLayerVisibilityStore((state) => state.showPixelLayer);
   const showTileLayer = useLayerVisibilityStore((state) => state.showTileLayer);
+  const showPixelGrid = useLayerVisibilityStore((state) => state.showPixelGrid);
+  const showTileGrid = useLayerVisibilityStore((state) => state.showTileGrid);
+  const showAxes = useLayerVisibilityStore((state) => state.showAxes);
   const setShowReferenceLayer = useLayerVisibilityStore((state) => state.setShowReferenceLayer);
   const setShowPixelLayer = useLayerVisibilityStore((state) => state.setShowPixelLayer);
   const setShowTileLayer = useLayerVisibilityStore((state) => state.setShowTileLayer);
+  const setShowPixelGrid = useLayerVisibilityStore((state) => state.setShowPixelGrid);
+  const setShowTileGrid = useLayerVisibilityStore((state) => state.setShowTileGrid);
+  const setShowAxes = useLayerVisibilityStore((state) => state.setShowAxes);
   const toggleReferenceLayer = useLayerVisibilityStore((state) => state.toggleReferenceLayer);
   const togglePixelLayer = useLayerVisibilityStore((state) => state.togglePixelLayer);
   const toggleTileLayer = useLayerVisibilityStore((state) => state.toggleTileLayer);
+  const togglePixelGrid = useLayerVisibilityStore((state) => state.togglePixelGrid);
+  const toggleTileGrid = useLayerVisibilityStore((state) => state.toggleTileGrid);
+  const toggleAxes = useLayerVisibilityStore((state) => state.toggleAxes);
   const tileSets = useTileMapStore((state) => state.tileSets);
   const tileMaps = useTileMapStore((state) => state.tileMaps);
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
@@ -782,6 +791,15 @@ const App = () => {
           case 'showTileLayer':
             setShowTileLayer(next);
             return;
+          case 'showPixelGrid':
+            setShowPixelGrid(next);
+            return;
+          case 'showTileGrid':
+            setShowTileGrid(next);
+            return;
+          case 'showAxes':
+            setShowAxes(next);
+            return;
           case 'toolbarCollapsed':
             setToolbarCollapsed(next);
             return;
@@ -883,6 +901,9 @@ const App = () => {
       showReferenceLayer,
       showPixelLayer,
       showTileLayer,
+      showPixelGrid,
+      showTileGrid,
+      showAxes,
       toolbarCollapsed,
       minimapCollapsed,
     });
@@ -890,6 +911,9 @@ const App = () => {
     showReferenceLayer,
     showPixelLayer,
     showTileLayer,
+    showPixelGrid,
+    showTileGrid,
+    showAxes,
     toolbarCollapsed,
     minimapCollapsed,
   ]);
@@ -1131,6 +1155,50 @@ const App = () => {
                           onChange={toggleTileLayer}
                         />
                         Tiles
+                      </label>
+                    </div>
+                  </div>
+                  <div className="panel__group">
+                    <span className="panel__label">Overlays</span>
+                    <div className="panel__toggle-group">
+                      <label
+                        className="panel__toggle"
+                        data-active={showPixelGrid}
+                        title="Toggle pixel grid visibility"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={showPixelGrid}
+                          onChange={togglePixelGrid}
+                          aria-label="Toggle pixel grid visibility"
+                        />
+                        Pixel Grid
+                      </label>
+                      <label
+                        className="panel__toggle"
+                        data-active={showTileGrid}
+                        title="Toggle tile grid visibility"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={showTileGrid}
+                          onChange={toggleTileGrid}
+                          aria-label="Toggle tile grid visibility"
+                        />
+                        Tile Grid
+                      </label>
+                      <label
+                        className="panel__toggle"
+                        data-active={showAxes}
+                        title="Toggle axis visibility"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={showAxes}
+                          onChange={toggleAxes}
+                          aria-label="Toggle axis visibility"
+                        />
+                        Axes
                       </label>
                     </div>
                   </div>
