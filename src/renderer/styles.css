@@ -1093,11 +1093,6 @@ body {
   outline-offset: 1px;
 }
 
-.palette-bar__swatch[data-secondary='true'] {
-  outline: 2px solid rgba(245, 197, 66, 0.9);
-  outline-offset: 1px;
-}
-
 .palette-bar__swatch[data-selected='true'] {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6) inset;
 }
