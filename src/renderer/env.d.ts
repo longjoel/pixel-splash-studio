@@ -9,6 +9,7 @@ type TileSetPayload = {
     id: string;
     name?: string;
     pixels: number[];
+    source?: { kind: 'canvas'; x: number; y: number };
   }>;
 };
 

@@ -91,7 +91,7 @@ export class TileSamplerTool implements Tool {
       startIndex = 0;
     }
 
-    const tilesToAdd: Array<{ name?: string; pixels: number[] }> = [];
+    const tilesToAdd: Array<{ name?: string; pixels: number[]; source?: { kind: 'canvas'; x: number; y: number } }> = [];
     for (let ty = bounds.minTileY; ty <= bounds.maxTileY; ty += 1) {
       for (let tx = bounds.minTileX; tx <= bounds.maxTileX; tx += 1) {
         const tilePixels: number[] = [];
@@ -102,7 +102,7 @@ export class TileSamplerTool implements Tool {
             tilePixels.push(pixelStore.getPixelComposite(startX + x, startY + y));
           }
         }
-        tilesToAdd.push({ pixels: tilePixels });
+        tilesToAdd.push({ pixels: tilePixels, source: { kind: 'canvas', x: startX, y: startY } });
       }
     }
 

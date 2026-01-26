@@ -756,6 +756,14 @@ const ViewportCanvas = () => {
           blockCacheRef.current.set(key, rebuilt);
         }
       }
+      if (dirtyAll || dirtyBlocks.length > 0) {
+        useTileMapStore
+          .getState()
+          .refreshCanvasSourcedTiles(
+            dirtyAll,
+            dirtyBlocks.map((block) => ({ row: block.row, col: block.col }))
+          );
+      }
 
       const selectionState = useSelectionStore.getState();
       const selectionDirty = selectionState.consumeDirtyBlocks();
