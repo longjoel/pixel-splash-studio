@@ -137,6 +137,7 @@ export class TilePenTool implements Tool {
   private lastWorldPoint: TilePoint | null = null;
   private activeMap: ActiveMapContext | null = null;
   private activeTile: ActiveTileContext | null = null;
+  private erasing = false;
 
   private toWorldTilePoint(pixelPoint: TilePoint): TilePoint | null {
     if (!this.activeTile) {
@@ -252,15 +253,21 @@ export class TilePenTool implements Tool {
         if (mapX < 0 || mapY < 0 || mapX >= columns || mapY >= rows) {
           continue;
         }
+        const mapIndex = mapY * columns + mapX;
         const selectionIndex = rowOffset * selectionCols + colOffset;
-        const tileIndex = selectionIndices[selectionIndex];
-        const tile = typeof tileIndex === 'number' ? this.activeTile.tileSetTiles[tileIndex] : undefined;
-        if (!tile) {
+        const selectedTileIndex = selectionIndices[selectionIndex] ?? -1;
+        if (this.drawing) {
+          this.changes.set(mapIndex, this.erasing ? -1 : selectedTileIndex);
+        }
+        if (this.erasing) {
           continue;
         }
-        const mapIndex = mapY * columns + mapX;
-        if (this.drawing) {
-          this.changes.set(mapIndex, tileIndex);
+
+        const tileIndex = selectedTileIndex;
+        const tile =
+          typeof tileIndex === 'number' ? this.activeTile.tileSetTiles[tileIndex] : undefined;
+        if (!tile) {
+          continue;
         }
         const worldX = worldPoint.x + colOffset;
         const worldY = worldPoint.y + rowOffset;
@@ -304,6 +311,7 @@ export class TilePenTool implements Tool {
     preview.clear();
     this.drawing = true;
     this.changes.clear();
+    this.erasing = cursor.secondary;
     this.activeTile = getActiveTileContext();
     if (!this.activeTile) {
       this.drawing = false;
@@ -331,6 +339,7 @@ export class TilePenTool implements Tool {
     if (!this.activeTile || !this.activeMap) {
       return;
     }
+    this.erasing = cursor.secondary;
     const nextPixelPoint = toPixelPoint(cursor);
     const nextWorldPoint = this.toWorldTilePoint(nextPixelPoint);
     if (!nextWorldPoint) {
@@ -382,6 +391,7 @@ export class TilePenTool implements Tool {
     this.drawing = false;
     this.changes.clear();
     this.lastWorldPoint = null;
+    this.erasing = false;
   };
 
   onCancel = () => {
@@ -390,5 +400,6 @@ export class TilePenTool implements Tool {
     this.drawing = false;
     this.changes.clear();
     this.lastWorldPoint = null;
+    this.erasing = false;
   };
 }
