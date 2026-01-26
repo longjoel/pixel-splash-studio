@@ -141,19 +141,24 @@ const DropdownSelect = <T extends string>({
       setOpen(false);
     };
 
-    const handleRepositionOrClose = () => {
-      setOpen(false);
+    const handleReposition = (event?: Event) => {
+      const target = (event?.target ?? null) as Node | null;
+      if (target && menuRef.current?.contains(target)) {
+        return;
+      }
+      const next = computePosition();
+      setPosition(next);
     };
 
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('pointerdown', handlePointerDown, { capture: true });
-    window.addEventListener('resize', handleRepositionOrClose);
-    window.addEventListener('scroll', handleRepositionOrClose, { capture: true });
+    window.addEventListener('resize', handleReposition);
+    window.addEventListener('scroll', handleReposition, { capture: true });
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('pointerdown', handlePointerDown, { capture: true } as never);
-      window.removeEventListener('resize', handleRepositionOrClose);
-      window.removeEventListener('scroll', handleRepositionOrClose, { capture: true } as never);
+      window.removeEventListener('resize', handleReposition as never);
+      window.removeEventListener('scroll', handleReposition as never, { capture: true } as never);
     };
   }, [open, options, highlighted, onChange]);
 
@@ -244,4 +249,3 @@ const DropdownSelect = <T extends string>({
 };
 
 export default DropdownSelect;
-
