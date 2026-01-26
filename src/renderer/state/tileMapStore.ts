@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 import { useProjectStore } from '@/state/projectStore';
+import { BLOCK_SIZE } from '@/core/canvasStore';
+import { usePixelStore } from '@/state/pixelStore';
 
 export type TilePayload = {
   id: string;
   name?: string;
   pixels: number[];
+  source?: { kind: 'canvas'; x: number; y: number };
 };
 
 export type TileSetPayload = {
@@ -61,6 +64,10 @@ type TileMapState = {
   setNineSlice: (value: { tileSetId: string; tiles: number[] } | null) => void;
   addTileSet: (payload: Omit<TileSetPayload, 'id'> & { id?: string }) => string;
   appendTilesToSet: (tileSetId: string, tiles: Array<Omit<TilePayload, 'id'>>) => void;
+  refreshCanvasSourcedTiles: (
+    dirtyAll: boolean,
+    dirtyBlocks: Array<{ row: number; col: number }>
+  ) => void;
   deleteTilesFromSet: (tileSetId: string, indices: number[]) => void;
   consolidateTileSet: (tileSetId: string) => void;
   addTileMap: (payload: Omit<TileMapPayload, 'id'> & { id?: string }) => string;
@@ -202,6 +209,73 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
         return { ...tileSet, tiles: [...tileSet.tiles, ...nextTiles] };
       }),
     }));
+  },
+  refreshCanvasSourcedTiles: (dirtyAll, dirtyBlocks) => {
+    if (!dirtyAll && dirtyBlocks.length === 0) {
+      return;
+    }
+    const dirtySet = dirtyAll
+      ? null
+      : new Set(dirtyBlocks.map((block) => `${block.row}:${block.col}`));
+    const pixelStore = usePixelStore.getState();
+
+    const tileIntersectsDirty = (
+      x: number,
+      y: number,
+      width: number,
+      height: number
+    ) => {
+      if (!dirtySet) {
+        return true;
+      }
+      const minX = x;
+      const minY = y;
+      const maxX = x + Math.max(0, width - 1);
+      const maxY = y + Math.max(0, height - 1);
+      const minCol = Math.floor(minX / BLOCK_SIZE);
+      const maxCol = Math.floor(maxX / BLOCK_SIZE);
+      const minRow = Math.floor(minY / BLOCK_SIZE);
+      const maxRow = Math.floor(maxY / BLOCK_SIZE);
+      for (let row = minRow; row <= maxRow; row += 1) {
+        for (let col = minCol; col <= maxCol; col += 1) {
+          if (dirtySet.has(`${row}:${col}`)) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+
+    set((state) => {
+      let changedAny = false;
+      const nextTileSets = state.tileSets.map((tileSet) => {
+        const tileWidth = tileSet.tileWidth;
+        const tileHeight = tileSet.tileHeight;
+        let changedSet = false;
+        const nextTiles = tileSet.tiles.map((tile) => {
+          const source = tile.source;
+          if (!source || source.kind !== 'canvas') {
+            return tile;
+          }
+          if (
+            !tileIntersectsDirty(source.x, source.y, tileWidth, tileHeight)
+          ) {
+            return tile;
+          }
+          const nextPixels: number[] = [];
+          for (let y = 0; y < tileHeight; y += 1) {
+            for (let x = 0; x < tileWidth; x += 1) {
+              nextPixels.push(pixelStore.getPixelComposite(source.x + x, source.y + y));
+            }
+          }
+          changedAny = true;
+          changedSet = true;
+          return { ...tile, pixels: nextPixels };
+        });
+        return changedSet ? { ...tileSet, tiles: nextTiles } : tileSet;
+      });
+      return changedAny ? { tileSets: nextTileSets } : state;
+    });
   },
   deleteTilesFromSet: (tileSetId, indices) => {
     if (indices.length === 0) {
