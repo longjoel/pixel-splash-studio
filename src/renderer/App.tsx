@@ -12,7 +12,6 @@ import { useBrushStore } from './state/brushStore';
 import { useSprayStore } from './state/sprayStore';
 import { useRectangleStore } from './state/rectangleStore';
 import { useOvalStore } from './state/ovalStore';
-import { useLineStore } from './state/lineStore';
 import { useSelectionRectangleStore } from './state/selectionRectangleStore';
 import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
@@ -386,14 +385,8 @@ const App = () => {
   const sprayFalloff = useSprayStore((state) => state.falloff);
   const rectangleMode = useRectangleStore((state) => state.mode);
   const setRectangleMode = useRectangleStore((state) => state.setMode);
-  const rectangleGradientFill = useRectangleStore((state) => state.gradientFill);
-  const setRectangleGradientFill = useRectangleStore((state) => state.setGradientFill);
   const ovalMode = useOvalStore((state) => state.mode);
   const setOvalMode = useOvalStore((state) => state.setMode);
-  const ovalGradientFill = useOvalStore((state) => state.gradientFill);
-  const setOvalGradientFill = useOvalStore((state) => state.setGradientFill);
-  const lineGradient = useLineStore((state) => state.gradient);
-  const setLineGradient = useLineStore((state) => state.setGradient);
   const selectionSnap = useSelectionRectangleStore((state) => state.snap);
   const setSelectionSnap = useSelectionRectangleStore((state) => state.setSnap);
   const fillMode = useFillBucketStore((state) => state.mode);
@@ -1342,131 +1335,189 @@ const App = () => {
                       </div>
                     </>
                   ) : activeTool === 'line' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Stroke</span>
-                      <div className="panel__toggle-group">
-                        <label className="panel__toggle" data-active={lineGradient}>
-                          <input
-                            type="checkbox"
-                            checked={lineGradient}
-                            disabled={paletteSelectionCount < 2}
-                            onChange={() => setLineGradient(!lineGradient)}
+                    paletteSelectionCount >= 2 ? (
+                      <>
+                        <div className="panel__group">
+                          <span className="panel__label">Direction</span>
+                          <DropdownSelect
+                            ariaLabel="Gradient direction"
+                            value={fillGradientDirection}
+                            onChange={setFillGradientDirection}
+                            options={[
+                              { value: 'top-bottom', label: 'Top → Bottom' },
+                              { value: 'bottom-top', label: 'Bottom → Top' },
+                              { value: 'left-right', label: 'Left → Right' },
+                              { value: 'right-left', label: 'Right → Left' },
+                            ]}
                           />
-                          Gradient
-                        </label>
-                      </div>
+                        </div>
+                        <div className="panel__group">
+                          <span className="panel__label">Dither</span>
+                          <DropdownSelect
+                            ariaLabel="Gradient dither"
+                            value={fillGradientDither}
+                            onChange={setFillGradientDither}
+                            options={[
+                              { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                              { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                              { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                              { value: 'none', label: 'None' },
+                              { value: 'random', label: 'Random (stable)' },
+                              { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                              { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                              { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                              { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                              { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                            ]}
+                          />
+                        </div>
+                        <div className="panel__note">
+                          Select 2+ palette swatches (Shift-click) for gradient ramp.
+                        </div>
+                      </>
+                    ) : (
                       <div className="panel__note">
                         Select 2+ palette swatches (Shift-click) for gradient ramp.
                       </div>
-                    </div>
+                    )
                   ) : activeTool === 'rectangle' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Mode</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="rectangle-mode"
-                            value="filled"
-                            checked={rectangleMode === 'filled'}
-                            onChange={() => setRectangleMode('filled')}
-                          />
-                          Filled
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="rectangle-mode"
-                            value="outlined"
-                            checked={rectangleMode === 'outlined'}
-                            onChange={() => setRectangleMode('outlined')}
-                          />
-                          Outlined
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="rectangle-mode"
-                            value="outline-fill"
-                            checked={rectangleMode === 'outline-fill'}
-                            onChange={() => setRectangleMode('outline-fill')}
-                          />
-                          Outline + Fill
-                        </label>
+                    <>
+                      <div className="panel__group">
+                        <span className="panel__label">Mode</span>
+                        <div className="panel__row">
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="rectangle-mode"
+                              value="filled"
+                              checked={rectangleMode === 'filled'}
+                              onChange={() => setRectangleMode('filled')}
+                            />
+                            Filled
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="rectangle-mode"
+                              value="outlined"
+                              checked={rectangleMode === 'outlined'}
+                              onChange={() => setRectangleMode('outlined')}
+                            />
+                            Outlined
+                          </label>
+                        </div>
                       </div>
-                      <div className="panel__toggle-group">
-                        <label
-                          className="panel__toggle"
-                          data-active={rectangleGradientFill}
-                          title="Gradient fill (requires multiple palette selections)"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={rectangleGradientFill}
-                            disabled={rectangleMode === 'outlined' || paletteSelectionCount < 2}
-                            onChange={() => setRectangleGradientFill(!rectangleGradientFill)}
-                          />
-                          Gradient Fill
-                        </label>
-                      </div>
-                      <div className="panel__note">
-                        Select 2+ palette swatches (Shift-click) for gradient ramp.
-                      </div>
-                    </div>
+                      {paletteSelectionCount >= 2 && (
+                        <>
+                          <div className="panel__group">
+                            <span className="panel__label">Direction</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient direction"
+                              value={fillGradientDirection}
+                              onChange={setFillGradientDirection}
+                              options={[
+                                { value: 'top-bottom', label: 'Top → Bottom' },
+                                { value: 'bottom-top', label: 'Bottom → Top' },
+                                { value: 'left-right', label: 'Left → Right' },
+                                { value: 'right-left', label: 'Right → Left' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__group">
+                            <span className="panel__label">Dither</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient dither"
+                              value={fillGradientDither}
+                              onChange={setFillGradientDither}
+                              options={[
+                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                                { value: 'none', label: 'None' },
+                                { value: 'random', label: 'Random (stable)' },
+                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__note">
+                            Select 2+ palette swatches (Shift-click) for gradient ramp.
+                          </div>
+                        </>
+                      )}
+                    </>
                   ) : activeTool === 'oval' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Mode</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="oval-mode"
-                            value="filled"
-                            checked={ovalMode === 'filled'}
-                            onChange={() => setOvalMode('filled')}
-                          />
-                          Filled
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="oval-mode"
-                            value="outlined"
-                            checked={ovalMode === 'outlined'}
-                            onChange={() => setOvalMode('outlined')}
-                          />
-                          Outlined
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="oval-mode"
-                            value="outline-fill"
-                            checked={ovalMode === 'outline-fill'}
-                            onChange={() => setOvalMode('outline-fill')}
-                          />
-                          Outline + Fill
-                        </label>
+                    <>
+                      <div className="panel__group">
+                        <span className="panel__label">Mode</span>
+                        <div className="panel__row">
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="oval-mode"
+                              value="filled"
+                              checked={ovalMode === 'filled'}
+                              onChange={() => setOvalMode('filled')}
+                            />
+                            Filled
+                          </label>
+                          <label className="panel__radio">
+                            <input
+                              type="radio"
+                              name="oval-mode"
+                              value="outlined"
+                              checked={ovalMode === 'outlined'}
+                              onChange={() => setOvalMode('outlined')}
+                            />
+                            Outlined
+                          </label>
+                        </div>
                       </div>
-                      <div className="panel__toggle-group">
-                        <label
-                          className="panel__toggle"
-                          data-active={ovalGradientFill}
-                          title="Gradient fill (requires multiple palette selections)"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={ovalGradientFill}
-                            disabled={ovalMode === 'outlined' || paletteSelectionCount < 2}
-                            onChange={() => setOvalGradientFill(!ovalGradientFill)}
-                          />
-                          Gradient Fill
-                        </label>
-                      </div>
-                      <div className="panel__note">
-                        Select 2+ palette swatches (Shift-click) for gradient ramp.
-                      </div>
-                    </div>
+                      {paletteSelectionCount >= 2 && (
+                        <>
+                          <div className="panel__group">
+                            <span className="panel__label">Direction</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient direction"
+                              value={fillGradientDirection}
+                              onChange={setFillGradientDirection}
+                              options={[
+                                { value: 'top-bottom', label: 'Top → Bottom' },
+                                { value: 'bottom-top', label: 'Bottom → Top' },
+                                { value: 'left-right', label: 'Left → Right' },
+                                { value: 'right-left', label: 'Right → Left' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__group">
+                            <span className="panel__label">Dither</span>
+                            <DropdownSelect
+                              ariaLabel="Gradient dither"
+                              value={fillGradientDither}
+                              onChange={setFillGradientDither}
+                              options={[
+                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                                { value: 'none', label: 'None' },
+                                { value: 'random', label: 'Random (stable)' },
+                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                              ]}
+                            />
+                          </div>
+                          <div className="panel__note">
+                            Select 2+ palette swatches (Shift-click) for gradient ramp.
+                          </div>
+                        </>
+                      )}
+                    </>
                   ) : activeTool === 'fill-bucket' ? (
                     <>
                       <div className="panel__group">
@@ -1492,23 +1543,12 @@ const App = () => {
                             />
                             Selection
                           </label>
-                          <label className="panel__radio">
-                            <input
-                              type="radio"
-                              name="fill-mode"
-                              value="gradient"
-                              checked={fillMode === 'gradient'}
-                              onChange={() => setFillMode('gradient')}
-                              disabled={paletteSelectionCount < 2}
-                            />
-                            Gradient Dither
-                          </label>
                         </div>
                         <div className="panel__note">
                           Select 2+ palette swatches (Shift-click) for gradient ramp.
                         </div>
                       </div>
-                      {fillMode === 'gradient' && (
+                      {paletteSelectionCount >= 2 && (
                         <>
                           <div className="panel__group">
                             <span className="panel__label">Direction</span>

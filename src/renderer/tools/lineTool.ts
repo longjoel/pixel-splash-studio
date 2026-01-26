@@ -5,18 +5,9 @@ import { usePreviewStore } from '@/state/previewStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useSelectionStore } from '@/state/selectionStore';
-import { useLineStore } from '@/state/lineStore';
-
-const getGradientRampFromSelection = () => {
-  const palette = usePaletteStore.getState();
-  const unique = palette.selectedIndices
-    .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
-    .filter((idx) => idx >= 0 && idx < palette.colors.length);
-  if (unique.length <= 1) {
-    return [];
-  }
-  return unique.sort((a, b) => a - b);
-};
+import { useFillBucketStore } from '@/state/fillBucketStore';
+import { getPaletteSelectionRamp } from '@/services/paletteRamp';
+import { computeGradientPaletteMap, type Bounds } from '@/services/gradientRamp';
 
 const setPreviewPixel = (x: number, y: number, paletteIndex: number) => {
   const selection = useSelectionStore.getState();
@@ -56,19 +47,13 @@ const drawLine = (
   }
 };
 
-const drawLineGradient = (
+const collectLinePoints = (
   x0: number,
   y0: number,
   x1: number,
-  y1: number,
-  ramp: number[]
+  y1: number
 ) => {
-  if (ramp.length === 0) {
-    return;
-  }
-  const totalSteps = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0)) + 1;
-  const rampMax = Math.max(1, ramp.length - 1);
-  let stepIndex = 0;
+  const points: Array<{ x: number; y: number }> = [];
   let dx = Math.abs(x1 - x0);
   let dy = Math.abs(y1 - y0);
   const sx = x0 < x1 ? 1 : -1;
@@ -76,9 +61,7 @@ const drawLineGradient = (
   let err = dx - dy;
 
   while (true) {
-    const t = totalSteps <= 1 ? 0 : stepIndex / (totalSteps - 1);
-    const idx = Math.min(rampMax, Math.max(0, Math.floor(t * rampMax)));
-    setPreviewPixel(x0, y0, ramp[idx] ?? ramp[0] ?? 0);
+    points.push({ x: x0, y: y0 });
     if (x0 === x1 && y0 === y1) {
       break;
     }
@@ -91,8 +74,8 @@ const drawLineGradient = (
       err += dx;
       y0 += sy;
     }
-    stepIndex += 1;
   }
+  return points;
 };
 
 export class LineTool implements Tool {
@@ -101,7 +84,6 @@ export class LineTool implements Tool {
   private layerId: string | null = null;
   private activeIndex = 0;
   private activeRamp: number[] = [];
-  private reverseRamp = false;
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
 
   onHover = (cursor: CursorState) => {
@@ -122,8 +104,7 @@ export class LineTool implements Tool {
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
-    this.activeRamp = getGradientRampFromSelection();
-    this.reverseRamp = cursor.secondary;
+    this.activeRamp = getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
@@ -152,15 +133,26 @@ export class LineTool implements Tool {
         y: this.start.y + Math.round(Math.sin(snapped) * length),
       };
     }
-    const gradient = useLineStore.getState().gradient;
-    const ramp =
-      gradient && this.activeRamp.length > 1
-        ? this.reverseRamp
-          ? [...this.activeRamp].reverse()
-          : this.activeRamp
-        : [];
-    if (ramp.length > 0) {
-      drawLineGradient(this.start.x, this.start.y, end.x, end.y, ramp);
+    const ramp = this.activeRamp.length > 1 ? this.activeRamp : [];
+    if (ramp.length > 1) {
+      const bounds: Bounds = {
+        minX: Math.min(this.start.x, end.x),
+        maxX: Math.max(this.start.x, end.x),
+        minY: Math.min(this.start.y, end.y),
+        maxY: Math.max(this.start.y, end.y),
+      };
+      const points = collectLinePoints(this.start.x, this.start.y, end.x, end.y);
+      const { gradientDirection, gradientDither } = useFillBucketStore.getState();
+      const paletteMap = computeGradientPaletteMap(
+        points,
+        bounds,
+        ramp,
+        gradientDirection,
+        gradientDither
+      );
+      for (const point of points) {
+        setPreviewPixel(point.x, point.y, paletteMap.get(`${point.x}:${point.y}`) ?? ramp[0] ?? 0);
+      }
     } else {
       drawLine(this.start.x, this.start.y, end.x, end.y, this.activeIndex);
     }
@@ -198,7 +190,6 @@ export class LineTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 
   onCancel = () => {
@@ -208,6 +199,5 @@ export class LineTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 }

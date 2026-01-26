@@ -6,17 +6,9 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useOvalStore } from '@/state/ovalStore';
 import { useSelectionStore } from '@/state/selectionStore';
-
-const getGradientRampFromSelection = () => {
-  const palette = usePaletteStore.getState();
-  const unique = palette.selectedIndices
-    .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
-    .filter((idx) => idx >= 0 && idx < palette.colors.length);
-  if (unique.length <= 1) {
-    return [];
-  }
-  return unique.sort((a, b) => a - b);
-};
+import { useFillBucketStore } from '@/state/fillBucketStore';
+import { getPaletteSelectionRamp } from '@/services/paletteRamp';
+import { computeGradientPaletteMap, type Bounds } from '@/services/gradientRamp';
 
 const setPreviewPixel = (x: number, y: number, paletteIndex: number) => {
   const selection = useSelectionStore.getState();
@@ -97,60 +89,6 @@ const drawFilledOval = (
   }
 };
 
-const drawFilledOvalGradient = (
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  ramp: number[]
-) => {
-  if (ramp.length === 0) {
-    return;
-  }
-  const minX = Math.min(start.x, end.x);
-  const maxX = Math.max(start.x, end.x);
-  const minY = Math.min(start.y, end.y);
-  const maxY = Math.max(start.y, end.y);
-  const rx = (maxX - minX) / 2;
-  const ry = (maxY - minY) / 2;
-  const centerX = (minX + maxX) / 2;
-  const centerY = (minY + maxY) / 2;
-  const rampMax = Math.max(1, ramp.length - 1);
-  const height = Math.max(1, maxY - minY);
-
-  if (rx === 0 && ry === 0) {
-    setPreviewPixel(minX, minY, ramp[0] ?? 0);
-    return;
-  }
-  if (rx === 0) {
-    for (let y = minY; y <= maxY; y += 1) {
-      const t = height === 0 ? 0 : (y - minY) / height;
-      const rampIndex = Math.min(rampMax, Math.max(0, Math.floor(t * rampMax)));
-      setPreviewPixel(minX, y, ramp[rampIndex] ?? ramp[0] ?? 0);
-    }
-    return;
-  }
-  if (ry === 0) {
-    const paletteIndex = ramp[0] ?? 0;
-    drawLine(minX, minY, maxX, minY, paletteIndex);
-    return;
-  }
-
-  const rxSq = rx * rx;
-  const rySq = ry * ry;
-  for (let y = minY; y <= maxY; y += 1) {
-    const dy = y - centerY;
-    const t = height === 0 ? 0 : (y - minY) / height;
-    const rampIndex = Math.min(rampMax, Math.max(0, Math.floor(t * rampMax)));
-    const paletteIndex = ramp[rampIndex] ?? ramp[0] ?? 0;
-    for (let x = minX; x <= maxX; x += 1) {
-      const dx = x - centerX;
-      const value = (dx * dx) / rxSq + (dy * dy) / rySq;
-      if (value <= 1) {
-        setPreviewPixel(x, y, paletteIndex);
-      }
-    }
-  }
-};
-
 const drawOutlineOval = (
   start: { x: number; y: number },
   end: { x: number; y: number },
@@ -213,10 +151,7 @@ export class OvalTool implements Tool {
   private start: { x: number; y: number } | null = null;
   private layerId: string | null = null;
   private activeIndex = 0;
-  private activePrimary = 0;
-  private activeSecondary = 0;
   private activeRamp: number[] = [];
-  private reverseRamp = false;
   private changes = new Map<string, { x: number; y: number; prev: number; next: number }>();
 
   onBegin = (cursor: CursorState) => {
@@ -225,10 +160,7 @@ export class OvalTool implements Tool {
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
     this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
-    this.activePrimary = palette.primaryIndex;
-    this.activeSecondary = palette.secondaryIndex;
-    this.activeRamp = getGradientRampFromSelection();
-    this.reverseRamp = cursor.secondary;
+    this.activeRamp = getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
@@ -246,31 +178,98 @@ export class OvalTool implements Tool {
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
     };
     const mode = useOvalStore.getState().mode;
-    const gradientFill = useOvalStore.getState().gradientFill;
-    const ramp =
-      gradientFill && this.activeRamp.length > 1
-        ? this.reverseRamp
-          ? [...this.activeRamp].reverse()
-          : this.activeRamp
-        : [];
-    if (mode === 'filled') {
-      if (ramp.length > 0) {
-        drawFilledOvalGradient(this.start, end, ramp);
+    const ramp = this.activeRamp.length > 1 ? this.activeRamp : [];
+    const bounds: Bounds = {
+      minX: Math.min(this.start.x, end.x),
+      maxX: Math.max(this.start.x, end.x),
+      minY: Math.min(this.start.y, end.y),
+      maxY: Math.max(this.start.y, end.y),
+    };
+
+    if (ramp.length > 1) {
+      const selection = useSelectionStore.getState();
+      const points: Array<{ x: number; y: number }> = [];
+      const rx = (bounds.maxX - bounds.minX) / 2;
+      const ry = (bounds.maxY - bounds.minY) / 2;
+      const centerX = (bounds.minX + bounds.maxX) / 2;
+      const centerY = (bounds.minY + bounds.maxY) / 2;
+
+      const allow = (x: number, y: number) =>
+        selection.selectedCount === 0 || selection.isSelected(x, y);
+
+      const add = (x: number, y: number) => {
+        if (!allow(x, y)) {
+          return;
+        }
+        points.push({ x, y });
+      };
+
+      if (rx === 0 && ry === 0) {
+        add(bounds.minX, bounds.minY);
+      } else if (rx === 0) {
+        for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+          add(bounds.minX, y);
+        }
+      } else if (ry === 0) {
+        for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+          add(x, bounds.minY);
+        }
+      } else if (mode === 'filled') {
+        const rxSq = rx * rx;
+        const rySq = ry * ry;
+        for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+          const dy = y - centerY;
+          for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+            const dx = x - centerX;
+            const value = (dx * dx) / rxSq + (dy * dy) / rySq;
+            if (value <= 1) {
+              add(x, y);
+            }
+          }
+        }
       } else {
-        drawFilledOval(this.start, end, this.activeIndex);
+        const rxSq = rx * rx;
+        const rySq = ry * ry;
+        for (let x = bounds.minX; x <= bounds.maxX; x += 1) {
+          const dx = x - centerX;
+          const value = 1 - (dx * dx) / rxSq;
+          if (value < 0) {
+            continue;
+          }
+          const yOffset = Math.sqrt(value) * ry;
+          add(x, Math.round(centerY - yOffset));
+          add(x, Math.round(centerY + yOffset));
+        }
+        for (let y = bounds.minY; y <= bounds.maxY; y += 1) {
+          const dy = y - centerY;
+          const value = 1 - (dy * dy) / rySq;
+          if (value < 0) {
+            continue;
+          }
+          const xOffset = Math.sqrt(value) * rx;
+          add(Math.round(centerX - xOffset), y);
+          add(Math.round(centerX + xOffset), y);
+        }
+      }
+
+      const { gradientDirection, gradientDither } = useFillBucketStore.getState();
+      const paletteMap = computeGradientPaletteMap(
+        points,
+        bounds,
+        ramp,
+        gradientDirection,
+        gradientDither
+      );
+      for (const point of points) {
+        preview.setPixel(point.x, point.y, paletteMap.get(`${point.x}:${point.y}`) ?? ramp[0] ?? 0);
       }
       return;
     }
-    if (mode === 'outlined') {
-      drawOutlineOval(this.start, end, this.activeIndex);
+    if (mode === 'filled') {
+      drawFilledOval(this.start, end, this.activeIndex);
       return;
     }
-    if (ramp.length > 0) {
-      drawFilledOvalGradient(this.start, end, ramp);
-    } else {
-      drawFilledOval(this.start, end, this.activeSecondary);
-    }
-    drawOutlineOval(this.start, end, this.activePrimary);
+    drawOutlineOval(this.start, end, this.activeIndex);
   };
 
   onEnd = () => {
@@ -309,7 +308,6 @@ export class OvalTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 
   onCancel = () => {
@@ -319,6 +317,5 @@ export class OvalTool implements Tool {
     this.layerId = null;
     this.changes.clear();
     this.activeRamp = [];
-    this.reverseRamp = false;
   };
 }

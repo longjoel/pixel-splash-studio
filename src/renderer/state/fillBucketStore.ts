@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type FillBucketMode = 'color' | 'selection' | 'gradient';
+export type FillBucketMode = 'color' | 'selection';
 
 export type FillBucketGradientDirection =
   | 'top-bottom'
