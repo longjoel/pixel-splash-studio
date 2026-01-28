@@ -152,6 +152,9 @@ interface Window {
       author?: string;
       colors: string[];
     }>;
+    onApply: (
+      handler: (payload: { name: string; author?: string; colors: string[] }) => void
+    ) => () => void;
   };
   uiScaleApi: {
     getScale: () => number;

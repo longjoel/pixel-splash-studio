@@ -50,6 +50,18 @@ contextBridge.exposeInMainWorld('debugApi', {
 
 contextBridge.exposeInMainWorld('paletteApi', {
   importLospec: (urlOrSlug: string) => ipcRenderer.invoke('palette:import-lospec', urlOrSlug),
+  onApply: (
+    handler: (payload: { name: string; author?: string; colors: string[] }) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      payload: { name: string; author?: string; colors: string[] }
+    ) => {
+      handler(payload);
+    };
+    ipcRenderer.on('palette:apply', listener);
+    return () => ipcRenderer.removeListener('palette:apply', listener);
+  },
 });
 
 const zoomListeners = new Set<(scale: number) => void>();

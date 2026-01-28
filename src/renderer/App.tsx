@@ -447,6 +447,24 @@ const App = () => {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!window.paletteApi?.onApply) {
+      return;
+    }
+    return window.paletteApi.onApply((payload) => {
+      const colors = Array.isArray(payload.colors) ? payload.colors : [];
+      if (colors.length === 0) {
+        return;
+      }
+      const primaryIndex = 0;
+      const secondaryIndex = colors.length > 1 ? 1 : 0;
+      const paletteStore = usePaletteStore.getState();
+      paletteStore.setPalette(colors, primaryIndex, secondaryIndex);
+      paletteStore.setSelectedIndices([]);
+      useProjectStore.getState().setDirty(true);
+    });
+  }, []);
   const setStampMode = useStampStore((state) => state.setMode);
   const setStampSnap = useStampStore((state) => state.setSnap);
   const setStampRotation = useStampStore((state) => state.setRotation);

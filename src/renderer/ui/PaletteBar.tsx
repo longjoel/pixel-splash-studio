@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePaletteStore } from '@/state/paletteStore';
+import { useProjectStore } from '@/state/projectStore';
 import { hexToRgb, mix, type Rgb } from '@/core/colorUtils';
 import { consolidatePalette } from '@/services/paletteConsolidate';
 import DropdownSelect from './DropdownSelect';
@@ -546,6 +547,7 @@ const PaletteBar = () => {
       const secondary = nextColors.length > 1 ? 1 : 0;
       setPalette(nextColors, primary, secondary);
       setSelectedIndices([]);
+      useProjectStore.getState().setDirty(true);
       closeLospec();
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to import palette.';

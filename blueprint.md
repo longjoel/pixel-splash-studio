@@ -65,6 +65,8 @@ Palette
  - is attached to the canvas
  - changing a palette color will change all currently drawn pixels
  - ability to import from other programs, like asprite, paintshop pro
+ - ability to import palettes from LoSpec (URL or slug)
+ - support deep links: `lospec-palette://oil-6` (opens `https://lospec.com/palette-list/oil-6` and applies the palette)
  - ability to export palette. 
  - when a project is loaded, check the existing palette, if there is a matching one, use that one
  - if there isn't a copy of it locally, you will be given the option to import it from the file.

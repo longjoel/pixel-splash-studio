@@ -1,7 +1,8 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions, shell } from 'electron';
 import type { MenuItem } from 'electron';
 import { join } from 'path';
-import { appendFile, readFile, writeFile } from 'fs/promises';
+import { appendFile, mkdir, readFile, writeFile } from 'fs/promises';
+import { spawn } from 'child_process';
 import https from 'https';
 import { tmpdir } from 'os';
 import JSZip from 'jszip';
@@ -20,6 +21,86 @@ const viewMenuState = {
   showAxes: true,
   toolbarCollapsed: false,
   minimapCollapsed: false,
+};
+
+type LospecImportedPalette = { name: string; author?: string; colors: string[] };
+let mainWindow: BrowserWindow | null = null;
+let pendingLospecPalette: LospecImportedPalette | null = null;
+
+const getMainWindow = () =>
+  mainWindow ?? (BrowserWindow.getAllWindows()[0] ?? null);
+
+const applyLospecPalette = (payload: LospecImportedPalette) => {
+  pendingLospecPalette = payload;
+  const window = getMainWindow();
+  if (!window || window.isDestroyed()) {
+    return;
+  }
+  if (!window.webContents.isLoading()) {
+    window.webContents.send('palette:apply', payload);
+    pendingLospecPalette = null;
+  }
+};
+
+const escapeDesktopArg = (value: string) => `"${value.replace(/"/g, '\\"')}"`;
+
+const runCommand = (command: string, args: string[]) =>
+  new Promise<{ code: number; stdout: string; stderr: string }>((resolve) => {
+    const child = spawn(command, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout?.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk) => {
+      stdout += String(chunk);
+    });
+    child.stderr?.on('data', (chunk) => {
+      stderr += String(chunk);
+    });
+    child.on('close', (code) => resolve({ code: code ?? 0, stdout, stderr }));
+    child.on('error', (error) =>
+      resolve({ code: 127, stdout, stderr: error instanceof Error ? error.message : String(error) })
+    );
+  });
+
+const registerLospecUrlHandlerLinux = async () => {
+  if (process.platform !== 'linux') {
+    throw new Error('URL handler registration is only supported on Linux.');
+  }
+  if (!app.isPackaged) {
+    throw new Error('URL handler registration only works in packaged builds (zip/AppImage/etc).');
+  }
+
+  const appName = app.getName() || 'Pixel Splash Studio';
+  const desktopId = `${appName.toLowerCase().replace(/\s+/g, '-')}.desktop`;
+  const execPath = app.getPath('exe');
+  const applicationsDir = join(app.getPath('home'), '.local', 'share', 'applications');
+  const desktopPath = join(applicationsDir, desktopId);
+
+  const desktopEntry = [
+    '[Desktop Entry]',
+    'Type=Application',
+    `Name=${appName}`,
+    `Exec=${escapeDesktopArg(execPath)} %u`,
+    'Terminal=false',
+    'Categories=Graphics;',
+    'MimeType=x-scheme-handler/lospec-palette;',
+    '',
+  ].join('\n');
+
+  await mkdir(applicationsDir, { recursive: true });
+  await writeFile(desktopPath, desktopEntry, 'utf8');
+
+  const xdgMime = await runCommand('xdg-mime', ['default', desktopId, 'x-scheme-handler/lospec-palette']);
+  const updateDb = await runCommand('update-desktop-database', [applicationsDir]);
+
+  return {
+    desktopPath,
+    desktopId,
+    execPath,
+    xdgMime,
+    updateDb,
+  };
 };
 
 const setMenuItemChecked = (id: string, checked: boolean) => {
@@ -86,11 +167,78 @@ const createWindow = () => {
     win.webContents.send('app:zoom-changed', zoomDirection, win.webContents.getZoomFactor());
   });
 
+  win.webContents.on('did-finish-load', () => {
+    if (pendingLospecPalette) {
+      win.webContents.send('palette:apply', pendingLospecPalette);
+      pendingLospecPalette = null;
+    }
+  });
+
+  mainWindow = win;
   return win;
 };
 
+const extractLospecDeepLink = (argv: string[]) => {
+  for (const arg of argv) {
+    if (!arg) {
+      continue;
+    }
+    const trimmed = arg.trim();
+    if (trimmed.startsWith('lospec-palette:')) {
+      return trimmed;
+    }
+  }
+  return null;
+};
+
+const handleLospecDeepLink = async (rawUrl: string) => {
+  try {
+    const payload = await importLospecPalette(rawUrl);
+    applyLospecPalette(payload);
+  } catch (error) {
+    console.error('Failed to import LoSpec palette from deep link:', rawUrl, error);
+  }
+};
+
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_event, argv) => {
+    const url = extractLospecDeepLink(argv);
+    if (url) {
+      void handleLospecDeepLink(url);
+    }
+    const window = getMainWindow();
+    if (window && !window.isDestroyed()) {
+      if (window.isMinimized()) {
+        window.restore();
+      }
+      window.focus();
+    }
+  });
+}
+
+app.on('open-url', (event, url) => {
+  event.preventDefault();
+  if (typeof url === 'string' && url.startsWith('lospec-palette:')) {
+    void handleLospecDeepLink(url);
+  }
+});
+
 app.whenReady().then(() => {
   createWindow();
+
+  try {
+    app.setAsDefaultProtocolClient('lospec-palette');
+  } catch (error) {
+    console.warn('Unable to register lospec-palette protocol client:', error);
+  }
+
+  const launchUrl = extractLospecDeepLink(process.argv);
+  if (launchUrl) {
+    void handleLospecDeepLink(launchUrl);
+  }
 
   const template = [
     {
@@ -386,6 +534,29 @@ app.whenReady().then(() => {
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
             window?.webContents.send('menu:action', 'palette:consolidate');
+          },
+        },
+        {
+          label: 'Register LoSpec URL Handler (Linux)…',
+          enabled: process.platform === 'linux',
+          click: async () => {
+            try {
+              const result = await registerLospecUrlHandlerLinux();
+              await dialog.showMessageBox({
+                type: 'info',
+                message: 'Registered lospec-palette:// URL handler.',
+                detail: `Desktop entry: ${result.desktopPath}\n\nIf links still don’t open, you may need to log out and back in.`,
+                buttons: ['OK'],
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Unable to register URL handler.';
+              await dialog.showMessageBox({
+                type: 'error',
+                message: 'Registration failed',
+                detail: message,
+                buttons: ['OK'],
+              });
+            }
           },
         },
         { type: 'separator' as const },
@@ -939,10 +1110,22 @@ ipcMain.handle(
 
 type LospecPalettePayload = { name?: string; author?: string; colors?: unknown };
 
-const toLospecSlug = (input: string) => {
+function toLospecSlug(input: string) {
   const trimmed = input.trim();
   if (!trimmed) {
     return null;
+  }
+  if (trimmed.startsWith('lospec-palette:')) {
+    try {
+      const url = new URL(trimmed);
+      const hostname = url.hostname?.trim() ?? '';
+      const pathname = url.pathname?.replace(/^\/+/, '').trim() ?? '';
+      const combined = hostname || pathname;
+      return combined ? combined.replace(/\.(json|hex)$/i, '') : null;
+    } catch {
+      const raw = trimmed.replace(/^lospec-palette:/, '').replace(/^\/+/, '');
+      return raw ? raw.replace(/\.(json|hex)$/i, '') : null;
+    }
   }
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     try {
@@ -955,18 +1138,51 @@ const toLospecSlug = (input: string) => {
     }
   }
   return trimmed.replace(/\.(json|hex)$/i, '');
-};
+}
 
-const normalizeHexColor = (value: string) => {
+function normalizeHexColor(value: string) {
   const trimmed = value.trim();
   const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
   if (!/^#[0-9a-f]{6}$/i.test(withHash)) {
     return null;
   }
   return withHash.toLowerCase();
-};
+}
 
-ipcMain.handle('palette:import-lospec', async (_event, urlOrSlug: string) => {
+async function fetchText(url: string) {
+  const fetchFn = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+  if (typeof fetchFn === 'function') {
+    const response = await fetchFn(url, {
+      headers: {
+        accept: 'application/json,text/plain;q=0.9,*/*;q=0.8',
+      },
+    });
+    if (!response.ok) {
+      throw new Error(`Fetch failed (${response.status})`);
+    }
+    return response.text();
+  }
+  return new Promise<string>((resolve, reject) => {
+    https
+      .get(url, (res) => {
+        const status = res.statusCode ?? 0;
+        if (status < 200 || status >= 300) {
+          reject(new Error(`Fetch failed (${status})`));
+          res.resume();
+          return;
+        }
+        res.setEncoding('utf8');
+        let data = '';
+        res.on('data', (chunk) => {
+          data += chunk;
+        });
+        res.on('end', () => resolve(data));
+      })
+      .on('error', reject);
+  });
+}
+
+async function importLospecPalette(urlOrSlug: string): Promise<LospecImportedPalette> {
   const slug = toLospecSlug(urlOrSlug);
   if (!slug) {
     throw new Error('Invalid LoSpec palette URL.');
@@ -974,39 +1190,6 @@ ipcMain.handle('palette:import-lospec', async (_event, urlOrSlug: string) => {
 
   const jsonUrl = `https://lospec.com/palette-list/${encodeURIComponent(slug)}.json`;
   const hexUrl = `https://lospec.com/palette-list/${encodeURIComponent(slug)}.hex`;
-
-  const fetchText = async (url: string) => {
-    const fetchFn = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
-    if (typeof fetchFn === 'function') {
-      const response = await fetchFn(url, {
-        headers: {
-          accept: 'application/json,text/plain;q=0.9,*/*;q=0.8',
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`Fetch failed (${response.status})`);
-      }
-      return response.text();
-    }
-    return new Promise<string>((resolve, reject) => {
-      https
-        .get(url, (res) => {
-          const status = res.statusCode ?? 0;
-          if (status < 200 || status >= 300) {
-            reject(new Error(`Fetch failed (${status})`));
-            res.resume();
-            return;
-          }
-          res.setEncoding('utf8');
-          let data = '';
-          res.on('data', (chunk) => {
-            data += chunk;
-          });
-          res.on('end', () => resolve(data));
-        })
-        .on('error', reject);
-    });
-  };
 
   try {
     const raw = await fetchText(jsonUrl);
@@ -1040,7 +1223,11 @@ ipcMain.handle('palette:import-lospec', async (_event, urlOrSlug: string) => {
     }
     return { name: slug, colors: normalized };
   }
-});
+}
+
+ipcMain.handle('palette:import-lospec', async (_event, urlOrSlug: string) =>
+  importLospecPalette(urlOrSlug)
+);
 
 ipcMain.handle('debug:perf-log', async (_event, message: string) => {
   if (!perfLoggingEnabled.value) {

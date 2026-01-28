@@ -11,6 +11,7 @@ It focuses on a responsive “infinite canvas” workflow: paint pixels in block
 - Infinite canvas (positive + negative world space) with a camera-driven viewport
 - Block-based pixel storage (`64x64`) for speed and efficient invalidation
 - Non-destructive palette indexing (change a palette color → updates all pixels)
+- Palette import: LoSpec URL/slug + `lospec-palette://<slug>` deep links
 - Layered workflow: reference underlay, pixels, selection mask, and live preview layer
 - Tools: Pen, Line, Rectangle, Oval, Fill Bucket, Eyedropper, Selection (rect/oval/lasso), Scroll, Stamp
 - Reference images: paste/drag-drop/import, move/rotate/scale, flip, opacity, snapping
@@ -28,6 +29,17 @@ It focuses on a responsive “infinite canvas” workflow: paint pixels in block
 
 - Home: `docs/index.html`
 - Tutorials: `docs/tutorials.html`
+
+## LoSpec deep links (Linux note)
+
+`lospec-palette://<slug>` deep links require the app to be installed with a desktop entry that registers
+`x-scheme-handler/lospec-palette` (e.g. `.deb` / `.rpm` / `.flatpak`). Zipped builds typically won’t
+register a URL handler automatically.
+
+If you’re running from a zip (or other unpacked build), you can register it yourself:
+
+- In-app: `Options → Register LoSpec URL Handler (Linux)…`
+- Script: `scripts/register-lospec-url-handler-linux.sh /absolute/path/to/pixel-splash-studio`
 
 ## Getting Started
 

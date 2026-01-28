@@ -14,6 +14,33 @@ module.exports = {
       config: {},
     },
     {
+      name: '@electron-forge/maker-deb',
+      config: {
+        options: {
+          categories: ['Graphics'],
+          mimeType: ['x-scheme-handler/lospec-palette'],
+        },
+      },
+    },
+    {
+      name: '@electron-forge/maker-rpm',
+      config: {
+        options: {
+          categories: ['Graphics'],
+          mimeType: ['x-scheme-handler/lospec-palette'],
+        },
+      },
+    },
+    {
+      name: '@electron-forge/maker-flatpak',
+      config: {
+        options: {
+          categories: ['Graphics'],
+          mimeType: ['x-scheme-handler/lospec-palette'],
+        },
+      },
+    },
+    {
       name: '@electron-forge/maker-zip',
       platforms: ['darwin', 'linux'],
     },
