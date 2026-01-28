@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions, shell } f
 import type { MenuItem } from 'electron';
 import { join } from 'path';
 import { appendFile, readFile, writeFile } from 'fs/promises';
+import https from 'https';
 import { tmpdir } from 'os';
 import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
@@ -935,6 +936,111 @@ ipcMain.handle(
     return filePath;
   }
 );
+
+type LospecPalettePayload = { name?: string; author?: string; colors?: unknown };
+
+const toLospecSlug = (input: string) => {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      const url = new URL(trimmed);
+      const match = url.pathname.match(/\/palette-list\/([^/]+)/);
+      const slug = match?.[1] ?? null;
+      return slug ? slug.replace(/\.(json|hex)$/i, '') : null;
+    } catch {
+      return null;
+    }
+  }
+  return trimmed.replace(/\.(json|hex)$/i, '');
+};
+
+const normalizeHexColor = (value: string) => {
+  const trimmed = value.trim();
+  const withHash = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+  if (!/^#[0-9a-f]{6}$/i.test(withHash)) {
+    return null;
+  }
+  return withHash.toLowerCase();
+};
+
+ipcMain.handle('palette:import-lospec', async (_event, urlOrSlug: string) => {
+  const slug = toLospecSlug(urlOrSlug);
+  if (!slug) {
+    throw new Error('Invalid LoSpec palette URL.');
+  }
+
+  const jsonUrl = `https://lospec.com/palette-list/${encodeURIComponent(slug)}.json`;
+  const hexUrl = `https://lospec.com/palette-list/${encodeURIComponent(slug)}.hex`;
+
+  const fetchText = async (url: string) => {
+    const fetchFn = (globalThis as unknown as { fetch?: typeof fetch }).fetch;
+    if (typeof fetchFn === 'function') {
+      const response = await fetchFn(url, {
+        headers: {
+          accept: 'application/json,text/plain;q=0.9,*/*;q=0.8',
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`Fetch failed (${response.status})`);
+      }
+      return response.text();
+    }
+    return new Promise<string>((resolve, reject) => {
+      https
+        .get(url, (res) => {
+          const status = res.statusCode ?? 0;
+          if (status < 200 || status >= 300) {
+            reject(new Error(`Fetch failed (${status})`));
+            res.resume();
+            return;
+          }
+          res.setEncoding('utf8');
+          let data = '';
+          res.on('data', (chunk) => {
+            data += chunk;
+          });
+          res.on('end', () => resolve(data));
+        })
+        .on('error', reject);
+    });
+  };
+
+  try {
+    const raw = await fetchText(jsonUrl);
+    const parsed = JSON.parse(raw) as LospecPalettePayload;
+    const colors = Array.isArray(parsed.colors) ? parsed.colors : [];
+    const normalized = colors
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map(normalizeHexColor)
+      .filter((entry): entry is string => Boolean(entry));
+
+    if (normalized.length === 0) {
+      throw new Error('LoSpec JSON had no valid colors.');
+    }
+
+    return {
+      name: typeof parsed.name === 'string' ? parsed.name : slug,
+      author: typeof parsed.author === 'string' ? parsed.author : undefined,
+      colors: normalized,
+    };
+  } catch (error) {
+    const raw = await fetchText(hexUrl);
+    const normalized = raw
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith('//') && !line.startsWith(';'))
+      .map(normalizeHexColor)
+      .filter((entry): entry is string => Boolean(entry));
+    if (normalized.length === 0) {
+      const message = error instanceof Error ? error.message : 'Unable to import palette.';
+      throw new Error(message);
+    }
+    return { name: slug, colors: normalized };
+  }
+});
 
 ipcMain.handle('debug:perf-log', async (_event, message: string) => {
   if (!perfLoggingEnabled.value) {

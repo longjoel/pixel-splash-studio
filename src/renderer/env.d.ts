@@ -146,6 +146,13 @@ interface Window {
   debugApi: {
     logPerf: (message: string) => Promise<string | null>;
   };
+  paletteApi: {
+    importLospec: (urlOrSlug: string) => Promise<{
+      name: string;
+      author?: string;
+      colors: string[];
+    }>;
+  };
   uiScaleApi: {
     getScale: () => number;
     resetScale: () => void;

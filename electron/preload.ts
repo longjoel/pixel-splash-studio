@@ -48,6 +48,10 @@ contextBridge.exposeInMainWorld('debugApi', {
   logPerf: (message: string) => ipcRenderer.invoke('debug:perf-log', message),
 });
 
+contextBridge.exposeInMainWorld('paletteApi', {
+  importLospec: (urlOrSlug: string) => ipcRenderer.invoke('palette:import-lospec', urlOrSlug),
+});
+
 const zoomListeners = new Set<(scale: number) => void>();
 let suppressZoom = false;
 let uiScale = 1;

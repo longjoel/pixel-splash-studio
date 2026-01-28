@@ -5,6 +5,7 @@ type Option<T extends string> = {
   value: T;
   label: string;
   disabled?: boolean;
+  render?: React.ReactNode;
 };
 
 type DropdownSelectProps<T extends string> = {
@@ -238,7 +239,7 @@ const DropdownSelect = <T extends string>({
                   }
                 }}
               >
-                {opt.label}
+                {opt.render ?? opt.label}
               </button>
             ))}
           </div>,

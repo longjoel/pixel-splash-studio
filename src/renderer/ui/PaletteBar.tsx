@@ -1,7 +1,9 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePaletteStore } from '@/state/paletteStore';
 import { hexToRgb, mix, type Rgb } from '@/core/colorUtils';
 import { consolidatePalette } from '@/services/paletteConsolidate';
+import DropdownSelect from './DropdownSelect';
 
 type MenuState = {
   open: boolean;
@@ -269,9 +271,30 @@ const PaletteBar = () => {
     y: 0,
     index: null,
   });
+  const [swatchPresetChoice, setSwatchPresetChoice] = useState('none');
+  const [menuActionChoice, setMenuActionChoice] = useState('none');
+  const [lospecOpen, setLospecOpen] = useState(false);
+  const [lospecUrl, setLospecUrl] = useState('');
+  const [lospecBusy, setLospecBusy] = useState(false);
+  const [lospecError, setLospecError] = useState<string | null>(null);
+  const [maxRows, setMaxRows] = useState<number>(() => {
+    try {
+      const stored = window.localStorage.getItem('pss.paletteRows');
+      const parsed = stored ? Number(stored) : 3;
+      const normalized = Number.isFinite(parsed) ? Math.floor(parsed) : 3;
+      return Math.min(4, Math.max(2, normalized));
+    } catch {
+      return 3;
+    }
+  });
   const lastSelectedRef = useRef<number | null>(null);
   const suppressClickRef = useRef(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const selectingRef = useRef(false);
+  const selectionAnchorRef = useRef<number | null>(null);
+  const didDragRef = useRef(false);
+  const dragBaseSelectionRef = useRef<Set<number>>(new Set());
+  const dragAdditiveRef = useRef(false);
   const isMac = React.useMemo(
     () => typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac'),
     []
@@ -305,6 +328,10 @@ const PaletteBar = () => {
       return;
     }
     const handlePointerDown = (event: MouseEvent) => {
+      const targetEl = event.target as HTMLElement | null;
+      if (targetEl?.closest?.('.dropdown-select__menu')) {
+        return;
+      }
       if (menuRef.current && menuRef.current.contains(event.target as Node)) {
         return;
       }
@@ -354,10 +381,10 @@ const PaletteBar = () => {
     if (!canSetColor || menu.index === null) {
       return;
     }
+    closeMenu();
     openColorPicker(selectedColor, (value) => {
       setColor(menu.index ?? 0, value);
     });
-    closeMenu();
   };
 
   const handleRemoveColor = () => {
@@ -369,10 +396,10 @@ const PaletteBar = () => {
   };
 
   const handleAddColor = () => {
+    closeMenu();
     openColorPicker('#ffffff', (value) => {
       addColor(value);
     });
-    closeMenu();
   };
 
   const selectionSet = new Set(selectedIndices);
@@ -417,6 +444,7 @@ const PaletteBar = () => {
     }
     const startIndex = orderedSelection[0] ?? 0;
     const initial = colors[startIndex] ?? '#ffffff';
+    closeMenu();
     openColorPicker(initial, (value) => {
       const nextColors = [...colors];
       for (const index of orderedSelection) {
@@ -424,7 +452,6 @@ const PaletteBar = () => {
       }
       setPalette(nextColors, primaryIndex, secondaryIndex);
     });
-    closeMenu();
   };
 
   const handleDeleteSelected = () => {
@@ -493,12 +520,90 @@ const PaletteBar = () => {
     closeMenu();
   };
 
+  const closeLospec = () => {
+    setLospecOpen(false);
+    setLospecBusy(false);
+    setLospecError(null);
+    setLospecUrl('');
+  };
+
+  const submitLospec = async () => {
+    if (!window.paletteApi?.importLospec) {
+      setLospecError('LoSpec import is unavailable (paletteApi not found). Restart the app.');
+      return;
+    }
+    const input = lospecUrl.trim();
+    if (!input) {
+      setLospecError('Paste a LoSpec palette URL or slug.');
+      return;
+    }
+    setLospecBusy(true);
+    setLospecError(null);
+    try {
+      const payload = await window.paletteApi.importLospec(input);
+      const nextColors = payload.colors.length > 0 ? payload.colors : colors;
+      const primary = 0;
+      const secondary = nextColors.length > 1 ? 1 : 0;
+      setPalette(nextColors, primary, secondary);
+      setSelectedIndices([]);
+      closeLospec();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to import palette.';
+      setLospecError(message);
+      setLospecBusy(false);
+    }
+  };
+
   const layout = React.useMemo(() => {
     const count = colors.length + 1;
-    const rows = Math.min(4, Math.max(1, Math.ceil(count / 16)));
+    const rows = Math.min(maxRows, Math.max(1, Math.ceil(count / 16)));
     const columns = Math.max(1, Math.ceil(count / rows));
     return { rows, columns };
-  }, [colors.length]);
+  }, [colors.length, maxRows]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('pss.paletteRows', String(maxRows));
+    } catch {
+      // ignore
+    }
+  }, [maxRows]);
+
+  useEffect(() => {
+    const onPointerUp = () => {
+      selectingRef.current = false;
+      selectionAnchorRef.current = null;
+      dragAdditiveRef.current = false;
+      dragBaseSelectionRef.current = new Set();
+    };
+    window.addEventListener('pointerup', onPointerUp);
+    return () => window.removeEventListener('pointerup', onPointerUp);
+  }, []);
+
+  const getGridPos = (index: number) => ({
+    row: Math.floor(index / layout.columns),
+    col: index % layout.columns,
+  });
+
+  const buildDragSelection = (startIndex: number, endIndex: number) => {
+    const start = getGridPos(startIndex);
+    const end = getGridPos(endIndex);
+    const minRow = Math.min(start.row, end.row);
+    const maxRow = Math.max(start.row, end.row);
+    const minCol = Math.min(start.col, end.col);
+    const maxCol = Math.max(start.col, end.col);
+    const indices: number[] = [];
+    for (let row = minRow; row <= maxRow; row += 1) {
+      for (let col = minCol; col <= maxCol; col += 1) {
+        const idx = row * layout.columns + col;
+        if (idx < 0 || idx >= colors.length) {
+          continue;
+        }
+        indices.push(idx);
+      }
+    }
+    return indices;
+  };
 
   return (
     <div className="palette-bar">
@@ -526,7 +631,45 @@ const PaletteBar = () => {
                 suppressClickRef.current = true;
               }
             }}
+            onPointerDown={(event) => {
+              if (event.button !== 0) {
+                return;
+              }
+              selectingRef.current = true;
+              selectionAnchorRef.current = index;
+              didDragRef.current = false;
+              dragAdditiveRef.current = event.shiftKey || event.metaKey || event.ctrlKey || event.altKey;
+              dragBaseSelectionRef.current = dragAdditiveRef.current ? new Set(selectionSet) : new Set();
+              const next = buildDragSelection(index, index);
+              if (dragAdditiveRef.current) {
+                const merged = new Set(dragBaseSelectionRef.current);
+                next.forEach((value) => merged.add(value));
+                setSelectedIndices(Array.from(merged));
+              } else {
+                setSelectedIndices(next);
+              }
+              lastSelectedRef.current = index;
+              setPrimary(index);
+            }}
+            onPointerEnter={() => {
+              if (!selectingRef.current || selectionAnchorRef.current === null) {
+                return;
+              }
+              didDragRef.current = true;
+              const range = buildDragSelection(selectionAnchorRef.current, index);
+              if (dragAdditiveRef.current) {
+                const merged = new Set(dragBaseSelectionRef.current);
+                range.forEach((value) => merged.add(value));
+                setSelectedIndices(Array.from(merged));
+              } else {
+                setSelectedIndices(range);
+              }
+            }}
             onClick={(event) => {
+              if (didDragRef.current) {
+                didDragRef.current = false;
+                return;
+              }
               if (suppressClickRef.current) {
                 suppressClickRef.current = false;
                 return;
@@ -590,105 +733,178 @@ const PaletteBar = () => {
           role="menu"
           style={{ top: menu.y, left: menu.x }}
         >
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            disabled={!canSetColor}
-            onClick={handleSetColor}
-          >
-            Set Color
-          </button>
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            disabled={!canEditSelection}
-            onClick={handleEditSelected}
-          >
-            Edit Selected
-          </button>
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            disabled={!canEditSelection}
-            onClick={handleClearSelected}
-          >
-            Clear Selected
-          </button>
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            disabled={!canRemoveColor}
-            onClick={handleRemoveColor}
-          >
-            Remove Color
-          </button>
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            disabled={!canEditSelection || !canDeleteSelection}
-            onClick={handleDeleteSelected}
-          >
-            Delete Selected
-          </button>
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            disabled={!canCycleSelection}
-            onClick={handleCycleSelected}
-          >
-            Cycle Selected (Shift-click to select multiple)
-          </button>
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            onClick={handleAddColor}
-          >
-            Add Color
-          </button>
-          <button
-            type="button"
-            className="palette-bar__menu-item"
-            role="menuitem"
-            disabled={!hasDuplicates}
-            onClick={() => {
-              consolidatePalette();
+          <div className="palette-bar__menu-label">Actions</div>
+          <DropdownSelect
+            ariaLabel="Palette actions"
+            className="palette-bar__menu-item palette-bar__menu-select"
+            value={menuActionChoice}
+            onChange={(value) => {
+              setMenuActionChoice(value);
+              if (value === 'none') {
+                return;
+              }
+              if (value === 'importLospec') {
+                closeMenu();
+                setLospecOpen(true);
+                setLospecUrl('https://lospec.com/palette-list/');
+                setLospecError(null);
+                setMenuActionChoice('none');
+                return;
+              }
+              if (value === 'setColor') {
+                handleSetColor();
+              } else if (value === 'editSelected') {
+                handleEditSelected();
+              } else if (value === 'clearSelected') {
+                handleClearSelected();
+              } else if (value === 'removeColor') {
+                handleRemoveColor();
+              } else if (value === 'deleteSelected') {
+                handleDeleteSelected();
+              } else if (value === 'cycleSelected') {
+                handleCycleSelected();
+              } else if (value === 'addColor') {
+                handleAddColor();
+              } else if (value === 'consolidate') {
+                consolidatePalette();
+                closeMenu();
+              }
+              setMenuActionChoice('none');
+            }}
+            options={[
+              { value: 'none', label: 'Choose action…' },
+              { value: 'importLospec', label: 'Import LoSpec Palette URL…' },
+              { value: 'setColor', label: 'Set Color', disabled: !canSetColor },
+              { value: 'editSelected', label: 'Edit Selected', disabled: !canEditSelection },
+              { value: 'clearSelected', label: 'Clear Selected', disabled: !canEditSelection },
+              { value: 'removeColor', label: 'Remove Color', disabled: !canRemoveColor },
+              {
+                value: 'deleteSelected',
+                label: 'Delete Selected',
+                disabled: !canEditSelection || !canDeleteSelection,
+              },
+              { value: 'cycleSelected', label: 'Cycle Selected', disabled: !canCycleSelection },
+              { value: 'addColor', label: 'Add Color' },
+              { value: 'consolidate', label: 'Consolidate Duplicates', disabled: !hasDuplicates },
+            ]}
+          />
+          <div className="palette-bar__menu-label">Add Swatch</div>
+          <DropdownSelect
+            ariaLabel="Swatch presets"
+            className="palette-bar__menu-item palette-bar__menu-select"
+            value={swatchPresetChoice}
+            onChange={(value) => {
+              setSwatchPresetChoice(value);
+              if (value === 'none') {
+                return;
+              }
+              const preset = swatchPresets.find((entry) => entry.id === value);
+              if (preset) {
+                handleAddSwatch(preset.colors);
+              }
+              setSwatchPresetChoice('none');
+            }}
+            options={[
+              { value: 'none', label: 'Choose preset…' },
+              ...swatchPresets.map((preset) => ({
+                value: preset.id,
+                label: preset.label,
+                render: (
+                  <span className="palette-bar__preset-option">
+                    <span className="palette-bar__preset-option-label">{preset.label}</span>
+                    <span className="palette-bar__menu-preview" aria-hidden="true">
+                      {preset.colors.map((swatch, index) => (
+                        <span
+                          key={`${preset.id}-${swatch}-${index}`}
+                          className="palette-bar__menu-chip"
+                          style={{ background: swatch }}
+                        />
+                      ))}
+                    </span>
+                  </span>
+                ),
+              })),
+            ]}
+          />
+          <div className="palette-bar__menu-label">Palette Rows</div>
+          <DropdownSelect
+            ariaLabel="Palette rows"
+            className="palette-bar__menu-item palette-bar__menu-select"
+            value={String(maxRows)}
+            onChange={(value) => {
+              const next = Math.min(4, Math.max(1, Number(value)));
+              setMaxRows(Number.isFinite(next) ? next : 3);
               closeMenu();
             }}
-          >
-            Consolidate Duplicates
-          </button>
-          <div className="palette-bar__menu-label">Add Swatch</div>
-          <div className="palette-bar__menu-options" role="group" aria-label="Add swatch">
-            {swatchPresets.map((preset) => (
-              <button
-                key={preset.id}
-                type="button"
-                className="palette-bar__menu-option"
-                role="menuitem"
-                onClick={() => handleAddSwatch(preset.colors)}
-              >
-                <span className="palette-bar__menu-option-label">{preset.label}</span>
-                <span className="palette-bar__menu-preview" aria-hidden="true">
-                  {preset.colors.map((swatch, index) => (
-                    <span
-                      key={`${preset.id}-${swatch}-${index}`}
-                      className="palette-bar__menu-chip"
-                      style={{ background: swatch }}
-                    />
-                  ))}
-                </span>
-              </button>
-            ))}
-          </div>
+            options={[
+              { value: '2', label: '2 rows' },
+              { value: '3', label: '3 rows' },
+              { value: '4', label: '4 rows' },
+            ]}
+          />
         </div>
       )}
+      {lospecOpen &&
+        createPortal(
+          <div
+            className="modal"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                closeLospec();
+              }
+            }}
+          >
+            <div className="modal__backdrop" onClick={closeLospec} />
+            <div className="modal__content" role="dialog" aria-modal="true">
+              <div className="modal__header">
+                <h2>Import LoSpec Palette</h2>
+                <button type="button" onClick={closeLospec}>
+                  Close
+                </button>
+              </div>
+              <div className="modal__body">
+                <label className="panel__label" htmlFor="lospec-url">
+                  URL or slug
+                </label>
+                <input
+                  id="lospec-url"
+                  type="text"
+                  className="panel__number"
+                  value={lospecUrl}
+                  placeholder="https://lospec.com/palette-list/black-scarlet-16"
+                  onChange={(event) => setLospecUrl(event.currentTarget.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      void submitLospec();
+                    }
+                  }}
+                  autoFocus
+                />
+                {lospecError && (
+                  <div className="panel__note" style={{ color: 'rgba(255, 120, 120, 0.9)' }}>
+                    {lospecError}
+                  </div>
+                )}
+                <div className="modal__row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+                  <button type="button" className="panel__item" onClick={closeLospec} disabled={lospecBusy}>
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="panel__item"
+                    onClick={() => void submitLospec()}
+                    disabled={lospecBusy}
+                  >
+                    {lospecBusy ? 'Importing…' : 'Import'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
