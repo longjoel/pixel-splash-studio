@@ -13,6 +13,7 @@ export type ToolId =
   | 'selection-rect'
   | 'selection-oval'
   | 'selection-lasso'
+  | 'texture-roll'
   | 'tile-sampler'
   | 'tile-pen'
   | 'tile-rectangle'

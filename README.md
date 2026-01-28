@@ -12,7 +12,7 @@ It focuses on a responsive “infinite canvas” workflow: paint pixels in block
 - Block-based pixel storage (`64x64`) for speed and efficient invalidation
 - Non-destructive palette indexing (change a palette color → updates all pixels)
 - Layered workflow: reference underlay, pixels, selection mask, and live preview layer
-- Tools: Pen, Line, Rectangle, Oval, Fill Bucket, Eyedropper, Selection (rect/oval/lasso), Stamp
+- Tools: Pen, Line, Rectangle, Oval, Fill Bucket, Eyedropper, Selection (rect/oval/lasso), Scroll, Stamp
 - Reference images: paste/drag-drop/import, move/rotate/scale, flip, opacity, snapping
 - Minimap: zoom/pan controls, axes, camera readout
 - `.splash` project format: zipped payload with pixel blocks + embedded reference assets

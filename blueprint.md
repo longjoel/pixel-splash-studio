@@ -268,6 +268,13 @@ Editing Tools
  - restricted to the viewport, does not effect the pixel buffer, writes to the preview buffer / selection buffer
  - current implementation: left click adds, ctrl subtracts, right click clears selection
 
+- Scroll Tool
+ - only available when a selection exists
+ - click + drag inside the selection to scroll the selected pixels in the direction you drag
+ - scroll wraps within the selection bounds (useful for seamless tiling)
+ - selection snap controls step size: pixel vs tile
+ - supports undo/redo as a single operation
+
 - magic wand
  - selects adjacent pixels of the same palette index recursively, bound by the viewport, and a maximum of x iterations.
  - can add / remove to the selection mask.

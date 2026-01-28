@@ -25,6 +25,7 @@
 - Rectangle selection
 - Oval selection
 - Lasso selection
+- Scroll (wrap) selected pixels (pixel or tile steps)
 - Selection snap modes: pixel or tile
 - Copy selection to clipboard (active layer only)
 - Deep copy selection (Ctrl+Shift+C): merged active layer + visible layers

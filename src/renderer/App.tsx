@@ -192,6 +192,14 @@ const TOOL_ICONS = {
       <path d="M12 17v4M12 21h3" />
     </svg>
   ),
+  'texture-roll': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="1.5" />
+      <path d="M9 9h6M9 12h6M9 15h6" />
+      <path d="M7 12l-2 2 2 2" />
+      <path d="M17 12l2-2-2-2" />
+    </svg>
+  ),
   'tile-sampler': (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="5" y="5" width="14" height="14" rx="1.5" strokeDasharray="2 2" />
@@ -1077,6 +1085,17 @@ const App = () => {
                     >
                       <span className="toolbar__tool-icon">{TOOL_ICONS['selection-lasso']}</span>
                     </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'texture-roll'}
+                      onClick={() => setActiveTool('texture-roll')}
+                      title="Scroll Selection"
+                      aria-label="Scroll Selection"
+                      disabled={selectionCount === 0}
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['texture-roll']}</span>
+                    </button>
                   </div>
                 </div>
                 <div className="toolbar__tool-group">
@@ -1607,6 +1626,12 @@ const App = () => {
                         </>
                       )}
                     </>
+                  ) : activeTool === 'texture-roll' ? (
+                    <div className="panel__note">
+                      {selectionCount === 0
+                        ? 'Make a selection first.'
+                        : 'Click and drag inside the selection to scroll it (wraps at selection bounds). Selection snap controls pixel vs tile steps.'}
+                    </div>
                   ) : activeTool === 'stamp' ? (
                     <>
                       <div className="panel__row panel__row--dual">
