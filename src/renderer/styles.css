@@ -447,7 +447,7 @@ body {
 
 .tilebar__grid {
   display: grid;
-  gap: 6px;
+  gap: 0;
   grid-template-columns: repeat(
     var(--tile-grid-columns, 8),
     var(--tile-cell-size, 32px)
@@ -469,7 +469,7 @@ body {
   width: var(--tile-cell-size, 32px);
   height: var(--tile-cell-size, 32px);
   padding: 0;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
