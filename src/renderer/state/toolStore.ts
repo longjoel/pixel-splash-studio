@@ -12,6 +12,7 @@ export type ToolId =
   | 'stamp'
   | 'selection-rect'
   | 'selection-oval'
+  | 'selection-lasso'
   | 'tile-sampler'
   | 'tile-pen'
   | 'tile-rectangle'

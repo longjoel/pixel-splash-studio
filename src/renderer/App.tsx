@@ -186,6 +186,12 @@ const TOOL_ICONS = {
       <ellipse cx="12" cy="12" rx="7" ry="5.5" strokeDasharray="2 2" />
     </svg>
   ),
+  'selection-lasso': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M8 12c0-3 2-5 4-5s4 2 4 5-2 5-4 5-4-2-4-5z" strokeDasharray="2 2" />
+      <path d="M12 17v4M12 21h3" />
+    </svg>
+  ),
   'tile-sampler': (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="5" y="5" width="14" height="14" rx="1.5" strokeDasharray="2 2" />
@@ -1057,6 +1063,20 @@ const App = () => {
                     >
                       <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
                     </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'selection-lasso'}
+                      onClick={() => {
+                        setActiveTool('selection-lasso');
+                        setBrushSize(1);
+                        setBrushShape('round');
+                      }}
+                      title="Selection Lasso"
+                      aria-label="Selection Lasso"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['selection-lasso']}</span>
+                    </button>
                   </div>
                 </div>
                 <div className="toolbar__tool-group">
@@ -1198,7 +1218,7 @@ const App = () => {
                   </div>
                 </div>
                 <div className="panel__section">
-                  {activeTool === 'pen' ? (
+                  {activeTool === 'pen' || activeTool === 'selection-lasso' ? (
                     <>
                       <div className="panel__group">
                         <span className="panel__label">Size</span>

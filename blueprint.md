@@ -259,6 +259,15 @@ Editing Tools
  - restricted to the viewport, does not effect the pixel buffer, writes to the preview buffer / selection buffer
  - options: snap to pixel, snap to tile (8x8, 16x16, 24x24, 32x32)
 
+- Selection Lasso
+ - free-hand selection painting directly into the selection mask (pen-like stroke)
+ - on hover: show the current brush footprint in the preview layer
+ - on begin use: start a stroke at the cursor position
+ - on use: paint along the cursor path into the preview layer (brush size + shape)
+ - on release: close the loop, fill the enclosed area into the selection mask, then clear the preview buffer
+ - restricted to the viewport, does not effect the pixel buffer, writes to the preview buffer / selection buffer
+ - current implementation: left click adds, ctrl subtracts, right click clears selection
+
 - magic wand
  - selects adjacent pixels of the same palette index recursively, bound by the viewport, and a maximum of x iterations.
  - can add / remove to the selection mask.
