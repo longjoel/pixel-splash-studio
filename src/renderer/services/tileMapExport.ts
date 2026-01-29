@@ -60,7 +60,7 @@ const buildTileAtlas = async (
     throw new Error('Unable to export tile atlas.');
   }
   const buffer = new Uint8Array(await blob.arrayBuffer());
-  return { buffer, columns, width, height };
+  return { buffer, columns, rows, width, height };
 };
 
 export const exportTileMapRegion = async (bounds: TileBounds) => {
@@ -136,12 +136,14 @@ export const exportTileMapRegion = async (bounds: TileBounds) => {
   for (let row = 0; row < mapHeight; row += 1) {
     const start = row * mapWidth;
     const rowValues = gids.slice(start, start + mapWidth).join(',');
-    dataRows.push(rowValues);
+    // Tiled's CSV parser expects comma-separated values; a newline alone is not a delimiter.
+    // Add a comma between each row so "...,<newline>..." doesn't become a corrupt token.
+    dataRows.push(row === mapHeight - 1 ? rowValues : `${rowValues},`);
   }
 
   const tmx = `<?xml version="1.0" encoding="UTF-8"?>
-<map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="${mapWidth}" height="${mapHeight}" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" infinite="0">
-  <tileset firstgid="1" name="tiles" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" tilecount="${usedTileIndices.length}" columns="${atlas.columns}">
+<map version="1.0" orientation="orthogonal" renderorder="right-down" width="${mapWidth}" height="${mapHeight}" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" infinite="0" nextlayerid="2" nextobjectid="1">
+  <tileset firstgid="1" name="tiles" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" tilecount="${atlas.columns * atlas.rows}" columns="${atlas.columns}">
     <image source="tiles.png" width="${atlas.width}" height="${atlas.height}"/>
   </tileset>
   <layer id="1" name="Tile Layer 1" width="${mapWidth}" height="${mapHeight}">
