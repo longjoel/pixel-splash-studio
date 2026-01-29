@@ -5,7 +5,7 @@ import DropdownSelect from './DropdownSelect';
 
 const MAX_TILE_PALETTE_COLUMNS = 64;
 const TILE_BAR_PIXEL_SIZE = 6;
-const TILE_GRID_GAP = 6;
+const TILE_GRID_GAP = 0;
 
 type TileCanvasProps = {
   pixels: number[];

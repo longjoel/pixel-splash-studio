@@ -12,6 +12,8 @@ export type ToolId =
   | 'stamp'
   | 'selection-rect'
   | 'selection-oval'
+  | 'selection-lasso'
+  | 'texture-roll'
   | 'tile-sampler'
   | 'tile-pen'
   | 'tile-rectangle'

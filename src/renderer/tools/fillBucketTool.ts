@@ -130,24 +130,15 @@ const fillByColor = (
   enqueuePixelChanges(changes, { label: 'Fill Region' });
 };
 
-const buildGradientRamp = (startIndex: number, endIndex: number) => {
-  const ramp: number[] = [];
-  const step = startIndex <= endIndex ? 1 : -1;
-  for (let i = startIndex; step > 0 ? i <= endIndex : i >= endIndex; i += step) {
-    ramp.push(i);
-  }
-  return ramp.length > 0 ? ramp : [startIndex];
-};
-
 const buildGradientRampFromPalette = () => {
   const palette = usePaletteStore.getState();
   const selection = palette.selectedIndices.filter(
     (idx, pos, arr) => arr.indexOf(idx) === pos && idx >= 0 && idx < palette.colors.length
   );
-  if (selection.length > 1) {
+  if (selection.length > 0) {
     return [...selection].sort((a, b) => a - b);
   }
-  return buildGradientRamp(palette.primaryIndex, palette.secondaryIndex);
+  return [palette.primaryIndex];
 };
 
 const collectFloodRegion = (
@@ -256,10 +247,10 @@ export class FillBucketTool implements Tool {
   onBegin = (cursor: CursorState) => {
     usePreviewStore.getState().clear();
     const palette = usePaletteStore.getState();
-    const paletteIndex = palette.primaryIndex;
     const mode = useFillBucketStore.getState().mode;
     const ramp = buildGradientRampFromPalette();
     const hasGradient = ramp.length > 1;
+    const paletteIndex = ramp[0] ?? palette.primaryIndex;
     const { gradientDirection, gradientDither } = useFillBucketStore.getState();
     const startX = Math.floor(cursor.canvasX / PIXEL_SIZE);
     const startY = Math.floor(cursor.canvasY / PIXEL_SIZE);

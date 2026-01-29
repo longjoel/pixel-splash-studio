@@ -14,6 +14,8 @@ import { RectangleTool } from '@/tools/rectangleTool';
 import { OvalTool } from '@/tools/ovalTool';
 import { SelectionRectangleTool } from '@/tools/selectionRectangleTool';
 import { SelectionOvalTool } from '@/tools/selectionOvalTool';
+import { SelectionLassoTool } from '@/tools/selectionLassoTool';
+import { TextureRollTool } from '@/tools/textureRollTool';
 import { FillBucketTool } from '@/tools/fillBucketTool';
 import { StampTool } from '@/tools/stampTool';
 import { EyeDropperTool } from '@/tools/eyeDropperTool';
@@ -674,6 +676,8 @@ const ViewportCanvas = () => {
       stamp: new StampTool(),
       'selection-rect': new SelectionRectangleTool(),
       'selection-oval': new SelectionOvalTool(),
+      'selection-lasso': new SelectionLassoTool(),
+      'texture-roll': new TextureRollTool(),
       'tile-sampler': new TileSamplerTool(),
       'tile-pen': new TilePenTool(),
       'tile-rectangle': new TileRandomTool(),
@@ -881,6 +885,8 @@ const ViewportCanvas = () => {
       const previewColor =
         activeTool === 'selection-rect' ||
         activeTool === 'selection-oval' ||
+        activeTool === 'selection-lasso' ||
+        activeTool === 'texture-roll' ||
         activeTool === 'tile-sampler'
           ? 'rgba(245, 197, 66, 0.35)'
           : undefined;

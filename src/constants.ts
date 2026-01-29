@@ -89,6 +89,8 @@ export const TOOL_LABELS = {
   stamp: 'Stamp',
   'selection-rect': 'Select',
   'selection-oval': 'Select Oval',
+  'selection-lasso': 'Lasso',
+  'texture-roll': 'Scroll',
   'tile-sampler': 'Tile Sampler',
   'tile-pen': 'Tile Pen',
   'tile-rectangle': 'Tile Rectangle',

@@ -447,7 +447,7 @@ body {
 
 .tilebar__grid {
   display: grid;
-  gap: 6px;
+  gap: 0;
   grid-template-columns: repeat(
     var(--tile-grid-columns, 8),
     var(--tile-cell-size, 32px)
@@ -469,7 +469,7 @@ body {
   width: var(--tile-cell-size, 32px);
   height: var(--tile-cell-size, 32px);
   padding: 0;
-  border-radius: 8px;
+  border-radius: 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   cursor: pointer;
@@ -1032,30 +1032,39 @@ body {
 }
 
 .palette-bar {
-  display: grid;
-  place-items: center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
   height: 100%;
+  gap: 10px;
 }
 
 .palette-bar__swatches {
   display: grid;
-  --palette-gap: 4px;
+  --palette-gap: 1px;
   --palette-rows: 4;
   --palette-columns: 16;
-  grid-template-columns: repeat(var(--palette-columns), 1fr);
-  grid-template-rows: repeat(var(--palette-rows), 1fr);
-  grid-auto-rows: 1fr;
+  --palette-cell-size: calc(
+    (
+        (var(--palette-bar-height) - 32px) -
+          (var(--palette-gap) * (var(--palette-rows) - 1))
+      ) / var(--palette-rows)
+  );
+  grid-template-columns: repeat(var(--palette-columns), var(--palette-cell-size));
+  grid-template-rows: repeat(var(--palette-rows), var(--palette-cell-size));
   gap: var(--palette-gap);
-  overflow: visible;
-  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  width: fit-content;
+  max-width: 100%;
   height: calc(var(--palette-bar-height) - 32px);
   align-content: center;
-  justify-content: center;
+  justify-content: start;
 }
 
 .palette-bar__swatch {
-  width: 100%;
-  height: 100%;
+  width: var(--palette-cell-size);
+  height: var(--palette-cell-size);
   padding: 0;
   border: 1px solid rgba(0, 0, 0, 0.4);
   cursor: pointer;
@@ -1120,6 +1129,29 @@ body {
   text-align: left;
   cursor: pointer;
   font-size: 12px;
+  width: 100%;
+  min-height: 34px;
+}
+
+.palette-bar__menu-select {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.palette-bar__preset-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+}
+
+.palette-bar__preset-option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .palette-bar__menu-item:hover {

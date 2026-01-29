@@ -65,6 +65,8 @@ Palette
  - is attached to the canvas
  - changing a palette color will change all currently drawn pixels
  - ability to import from other programs, like asprite, paintshop pro
+ - ability to import palettes from LoSpec (URL or slug)
+ - support deep links: `lospec-palette://oil-6` (opens `https://lospec.com/palette-list/oil-6` and applies the palette)
  - ability to export palette. 
  - when a project is loaded, check the existing palette, if there is a matching one, use that one
  - if there isn't a copy of it locally, you will be given the option to import it from the file.
@@ -258,6 +260,22 @@ Editing Tools
  - on release: write a rectangle to the selection area (start, end), clear the preview buffer
  - restricted to the viewport, does not effect the pixel buffer, writes to the preview buffer / selection buffer
  - options: snap to pixel, snap to tile (8x8, 16x16, 24x24, 32x32)
+
+- Selection Lasso
+ - free-hand selection painting directly into the selection mask (pen-like stroke)
+ - on hover: show the current brush footprint in the preview layer
+ - on begin use: start a stroke at the cursor position
+ - on use: paint along the cursor path into the preview layer (brush size + shape)
+ - on release: close the loop, fill the enclosed area into the selection mask, then clear the preview buffer
+ - restricted to the viewport, does not effect the pixel buffer, writes to the preview buffer / selection buffer
+ - current implementation: left click adds, ctrl subtracts, right click clears selection
+
+- Scroll Tool
+ - only available when a selection exists
+ - click + drag inside the selection to scroll the selected pixels in the direction you drag
+ - scroll wraps within the selection bounds (useful for seamless tiling)
+ - selection snap controls step size: pixel vs tile
+ - supports undo/redo as a single operation
 
 - magic wand
  - selects adjacent pixels of the same palette index recursively, bound by the viewport, and a maximum of x iterations.
