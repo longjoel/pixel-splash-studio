@@ -1,7 +1,7 @@
 {
   "name": "pixel-splash-studio",
   "productName": "Pixel Splash Studio",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "description": "Pixel Splash Studio Electron app",
   "author": "Joel Longanecker",
   "license": "MIT",
