@@ -450,7 +450,9 @@ const App = () => {
   const pasteShortcutRef = React.useRef(false);
   const romCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const romPreviewRef = useRef<HTMLCanvasElement | null>(null);
-  const romDragRef = useRef<{ startX: number; startY: number } | null>(null);
+  const romDragRef = useRef<{ startTileX: number; startTileY: number } | null>(null);
+
+  const ROM_TILE_SIZE = 8;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -644,7 +646,12 @@ const App = () => {
     }
 
     setRomPayload(payload);
-    setRomSelection({ x: 0, y: 0, width: payload.width, height: payload.height });
+    setRomSelection({
+      x: 0,
+      y: 0,
+      width: Math.floor(payload.width / ROM_TILE_SIZE),
+      height: Math.floor(payload.height / ROM_TILE_SIZE),
+    });
     setRomScale(2);
     setRomPaletteMode('nearest');
     setRomImportOpen(true);
@@ -684,12 +691,26 @@ const App = () => {
     }
 
     const sourcePaletteHex = paletteToHex(romPayload.palette, romPayload.pixels);
-    const selection = clampRect(romSelection, romPayload.width, romPayload.height);
+    const selectionTiles = clampRect(
+      romSelection,
+      Math.floor(romPayload.width / ROM_TILE_SIZE),
+      Math.floor(romPayload.height / ROM_TILE_SIZE)
+    );
+    const selectionPixels = clampRect(
+      {
+        x: selectionTiles.x * ROM_TILE_SIZE,
+        y: selectionTiles.y * ROM_TILE_SIZE,
+        width: selectionTiles.width * ROM_TILE_SIZE,
+        height: selectionTiles.height * ROM_TILE_SIZE,
+      },
+      romPayload.width,
+      romPayload.height
+    );
     const extracted = extractIndexedRegion(
       romPayload.pixels,
       romPayload.width,
       romPayload.height,
-      selection
+      selectionPixels
     );
     const scaled = scaleIndexedNearest(extracted.pixels, extracted.width, extracted.height, romScale);
 
@@ -729,7 +750,12 @@ const App = () => {
       ctx.save();
       ctx.strokeStyle = 'rgba(255, 74, 100, 0.95)';
       ctx.lineWidth = 1;
-      ctx.strokeRect(selection.x + 0.5, selection.y + 0.5, selection.width - 1, selection.height - 1);
+      ctx.strokeRect(
+        selectionPixels.x + 0.5,
+        selectionPixels.y + 0.5,
+        selectionPixels.width - 1,
+        selectionPixels.height - 1
+      );
       ctx.restore();
     }
 
@@ -2469,7 +2495,7 @@ const App = () => {
             </div>
             <div className="modal__body">
               <div className="modal__row">
-                <span>Selection</span>
+                <span>Selection (tiles)</span>
                 <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <label>
                     X{' '}
@@ -2481,8 +2507,8 @@ const App = () => {
                           prev && romPayload
                             ? clampRect(
                                 { ...prev, x: Number(e.target.value) },
-                                romPayload.width,
-                                romPayload.height
+                                Math.floor(romPayload.width / ROM_TILE_SIZE),
+                                Math.floor(romPayload.height / ROM_TILE_SIZE)
                               )
                             : prev
                         )
@@ -2499,8 +2525,8 @@ const App = () => {
                           prev && romPayload
                             ? clampRect(
                                 { ...prev, y: Number(e.target.value) },
-                                romPayload.width,
-                                romPayload.height
+                                Math.floor(romPayload.width / ROM_TILE_SIZE),
+                                Math.floor(romPayload.height / ROM_TILE_SIZE)
                               )
                             : prev
                         )
@@ -2517,8 +2543,8 @@ const App = () => {
                           prev && romPayload
                             ? clampRect(
                                 { ...prev, width: Number(e.target.value) },
-                                romPayload.width,
-                                romPayload.height
+                                Math.floor(romPayload.width / ROM_TILE_SIZE),
+                                Math.floor(romPayload.height / ROM_TILE_SIZE)
                               )
                             : prev
                         )
@@ -2535,8 +2561,8 @@ const App = () => {
                           prev && romPayload
                             ? clampRect(
                                 { ...prev, height: Number(e.target.value) },
-                                romPayload.width,
-                                romPayload.height
+                                Math.floor(romPayload.width / ROM_TILE_SIZE),
+                                Math.floor(romPayload.height / ROM_TILE_SIZE)
                               )
                             : prev
                         )
@@ -2583,10 +2609,9 @@ const App = () => {
                       ref={romCanvasRef}
                       style={{
                         imageRendering: 'pixelated',
-                        width:
-                          romPayload.width * (romPayload.width <= 256 ? 2 : 1),
-                        height:
-                          romPayload.height * (romPayload.width <= 256 ? 2 : 1),
+                        width: '100%',
+                        maxHeight: 320,
+                        height: 'auto',
                         display: 'block',
                       }}
                       onPointerDown={(event) => {
@@ -2595,14 +2620,16 @@ const App = () => {
                           return;
                         }
                         const rect = canvas.getBoundingClientRect();
-                        const x = Math.floor(
+                        const pixelX = Math.floor(
                           ((event.clientX - rect.left) / rect.width) * canvas.width
                         );
-                        const y = Math.floor(
+                        const pixelY = Math.floor(
                           ((event.clientY - rect.top) / rect.height) * canvas.height
                         );
-                        romDragRef.current = { startX: x, startY: y };
-                        setRomSelection({ x, y, width: 1, height: 1 });
+                        const tileX = Math.floor(pixelX / ROM_TILE_SIZE);
+                        const tileY = Math.floor(pixelY / ROM_TILE_SIZE);
+                        romDragRef.current = { startTileX: tileX, startTileY: tileY };
+                        setRomSelection({ x: tileX, y: tileY, width: 1, height: 1 });
                       }}
                       onPointerMove={(event) => {
                         const canvas = romCanvasRef.current;
@@ -2611,21 +2638,23 @@ const App = () => {
                           return;
                         }
                         const rect = canvas.getBoundingClientRect();
-                        const x = Math.floor(
+                        const pixelX = Math.floor(
                           ((event.clientX - rect.left) / rect.width) * canvas.width
                         );
-                        const y = Math.floor(
+                        const pixelY = Math.floor(
                           ((event.clientY - rect.top) / rect.height) * canvas.height
                         );
-                        const minX = Math.min(start.startX, x);
-                        const minY = Math.min(start.startY, y);
-                        const maxX = Math.max(start.startX, x);
-                        const maxY = Math.max(start.startY, y);
+                        const tileX = Math.floor(pixelX / ROM_TILE_SIZE);
+                        const tileY = Math.floor(pixelY / ROM_TILE_SIZE);
+                        const minX = Math.min(start.startTileX, tileX);
+                        const minY = Math.min(start.startTileY, tileY);
+                        const maxX = Math.max(start.startTileX, tileX);
+                        const maxY = Math.max(start.startTileY, tileY);
                         setRomSelection(
                           clampRect(
                             { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
-                            romPayload.width,
-                            romPayload.height
+                            Math.floor(romPayload.width / ROM_TILE_SIZE),
+                            Math.floor(romPayload.height / ROM_TILE_SIZE)
                           )
                         );
                       }}
@@ -2642,7 +2671,8 @@ const App = () => {
                       ref={romPreviewRef}
                       style={{
                         imageRendering: 'pixelated',
-                        width: 256,
+                        width: '100%',
+                        maxHeight: 320,
                         height: 'auto',
                         display: 'block',
                       }}
@@ -2658,7 +2688,21 @@ const App = () => {
                     if (!romPayload || !romSelection) {
                       return;
                     }
-                    const selection = clampRect(romSelection, romPayload.width, romPayload.height);
+                    const selectionTiles = clampRect(
+                      romSelection,
+                      Math.floor(romPayload.width / ROM_TILE_SIZE),
+                      Math.floor(romPayload.height / ROM_TILE_SIZE)
+                    );
+                    const selection = clampRect(
+                      {
+                        x: selectionTiles.x * ROM_TILE_SIZE,
+                        y: selectionTiles.y * ROM_TILE_SIZE,
+                        width: selectionTiles.width * ROM_TILE_SIZE,
+                        height: selectionTiles.height * ROM_TILE_SIZE,
+                      },
+                      romPayload.width,
+                      romPayload.height
+                    );
                     const extracted = extractIndexedRegion(
                       romPayload.pixels,
                       romPayload.width,

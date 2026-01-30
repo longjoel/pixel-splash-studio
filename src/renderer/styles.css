@@ -174,20 +174,19 @@ body {
 
 .rom-import__grid {
   display: grid;
-  grid-template-columns: 1fr 256px;
+  grid-template-columns: 1fr 2fr;
   gap: 12px;
   align-items: start;
 }
 
 .rom-import__selection {
-  max-height: 320px;
-  overflow: auto;
+  overflow: hidden;
   border: 1px solid #333;
 }
 
 .rom-import__preview {
   border: 1px solid #333;
-  overflow: auto;
+  overflow: hidden;
 }
 
 @media (max-width: 620px) {
