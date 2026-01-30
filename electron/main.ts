@@ -969,6 +969,13 @@ ipcMain.handle('project:load', async (_event, existingPath?: string) => {
 });
 
 ipcMain.handle('project:read', async (_event, existingPath?: string) => {
+  const e2ePath = process.env.PIXEL_SPLASH_E2E_PROJECT_READ_PATH;
+  if (e2ePath) {
+    const buffer = await readFile(e2ePath);
+    const payload = await readProjectZip(buffer);
+    return { path: e2ePath, ...payload };
+  }
+
   if (existingPath) {
     const buffer = await readFile(existingPath);
     const payload = await readProjectZip(buffer);
