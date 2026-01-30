@@ -38,9 +38,6 @@ const getWorldBounds = (camera: { x: number; y: number; zoom: number }, viewSize
   maxX = Math.max(maxX, camera.x + viewWidth);
   maxY = Math.max(maxY, camera.y + viewHeight);
 
-  const width = maxX - minX;
-  const height = maxY - minY;
-
   return { minX, minY, maxX, maxY };
 };
 

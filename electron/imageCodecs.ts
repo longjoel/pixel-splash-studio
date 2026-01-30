@@ -155,7 +155,7 @@ const decodePcx = (buffer: Buffer): DecodedImage => {
       pixels: pcx.getPixels(),
       palette: buildPaletteFromBytes(paletteBytes),
     };
-  } catch (error) {
+  } catch {
     const pcx = new PCX(buffer);
     const decoded = pcx.decode();
     const palette = decoded.palette ? buildPaletteFromBytes(decoded.palette) : undefined;

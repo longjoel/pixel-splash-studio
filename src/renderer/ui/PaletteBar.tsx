@@ -424,7 +424,7 @@ const PaletteBar = () => {
     }
   };
 
-  useEffect(clampSelectionToPalette, [colors.length, selectedIndices]);
+  useEffect(clampSelectionToPalette, [colors.length, selectedIndices, setSelectedIndices]);
 
   const handleClearSelected = () => {
     if (!canEditSelection) {

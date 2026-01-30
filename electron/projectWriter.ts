@@ -12,13 +12,17 @@ const writeProjectZip = async (payload: ProjectPayload) => {
   const zip = new JSZip();
   const data = { ...payload.data };
   if (!data.pixelLayers && payload.layers && payload.layers.length > 0) {
+    const fallbackActiveLayerId =
+      (typeof payload.data?.pixelLayers?.activeLayerId === 'string'
+        ? payload.data.pixelLayers.activeLayerId
+        : undefined) ?? payload.layers[0]?.id;
     data.pixelLayers = {
       layers: payload.layers.map((layer) => ({
         id: layer.id,
         name: layer.name,
         visible: layer.visible,
       })),
-      activeLayerId: payload.layers[0]?.id,
+      activeLayerId: fallbackActiveLayerId,
     };
   }
   zip.file('data.json', JSON.stringify(data, null, 2));

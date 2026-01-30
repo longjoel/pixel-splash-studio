@@ -1,4 +1,4 @@
-import { Tool, CursorState } from '@/core/tools';
+import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePreviewStore } from '@/state/previewStore';
@@ -93,7 +93,6 @@ export class PenTool implements Tool {
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),
     };
     if (this.lastPoint) {
-      const preview = usePreviewStore.getState();
       const dx = Math.abs(nextPoint.x - this.lastPoint.x);
       const dy = Math.abs(nextPoint.y - this.lastPoint.y);
       const sx = this.lastPoint.x < nextPoint.x ? 1 : -1;

@@ -113,6 +113,7 @@ interface Window {
   projectApi: {
     save: (payload: ProjectPayload, existingPath?: string) => Promise<string | null>;
     load: (existingPath?: string) => Promise<ProjectLoadResult | null>;
+    read: (existingPath?: string) => Promise<ProjectLoadResult | null>;
     exportPng: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportGbr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportChr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;

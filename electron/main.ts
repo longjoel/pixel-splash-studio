@@ -1,7 +1,7 @@
-import { app, BrowserWindow, Menu, dialog, ipcMain, OpenDialogOptions, shell } from 'electron';
-import type { MenuItem } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
+import type { OpenDialogOptions } from 'electron';
 import { join } from 'path';
-import { appendFile, mkdir, readFile, writeFile } from 'fs/promises';
+import { access, appendFile, mkdir, readFile, writeFile } from 'fs/promises';
 import { spawn } from 'child_process';
 import https from 'https';
 import { tmpdir } from 'os';
@@ -9,6 +9,27 @@ import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
 import { EXTENSION_MIME_MAP } from '../src/constants';
 import { decodeImageFile, encodeImageBuffer, type ExportImagePayload } from './imageCodecs';
+
+// Mesa's RADV Vulkan driver often prints warnings even when Electron doesn't need Vulkan.
+// Disable Vulkan by default on Linux to reduce noisy startup logs.
+if (process.platform === 'linux' && process.env.PIXEL_SPLASH_ENABLE_VULKAN !== '1') {
+  const key = 'disable-features';
+  const existing = app.commandLine.getSwitchValue(key);
+  if (!existing) {
+    app.commandLine.appendSwitch(key, 'Vulkan');
+  } else if (!existing.split(',').includes('Vulkan')) {
+    app.commandLine.appendSwitch(key, `${existing},Vulkan`);
+  }
+}
+
+const pathExists = async (path: string) => {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 const perfLoggingEnabled = { value: false };
 const memoryUsageEnabled = { value: false };
@@ -283,6 +304,13 @@ app.whenReady().then(() => {
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
             window?.webContents.send('menu:action', 'importImage');
+          },
+        },
+        {
+          label: 'Merge Project...',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'mergeProject');
           },
         },
         {
@@ -940,6 +968,31 @@ ipcMain.handle('project:load', async (_event, existingPath?: string) => {
   return { path: filePaths[0], ...payload };
 });
 
+ipcMain.handle('project:read', async (_event, existingPath?: string) => {
+  if (existingPath) {
+    const buffer = await readFile(existingPath);
+    const payload = await readProjectZip(buffer);
+    return { path: existingPath, ...payload };
+  }
+
+  const window = BrowserWindow.getFocusedWindow();
+  const dialogOptions: OpenDialogOptions = {
+    filters: [{ name: 'Pixel Splash Project', extensions: ['splash'] }],
+    properties: ['openFile'],
+  };
+  const { canceled, filePaths } = window
+    ? await dialog.showOpenDialog(window, dialogOptions)
+    : await dialog.showOpenDialog(dialogOptions);
+
+  if (canceled || filePaths.length === 0) {
+    return null;
+  }
+
+  const buffer = await readFile(filePaths[0]);
+  const payload = await readProjectZip(buffer);
+  return { path: filePaths[0], ...payload };
+});
+
 ipcMain.handle('export:png', async (_event, data: Uint8Array, suggestedName?: string) => {
   const e2ePath = process.env.PIXEL_SPLASH_E2E_EXPORT_PATH;
   if (e2ePath) {
@@ -980,11 +1033,20 @@ ipcMain.handle(
     }
 
     const basePath = filePaths[0];
-    const pngPath = join(basePath, 'tiles.png');
-    const tmxPath = join(basePath, 'tiles.tmx');
-    await writeFile(pngPath, Buffer.from(payload.png));
-    await writeFile(tmxPath, payload.tmx);
-    return basePath;
+    let outputPath = basePath;
+    const pngPath = join(outputPath, 'tiles.png');
+    const tmxPath = join(outputPath, 'tiles.tmx');
+    if (await pathExists(pngPath) || await pathExists(tmxPath)) {
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+      outputPath = join(outputPath, `tile-export-${stamp}`);
+      await mkdir(outputPath, { recursive: true });
+    }
+
+    const finalPngPath = join(outputPath, 'tiles.png');
+    const finalTmxPath = join(outputPath, 'tiles.tmx');
+    await writeFile(finalPngPath, Buffer.from(payload.png));
+    await writeFile(finalTmxPath, payload.tmx);
+    return outputPath;
   }
 );
 

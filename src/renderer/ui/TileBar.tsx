@@ -57,8 +57,6 @@ const TileBar = () => {
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
   const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
   const selectedTileIndices = useTileMapStore((state) => state.selectedTileIndices);
-  const selectedTileCols = useTileMapStore((state) => state.selectedTileCols);
-  const selectedTileRows = useTileMapStore((state) => state.selectedTileRows);
   const tilePaletteColumns = useTileMapStore((state) => state.tilePaletteColumns);
   const tilePaletteOffset = useTileMapStore((state) => state.tilePaletteOffset);
   const tilePaletteRowsMin = useTileMapStore((state) => state.tilePaletteRowsMin);

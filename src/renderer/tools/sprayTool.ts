@@ -1,4 +1,4 @@
-import { CursorState, Tool } from '@/core/tools';
+import type { CursorState, Tool } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { useHistoryStore } from '@/state/historyStore';
 import { usePaletteStore } from '@/state/paletteStore';
@@ -9,16 +9,18 @@ import { useSprayStore } from '@/state/sprayStore';
 
 type PixelChange = { x: number; y: number; prev: number; next: number };
 
+type FrameHandle = number | ReturnType<typeof setTimeout>;
+
 const scheduleFrame =
   typeof requestAnimationFrame === 'function'
-    ? (callback: FrameRequestCallback) => requestAnimationFrame(callback)
+    ? (callback: FrameRequestCallback): FrameHandle => requestAnimationFrame(callback)
     : (callback: FrameRequestCallback) =>
-        globalThis.setTimeout(() => callback(Date.now()), 16) as unknown as number;
+        globalThis.setTimeout(() => callback(Date.now()), 16);
 
 const cancelFrame =
   typeof cancelAnimationFrame === 'function'
-    ? (handle: number) => cancelAnimationFrame(handle)
-    : (handle: number) => globalThis.clearTimeout(handle);
+    ? (handle: FrameHandle) => cancelAnimationFrame(handle as number)
+    : (handle: FrameHandle) => globalThis.clearTimeout(handle as ReturnType<typeof setTimeout>);
 
 const setPreviewPixel = (cursor: CursorState, x: number, y: number, paletteIndex: number) => {
   const selection = useSelectionStore.getState();
@@ -55,7 +57,7 @@ export class SprayTool implements Tool {
   private layerId: string | null = null;
   private activeIndex = 0;
   private lastCursor: CursorState | null = null;
-  private frameHandle: number | null = null;
+  private frameHandle: FrameHandle | null = null;
   private lastFrameTime = 0;
   private emissionBudget = 0;
   private changes = new Map<string, PixelChange>();

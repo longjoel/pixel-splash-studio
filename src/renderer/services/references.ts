@@ -2,8 +2,7 @@ import { PIXEL_SIZE } from '@/core/grid';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useViewportStore } from '@/state/viewportStore';
 import { useToolStore } from '@/state/toolStore';
-import { REFERENCE_SCALE_MAX, REFERENCE_SCALE_MIN } from '../../constants';
-import { EXTENSION_MIME_MAP, MIME_EXTENSION_MAP } from '../../constants';
+import { REFERENCE_SCALE_MAX, REFERENCE_SCALE_MIN , EXTENSION_MIME_MAP, MIME_EXTENSION_MAP } from '../../constants';
 
 const readFileAsDataUrl = (file: File) =>
   new Promise<string>((resolve, reject) => {

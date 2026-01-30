@@ -48,6 +48,11 @@ If you’re running from a zip (or other unpacked build), you can register it yo
 - Node.js (recommend Node 20+)
 - npm
 
+### Linux notes
+
+- If you see a GTK warning like `Theme parsing error ... Failed to import ... window_decorations.css`, it's coming from your local GTK theme config (usually `~/.config/gtk-3.0/gtk.css`). Fix by removing the missing `@import` line or creating an empty `~/.config/gtk-3.0/window_decorations.css`.
+- If you see Vulkan/RADV warnings on startup, Pixel Splash Studio disables Vulkan by default on Linux to keep logs clean. To re-enable, set `PIXEL_SPLASH_ENABLE_VULKAN=1`.
+
 ### Install
 
 ```bash

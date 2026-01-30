@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import ViewportCanvas from './canvas/ViewportCanvas';
 import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
 import TileBar from './ui/TileBar';
 import DropdownSelect from './ui/DropdownSelect';
 import { loadProject, newProject, saveProject } from './services/project';
+import { mergeProjectPixels, readSplashProject } from './services/projectMerge';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
 import { useToolStore } from './state/toolStore';
@@ -361,6 +362,11 @@ const App = () => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [mergeModalOpen, setMergeModalOpen] = useState(false);
+  const [mergeSourcePath, setMergeSourcePath] = useState<string | null>(null);
+  const [mergePayload, setMergePayload] = useState<ProjectLoadResult | null>(null);
+  const [mergeOffsetX, setMergeOffsetX] = useState(0);
+  const [mergeOffsetY, setMergeOffsetY] = useState(0);
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState(true);
   const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
@@ -550,6 +556,44 @@ const App = () => {
     }
   }, [activeTool, setSelectedReference]);
 
+  const handleSave = React.useCallback(async () => {
+    await saveProject(projectPath ?? undefined);
+  }, [projectPath]);
+
+  const handleSaveAs = React.useCallback(async () => {
+    await saveProject(undefined);
+  }, []);
+
+  const handleLoad = React.useCallback(async () => {
+    if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
+      return;
+    }
+    await loadProject(undefined);
+  }, [dirty]);
+
+  const handleNew = React.useCallback(() => {
+    if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
+      return;
+    }
+    newProject();
+  }, [dirty]);
+
+  const handleShortcuts = React.useCallback(() => {
+    setShowShortcuts(true);
+  }, [setShowShortcuts]);
+
+  const handleMergeProject = useCallback(async () => {
+    const result = await readSplashProject();
+    if (!result) {
+      return;
+    }
+    setMergePayload(result);
+    setMergeSourcePath(result.path ?? null);
+    setMergeOffsetX(0);
+    setMergeOffsetY(0);
+    setMergeModalOpen(true);
+  }, []);
+
   useEffect(() => {
     const handleKey = (event: KeyboardEvent) => {
       if (isEditableTarget(event.target)) {
@@ -646,33 +690,17 @@ const App = () => {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [redo, undo, projectPath, dirty, activeTool, selectedReference, removeReference]);
-
-  const handleSave = async () => {
-    await saveProject(projectPath ?? undefined);
-  };
-
-  const handleSaveAs = async () => {
-    await saveProject(undefined);
-  };
-
-  const handleLoad = async () => {
-    if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
-      return;
-    }
-    await loadProject(undefined);
-  };
-
-  const handleNew = () => {
-    if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
-      return;
-    }
-    newProject();
-  };
-
-  const handleShortcuts = () => {
-    setShowShortcuts(true);
-  };
+  }, [
+    activeTool,
+    handleLoad,
+    handleNew,
+    handleSave,
+    handleShortcuts,
+    redo,
+    removeReference,
+    selectedReference,
+    undo,
+  ]);
 
   const handleAddReference = async () => {
     const file = await openImageFilePicker();
@@ -852,6 +880,9 @@ const App = () => {
         case 'importImage':
           void importImageAsProject();
           break;
+        case 'mergeProject':
+          void handleMergeProject();
+          break;
         case 'exportPng':
           void exportSelectionAsPng();
           break;
@@ -920,7 +951,28 @@ const App = () => {
       }
     });
     return () => unsubscribe();
-  }, [projectPath]);
+  }, [
+    handleLoad,
+    handleMergeProject,
+    handleNew,
+    handleSave,
+    handleSaveAs,
+    handleShortcuts,
+    redo,
+    setActiveTool,
+    setMinimapCollapsed,
+    setMemoryInfoEnabled,
+    setShowAxes,
+    setShowLicense,
+    setShowPixelGrid,
+    setShowPixelLayer,
+    setShowReferenceLayer,
+    setShowTileGrid,
+    setShowTileLayer,
+    setTileDebugOverlay,
+    setToolbarCollapsed,
+    undo,
+  ]);
 
   useEffect(() => {
     window.viewMenuApi?.setState({
@@ -930,6 +982,7 @@ const App = () => {
       showPixelGrid,
       showTileGrid,
       showAxes,
+      tileDebugOverlay,
       toolbarCollapsed,
       minimapCollapsed,
     });
@@ -940,6 +993,7 @@ const App = () => {
     showPixelGrid,
     showTileGrid,
     showAxes,
+    tileDebugOverlay,
     toolbarCollapsed,
     minimapCollapsed,
   ]);
@@ -2252,6 +2306,78 @@ const App = () => {
           </div>
         )}
       </div>
+      {mergeModalOpen && mergePayload && (
+        <div className="modal">
+          <div
+            className="modal__backdrop"
+            onClick={() => {
+              setMergeModalOpen(false);
+              setMergePayload(null);
+              setMergeSourcePath(null);
+            }}
+          />
+          <div className="modal__content" role="dialog" aria-modal="true">
+            <div className="modal__header">
+              <h2>Merge Project</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setMergeModalOpen(false);
+                  setMergePayload(null);
+                  setMergeSourcePath(null);
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div className="modal__body">
+              <div className="modal__row">
+                <span>Source</span>
+                <span>{mergeSourcePath ?? '(unknown)'}</span>
+              </div>
+              <div className="modal__row">
+                <span>Offset X</span>
+                <input
+                  type="number"
+                  value={mergeOffsetX}
+                  onChange={(e) => setMergeOffsetX(Number(e.target.value))}
+                />
+              </div>
+              <div className="modal__row">
+                <span>Offset Y</span>
+                <input
+                  type="number"
+                  value={mergeOffsetY}
+                  onChange={(e) => setMergeOffsetY(Number(e.target.value))}
+                />
+              </div>
+              <div className="modal__row">
+                <span />
+                <button
+                  type="button"
+                  onClick={() => {
+                    mergeProjectPixels(mergePayload, {
+                      offsetX: mergeOffsetX,
+                      offsetY: mergeOffsetY,
+                    });
+                    setMergeModalOpen(false);
+                    setMergePayload(null);
+                    setMergeSourcePath(null);
+                  }}
+                >
+                  Merge Pixels
+                </button>
+              </div>
+              <div className="modal__row">
+                <span />
+                <span style={{ opacity: 0.8 }}>
+                  Current merge supports pixels only and requires identical palettes.
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {showShortcuts && (
         <div className="modal">
           <div className="modal__backdrop" onClick={() => setShowShortcuts(false)} />
