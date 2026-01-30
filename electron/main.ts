@@ -185,10 +185,27 @@ const createWindow = () => {
         `Failed to load dev server URL (${devServerUrl}). Falling back to ${indexPath}.`,
         error
       );
-      void win.loadFile(indexPath);
+      void win.loadFile(indexPath).catch((fallbackError) => {
+        console.error(`Failed to load ${indexPath}.`, fallbackError);
+      });
     });
   } else {
-    void win.loadFile(indexPath);
+    void win.loadFile(indexPath).catch((error) => {
+      console.error(`Failed to load ${indexPath}.`, error);
+    });
+  }
+
+  win.webContents.on(
+    'did-fail-load',
+    (_event, errorCode, errorDescription, validatedURL) => {
+      console.error(
+        `Renderer failed to load (${errorCode}): ${errorDescription} (${validatedURL})`
+      );
+    }
+  );
+
+  if (process.env.ELECTRON_OPEN_DEVTOOLS === '1') {
+    win.webContents.openDevTools({ mode: 'detach' });
   }
 
   win.webContents.on('zoom-changed', (_event, zoomDirection) => {
