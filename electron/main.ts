@@ -178,10 +178,17 @@ const createWindow = () => {
   });
 
   const devServerUrl = process.env.VITE_DEV_SERVER_URL;
+  const indexPath = join(app.getAppPath(), 'dist', 'index.html');
   if (devServerUrl) {
-    win.loadURL(devServerUrl);
+    void win.loadURL(devServerUrl).catch((error) => {
+      console.error(
+        `Failed to load dev server URL (${devServerUrl}). Falling back to ${indexPath}.`,
+        error
+      );
+      void win.loadFile(indexPath);
+    });
   } else {
-    win.loadFile(join(app.getAppPath(), 'dist', 'index.html'));
+    void win.loadFile(indexPath);
   }
 
   win.webContents.on('zoom-changed', (_event, zoomDirection) => {
