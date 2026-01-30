@@ -33,7 +33,6 @@ import {
 } from './services/selectionExportBsave';
 import { consolidatePalette } from './services/paletteConsolidate';
 import { applyImportedImageAsNewProject } from './services/importImageProject';
-import { enqueuePixelChanges } from './services/largeOperationQueue';
 import { useStampStore } from './state/stampStore';
 import { usePixelStore } from './state/pixelStore';
 import { usePreviewStore } from './state/previewStore';
@@ -381,9 +380,12 @@ const App = () => {
   const [mergeOffsetY, setMergeOffsetY] = useState(0);
   const [romImportOpen, setRomImportOpen] = useState(false);
   const [romPayload, setRomPayload] = useState<ImportedImagePayload | null>(null);
-  const [romSelection, setRomSelection] = useState<Rect | null>(null);
+  const [romSelections, setRomSelections] = useState<Rect[]>([]);
   const [romScale, setRomScale] = useState(2);
   const [romPaletteMode, setRomPaletteMode] = useState<'nearest' | 'unused'>('nearest');
+  const [romPage, setRomPage] = useState(0);
+  const romPageTileRows = 32;
+  const romDisplayScale = 2;
   const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState(true);
   const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
@@ -450,9 +452,19 @@ const App = () => {
   const pasteShortcutRef = React.useRef(false);
   const romCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const romPreviewRef = useRef<HTMLCanvasElement | null>(null);
-  const romDragRef = useRef<{ startTileX: number; startTileY: number } | null>(null);
+  const romDragRef = useRef<{
+    startTileX: number;
+    startTileY: number;
+    pointerId: number;
+  } | null>(null);
 
   const ROM_TILE_SIZE = 8;
+  const romTilesAcross = romPayload ? Math.floor(romPayload.width / ROM_TILE_SIZE) : 0;
+  const romTilesDown = romPayload ? Math.floor(romPayload.height / ROM_TILE_SIZE) : 0;
+  const romPageCount = Math.max(1, Math.ceil(romTilesDown / romPageTileRows));
+  const romPageClamped = Math.min(Math.max(0, romPage), Math.max(0, romPageCount - 1));
+  const romPageStartTileY = romPageClamped * romPageTileRows;
+  const romActiveSelection = romSelections[romSelections.length - 1] ?? null;
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -646,23 +658,160 @@ const App = () => {
     }
 
     setRomPayload(payload);
-    setRomSelection({
-      x: 0,
-      y: 0,
-      width: Math.floor(payload.width / ROM_TILE_SIZE),
-      height: Math.floor(payload.height / ROM_TILE_SIZE),
-    });
+    setRomSelections([
+      {
+        x: 0,
+        y: 0,
+        width: Math.floor(payload.width / ROM_TILE_SIZE),
+        height: Math.floor(payload.height / ROM_TILE_SIZE),
+      },
+    ]);
     setRomScale(2);
     setRomPaletteMode('nearest');
+    setRomPage(0);
     setRomImportOpen(true);
   }, []);
 
   const closeRomImport = useCallback(() => {
     setRomImportOpen(false);
     setRomPayload(null);
-    setRomSelection(null);
+    setRomSelections([]);
     romDragRef.current = null;
   }, []);
+
+  const updateRomActiveSelection = useCallback(
+    (patch: Partial<Rect>) => {
+      if (!romPayload) {
+        return;
+      }
+      setRomSelections((prev) => {
+        if (prev.length === 0) {
+          return prev;
+        }
+        const next = prev.slice();
+        const current = next[next.length - 1] ?? { x: 0, y: 0, width: 1, height: 1 };
+        next[next.length - 1] = clampRect({ ...current, ...patch }, romTilesAcross, romTilesDown);
+        return next;
+      });
+    },
+    [romPayload, romTilesAcross, romTilesDown]
+  );
+
+  const sendRomSelectionsToStamp = useCallback(() => {
+    if (!romPayload || romSelections.length === 0) {
+      return;
+    }
+    if (!romPayload.palette) {
+      window.alert('ROM palette is missing.');
+      return;
+    }
+    const extractedRegions = romSelections
+      .map((rect) => clampRect(rect, romTilesAcross, romTilesDown))
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+    if (extractedRegions.length === 0) {
+      window.alert('Select at least one region.');
+      return;
+    }
+
+    const sourcePaletteHex = paletteToHex(romPayload.palette, romPayload.pixels);
+    const scaledRegions = extractedRegions.map((rect) => {
+      const pixelRect = clampRect(
+        {
+          x: rect.x * ROM_TILE_SIZE,
+          y: rect.y * ROM_TILE_SIZE,
+          width: rect.width * ROM_TILE_SIZE,
+          height: rect.height * ROM_TILE_SIZE,
+        },
+        romPayload.width,
+        romPayload.height
+      );
+      const region = extractIndexedRegion(
+        romPayload.pixels,
+        romPayload.width,
+        romPayload.height,
+        pixelRect
+      );
+      return scaleIndexedNearest(region.pixels, region.width, region.height, romScale);
+    });
+
+    const paddingPx = ROM_TILE_SIZE * romScale;
+    const maxRowWidthPx = Math.max(ROM_TILE_SIZE * romScale * 32, 512);
+    let cursorX = 0;
+    let cursorY = 0;
+    let rowH = 0;
+    const placements: Array<{ x: number; y: number; w: number; h: number; pixels: Uint8Array }> = [];
+
+    for (const region of scaledRegions) {
+      const w = region.width;
+      const h = region.height;
+      if (cursorX > 0 && cursorX + w > maxRowWidthPx) {
+        cursorX = 0;
+        cursorY += rowH + paddingPx;
+        rowH = 0;
+      }
+      placements.push({ x: cursorX, y: cursorY, w, h, pixels: region.pixels });
+      cursorX += w + paddingPx;
+      rowH = Math.max(rowH, h);
+    }
+    const packedWidth = placements.length === 0 ? 1 : Math.max(...placements.map((p) => p.x + p.w));
+    const packedHeight = placements.length === 0 ? 1 : Math.max(...placements.map((p) => p.y + p.h));
+
+    const packed = new Uint8Array(packedWidth * packedHeight);
+    for (const place of placements) {
+      for (let y = 0; y < place.h; y += 1) {
+        for (let x = 0; x < place.w; x += 1) {
+          packed[(place.y + y) * packedWidth + (place.x + x)] =
+            place.pixels[y * place.w + x] ?? 0;
+        }
+      }
+    }
+
+    const paletteStore = usePaletteStore.getState();
+    const used = getUsedPaletteIndices();
+    let mappedPacked: Uint8Array;
+    if (romPaletteMode === 'unused') {
+      const result = buildUnusedPaletteMap(sourcePaletteHex, paletteStore.colors, used);
+      const ok = window.confirm(
+        'This will write ROM colors into unused palette slots (and may append new colors). Continue?'
+      );
+      if (!ok) {
+        return;
+      }
+      paletteStore.setPalette(result.palette, paletteStore.primaryIndex, paletteStore.secondaryIndex);
+      mappedPacked = applyPaletteMap(packed, result.map);
+    } else {
+      const map = buildNearestPaletteMap(romPayload.palette, paletteStore.colors);
+      mappedPacked = applyPaletteMap(packed, map);
+    }
+
+    const pixels: Array<{ x: number; y: number; paletteIndex: number }> = [];
+    for (let i = 0; i < mappedPacked.length; i += 1) {
+      const paletteIndex = mappedPacked[i] ?? 0;
+      if (paletteIndex === 0) {
+        continue;
+      }
+      pixels.push({ x: i % packedWidth, y: Math.floor(i / packedWidth), paletteIndex });
+    }
+    useClipboardStore.getState().setBuffer({
+      pixels,
+      origin: { x: 0, y: 0 },
+      width: packedWidth,
+      height: packedHeight,
+    });
+    useStampStore.getState().setSnap('tile');
+    useStampStore.getState().setScale(1);
+    useToolStore.getState().setActiveTool('stamp');
+    closeRomImport();
+  }, [
+    closeRomImport,
+    getUsedPaletteIndices,
+    romPaletteMode,
+    romPayload,
+    romScale,
+    romSelections,
+    romTilesAcross,
+    romTilesDown,
+  ]);
 
   const getUsedPaletteIndices = useCallback(() => {
     const pixelStore = usePixelStore.getState();
@@ -681,7 +830,8 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (!romImportOpen || !romPayload || !romSelection) {
+    const activeSelection = romSelections[romSelections.length - 1] ?? null;
+    if (!romImportOpen || !romPayload || !activeSelection) {
       return;
     }
     const canvas = romCanvasRef.current;
@@ -691,83 +841,169 @@ const App = () => {
     }
 
     const sourcePaletteHex = paletteToHex(romPayload.palette, romPayload.pixels);
-    const selectionTiles = clampRect(
-      romSelection,
-      Math.floor(romPayload.width / ROM_TILE_SIZE),
-      Math.floor(romPayload.height / ROM_TILE_SIZE)
-    );
-    const selectionPixels = clampRect(
-      {
-        x: selectionTiles.x * ROM_TILE_SIZE,
-        y: selectionTiles.y * ROM_TILE_SIZE,
-        width: selectionTiles.width * ROM_TILE_SIZE,
-        height: selectionTiles.height * ROM_TILE_SIZE,
-      },
-      romPayload.width,
-      romPayload.height
-    );
-    const extracted = extractIndexedRegion(
-      romPayload.pixels,
-      romPayload.width,
-      romPayload.height,
-      selectionPixels
-    );
-    const scaled = scaleIndexedNearest(extracted.pixels, extracted.width, extracted.height, romScale);
+    const tilesAcross = Math.floor(romPayload.width / ROM_TILE_SIZE);
+    const tilesDown = Math.floor(romPayload.height / ROM_TILE_SIZE);
+    const pageCount = Math.max(1, Math.ceil(tilesDown / romPageTileRows));
+    const page = Math.min(Math.max(0, romPage), pageCount - 1);
+    const pageStartTileY = page * romPageTileRows;
+    const pageTileHeight = Math.min(romPageTileRows, Math.max(0, tilesDown - pageStartTileY));
 
-    let mappedPixels = scaled.pixels;
-    let previewPalette = paletteColors;
+    const pagePixels = extractIndexedRegion(romPayload.pixels, romPayload.width, romPayload.height, {
+      x: 0,
+      y: pageStartTileY * ROM_TILE_SIZE,
+      width: tilesAcross * ROM_TILE_SIZE,
+      height: pageTileHeight * ROM_TILE_SIZE,
+    });
+
+    const extractedRegions = romSelections
+      .map((rect) => clampRect(rect, tilesAcross, tilesDown))
+      .filter((rect) => rect.width > 0 && rect.height > 0);
+
+    const scaledRegions = extractedRegions.map((rect) => {
+      const pixelRect = clampRect(
+        {
+          x: rect.x * ROM_TILE_SIZE,
+          y: rect.y * ROM_TILE_SIZE,
+          width: rect.width * ROM_TILE_SIZE,
+          height: rect.height * ROM_TILE_SIZE,
+        },
+        romPayload.width,
+        romPayload.height
+      );
+      const region = extractIndexedRegion(
+        romPayload.pixels,
+        romPayload.width,
+        romPayload.height,
+        pixelRect
+      );
+      const scaled = scaleIndexedNearest(region.pixels, region.width, region.height, romScale);
+      return { rect, scaled };
+    });
+
+    const drawIndexedScaled = (
+      target: HTMLCanvasElement,
+      w: number,
+      h: number,
+      pixels: Uint8Array,
+      pal: string[],
+      scale: number
+    ) => {
+      const factor = Math.max(1, Math.trunc(scale));
+      const offscreen = document.createElement('canvas');
+      offscreen.width = w;
+      offscreen.height = h;
+      const off = offscreen.getContext('2d');
+      if (!off) {
+        return;
+      }
+      const rgba = indexedToRgba(pixels, w, h, pal);
+      off.putImageData(new ImageData(rgba, w, h), 0, 0);
+
+      target.width = w * factor;
+      target.height = h * factor;
+      const ctx = target.getContext('2d');
+      if (!ctx) {
+        return;
+      }
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, target.width, target.height);
+      ctx.drawImage(offscreen, 0, 0, target.width, target.height);
+    };
+
+    drawIndexedScaled(
+      canvas,
+      pagePixels.width,
+      pagePixels.height,
+      pagePixels.pixels,
+      sourcePaletteHex,
+      romDisplayScale
+    );
+
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      ctx.strokeStyle = 'rgba(255, 74, 100, 0.95)';
+      ctx.lineWidth = 1;
+      for (const rect of extractedRegions) {
+        const y0 = rect.y - pageStartTileY;
+        if (y0 + rect.height <= 0 || y0 >= pageTileHeight) {
+          continue;
+        }
+        const clipY = Math.max(0, y0);
+        const clipH = Math.min(pageTileHeight, y0 + rect.height) - clipY;
+        if (clipH <= 0) {
+          continue;
+        }
+        const xPx = rect.x * ROM_TILE_SIZE * romDisplayScale;
+        const yPx = clipY * ROM_TILE_SIZE * romDisplayScale;
+        const wPx = rect.width * ROM_TILE_SIZE * romDisplayScale;
+        const hPx = clipH * ROM_TILE_SIZE * romDisplayScale;
+        ctx.strokeRect(xPx + 0.5, yPx + 0.5, wPx - 1, hPx - 1);
+      }
+      ctx.restore();
+    }
+
+    // Pack selected regions into a single clipboard-like preview.
+    const paddingPx = ROM_TILE_SIZE * romScale;
+    const maxRowWidthPx = Math.max(ROM_TILE_SIZE * romScale * 32, 512);
+    let cursorX = 0;
+    let cursorY = 0;
+    let rowH = 0;
+    const placements: Array<{ x: number; y: number; w: number; h: number; pixels: Uint8Array }> = [];
+
+    for (const region of scaledRegions) {
+      const w = region.scaled.width;
+      const h = region.scaled.height;
+      if (cursorX > 0 && cursorX + w > maxRowWidthPx) {
+        cursorX = 0;
+        cursorY += rowH + paddingPx;
+        rowH = 0;
+      }
+      placements.push({ x: cursorX, y: cursorY, w, h, pixels: region.scaled.pixels });
+      cursorX += w + paddingPx;
+      rowH = Math.max(rowH, h);
+    }
+    const packedWidth = placements.length === 0 ? 1 : Math.max(...placements.map((p) => p.x + p.w));
+    const packedHeight = placements.length === 0 ? 1 : Math.max(...placements.map((p) => p.y + p.h));
+
+    const packed = new Uint8Array(packedWidth * packedHeight);
+    for (const place of placements) {
+      for (let y = 0; y < place.h; y += 1) {
+        for (let x = 0; x < place.w; x += 1) {
+          packed[(place.y + y) * packedWidth + (place.x + x)] =
+            place.pixels[y * place.w + x] ?? 0;
+        }
+      }
+    }
+
+    let mappedPacked = packed;
+    let mappedPreviewPalette = paletteColors;
     if (romPaletteMode === 'nearest') {
       const sourcePalette = romPayload.palette;
       if (!sourcePalette) {
         return;
       }
       const map = buildNearestPaletteMap(sourcePalette, paletteColors);
-      mappedPixels = applyPaletteMap(scaled.pixels, map);
-      previewPalette = paletteColors;
+      mappedPacked = applyPaletteMap(packed, map);
+      mappedPreviewPalette = paletteColors;
     } else {
       const used = getUsedPaletteIndices();
       const { map, palette } = buildUnusedPaletteMap(sourcePaletteHex, paletteColors, used);
-      mappedPixels = applyPaletteMap(scaled.pixels, map);
-      previewPalette = palette;
+      mappedPacked = applyPaletteMap(packed, map);
+      mappedPreviewPalette = palette;
     }
 
-    const drawIndexed = (target: HTMLCanvasElement, w: number, h: number, pixels: Uint8Array, pal: string[]) => {
-      target.width = w;
-      target.height = h;
-      const ctx = target.getContext('2d');
-      if (!ctx) {
-        return;
-      }
-      const rgba = indexedToRgba(pixels, w, h, pal);
-      const img = new ImageData(rgba, w, h);
-      ctx.putImageData(img, 0, 0);
-    };
-
-    drawIndexed(canvas, romPayload.width, romPayload.height, romPayload.pixels, sourcePaletteHex);
-
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.save();
-      ctx.strokeStyle = 'rgba(255, 74, 100, 0.95)';
-      ctx.lineWidth = 1;
-      ctx.strokeRect(
-        selectionPixels.x + 0.5,
-        selectionPixels.y + 0.5,
-        selectionPixels.width - 1,
-        selectionPixels.height - 1
-      );
-      ctx.restore();
-    }
-
-    drawIndexed(preview, scaled.width, scaled.height, mappedPixels, previewPalette);
+    drawIndexedScaled(preview, packedWidth, packedHeight, mappedPacked, mappedPreviewPalette, 2);
   }, [
     getUsedPaletteIndices,
     paletteColors,
     romImportOpen,
     romPaletteMode,
     romPayload,
+    romPage,
     romScale,
-    romSelection,
+    romSelections,
   ]);
 
   useEffect(() => {
@@ -2483,10 +2719,10 @@ const App = () => {
           </div>
         )}
       </div>
-      {romImportOpen && romPayload && romSelection && (
+      {romImportOpen && romPayload && romActiveSelection && (
         <div className="modal">
           <div className="modal__backdrop" onClick={closeRomImport} />
-          <div className="modal__content" role="dialog" aria-modal="true">
+          <div className="modal__content modal__content--rom" role="dialog" aria-modal="true">
             <div className="modal__header">
               <h2>Import ROM Segment</h2>
               <button type="button" onClick={closeRomImport}>
@@ -2495,23 +2731,38 @@ const App = () => {
             </div>
             <div className="modal__body">
               <div className="modal__row">
+                <span>Selections</span>
+                <span style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span>{romSelections.length}</span>
+                  <button
+                    type="button"
+                    onClick={() => setRomSelections([])}
+                    disabled={romSelections.length === 0}
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRomSelections((prev) => (prev.length > 0 ? prev.slice(0, -1) : prev))
+                    }
+                    disabled={romSelections.length === 0}
+                  >
+                    Remove last
+                  </button>
+                  <span style={{ opacity: 0.8 }}>Ctrl+drag to add</span>
+                </span>
+              </div>
+              <div className="modal__row">
                 <span>Selection (tiles)</span>
                 <span style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <label>
                     X{' '}
                     <input
                       type="number"
-                      value={romSelection.x}
+                      value={romActiveSelection.x}
                       onChange={(e) =>
-                        setRomSelection((prev) =>
-                          prev && romPayload
-                            ? clampRect(
-                                { ...prev, x: Number(e.target.value) },
-                                Math.floor(romPayload.width / ROM_TILE_SIZE),
-                                Math.floor(romPayload.height / ROM_TILE_SIZE)
-                              )
-                            : prev
-                        )
+                        updateRomActiveSelection({ x: Number(e.target.value) })
                       }
                     />
                   </label>
@@ -2519,17 +2770,9 @@ const App = () => {
                     Y{' '}
                     <input
                       type="number"
-                      value={romSelection.y}
+                      value={romActiveSelection.y}
                       onChange={(e) =>
-                        setRomSelection((prev) =>
-                          prev && romPayload
-                            ? clampRect(
-                                { ...prev, y: Number(e.target.value) },
-                                Math.floor(romPayload.width / ROM_TILE_SIZE),
-                                Math.floor(romPayload.height / ROM_TILE_SIZE)
-                              )
-                            : prev
-                        )
+                        updateRomActiveSelection({ y: Number(e.target.value) })
                       }
                     />
                   </label>
@@ -2537,17 +2780,9 @@ const App = () => {
                     W{' '}
                     <input
                       type="number"
-                      value={romSelection.width}
+                      value={romActiveSelection.width}
                       onChange={(e) =>
-                        setRomSelection((prev) =>
-                          prev && romPayload
-                            ? clampRect(
-                                { ...prev, width: Number(e.target.value) },
-                                Math.floor(romPayload.width / ROM_TILE_SIZE),
-                                Math.floor(romPayload.height / ROM_TILE_SIZE)
-                              )
-                            : prev
-                        )
+                        updateRomActiveSelection({ width: Number(e.target.value) })
                       }
                     />
                   </label>
@@ -2555,20 +2790,34 @@ const App = () => {
                     H{' '}
                     <input
                       type="number"
-                      value={romSelection.height}
+                      value={romActiveSelection.height}
                       onChange={(e) =>
-                        setRomSelection((prev) =>
-                          prev && romPayload
-                            ? clampRect(
-                                { ...prev, height: Number(e.target.value) },
-                                Math.floor(romPayload.width / ROM_TILE_SIZE),
-                                Math.floor(romPayload.height / ROM_TILE_SIZE)
-                              )
-                            : prev
-                        )
+                        updateRomActiveSelection({ height: Number(e.target.value) })
                       }
                     />
                   </label>
+                </span>
+              </div>
+              <div className="modal__row">
+                <span>Page</span>
+                <span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <button
+                    type="button"
+                    onClick={() => setRomPage((p) => Math.max(0, p - 1))}
+                    disabled={romPageClamped <= 0}
+                  >
+                    Prev
+                  </button>
+                  <span>
+                    {romPageClamped + 1}/{romPageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setRomPage((p) => Math.min(romPageCount - 1, p + 1))}
+                    disabled={romPageClamped >= romPageCount - 1}
+                  >
+                    Next
+                  </button>
                 </span>
               </div>
               <div className="modal__row">
@@ -2607,18 +2856,14 @@ const App = () => {
                   <div className="rom-import__selection">
                     <canvas
                       ref={romCanvasRef}
-                      style={{
-                        imageRendering: 'pixelated',
-                        width: '100%',
-                        maxHeight: 320,
-                        height: 'auto',
-                        display: 'block',
-                      }}
+                      className="rom-import__canvas"
                       onPointerDown={(event) => {
+                        event.preventDefault();
                         const canvas = romCanvasRef.current;
                         if (!canvas) {
                           return;
                         }
+                        canvas.setPointerCapture?.(event.pointerId);
                         const rect = canvas.getBoundingClientRect();
                         const pixelX = Math.floor(
                           ((event.clientX - rect.left) / rect.width) * canvas.width
@@ -2626,10 +2871,22 @@ const App = () => {
                         const pixelY = Math.floor(
                           ((event.clientY - rect.top) / rect.height) * canvas.height
                         );
-                        const tileX = Math.floor(pixelX / ROM_TILE_SIZE);
-                        const tileY = Math.floor(pixelY / ROM_TILE_SIZE);
-                        romDragRef.current = { startTileX: tileX, startTileY: tileY };
-                        setRomSelection({ x: tileX, y: tileY, width: 1, height: 1 });
+                        const rawTileX = Math.floor(pixelX / (ROM_TILE_SIZE * romDisplayScale));
+                        const rawTileY =
+                          romPageStartTileY +
+                          Math.floor(pixelY / (ROM_TILE_SIZE * romDisplayScale));
+                        const tileX = Math.trunc(clamp(rawTileX, 0, romTilesAcross - 1));
+                        const tileY = Math.trunc(clamp(rawTileY, 0, romTilesDown - 1));
+                        romDragRef.current = {
+                          startTileX: tileX,
+                          startTileY: tileY,
+                          pointerId: event.pointerId,
+                        };
+                        const additive = event.ctrlKey || event.metaKey;
+                        const nextRect = { x: tileX, y: tileY, width: 1, height: 1 };
+                        setRomSelections((prev) =>
+                          additive ? [...prev, nextRect] : [nextRect]
+                        );
                       }}
                       onPointerMove={(event) => {
                         const canvas = romCanvasRef.current;
@@ -2637,6 +2894,9 @@ const App = () => {
                         if (!canvas || !start || !romPayload) {
                           return;
                         }
+                        if (start.pointerId !== event.pointerId) {
+                          return;
+                        }
                         const rect = canvas.getBoundingClientRect();
                         const pixelX = Math.floor(
                           ((event.clientX - rect.left) / rect.width) * canvas.width
@@ -2644,24 +2904,44 @@ const App = () => {
                         const pixelY = Math.floor(
                           ((event.clientY - rect.top) / rect.height) * canvas.height
                         );
-                        const tileX = Math.floor(pixelX / ROM_TILE_SIZE);
-                        const tileY = Math.floor(pixelY / ROM_TILE_SIZE);
+                        const tileX = Math.floor(pixelX / (ROM_TILE_SIZE * romDisplayScale));
+                        const tileY =
+                          romPageStartTileY +
+                          Math.floor(pixelY / (ROM_TILE_SIZE * romDisplayScale));
                         const minX = Math.min(start.startTileX, tileX);
                         const minY = Math.min(start.startTileY, tileY);
                         const maxX = Math.max(start.startTileX, tileX);
                         const maxY = Math.max(start.startTileY, tileY);
-                        setRomSelection(
-                          clampRect(
-                            { x: minX, y: minY, width: maxX - minX + 1, height: maxY - minY + 1 },
-                            Math.floor(romPayload.width / ROM_TILE_SIZE),
-                            Math.floor(romPayload.height / ROM_TILE_SIZE)
-                          )
-                        );
+                        setRomSelections((prev) => {
+                          if (prev.length === 0) {
+                            return prev;
+                          }
+                          const next = prev.slice();
+                          next[next.length - 1] = clampRect(
+                            {
+                              x: minX,
+                              y: minY,
+                              width: maxX - minX + 1,
+                              height: maxY - minY + 1,
+                            },
+                            romTilesAcross,
+                            romTilesDown
+                          );
+                          return next;
+                        });
                       }}
-                      onPointerUp={() => {
+                      onPointerUp={(event) => {
+                        const canvas = romCanvasRef.current;
+                        if (canvas) {
+                          canvas.releasePointerCapture?.(event.pointerId);
+                        }
                         romDragRef.current = null;
                       }}
-                      onPointerLeave={() => {
+                      onPointerLeave={(event) => {
+                        const canvas = romCanvasRef.current;
+                        if (canvas) {
+                          canvas.releasePointerCapture?.(event.pointerId);
+                        }
                         romDragRef.current = null;
                       }}
                     />
@@ -2669,116 +2949,15 @@ const App = () => {
                   <div className="rom-import__preview">
                     <canvas
                       ref={romPreviewRef}
-                      style={{
-                        imageRendering: 'pixelated',
-                        width: '100%',
-                        maxHeight: 320,
-                        height: 'auto',
-                        display: 'block',
-                      }}
+                      className="rom-import__canvas"
                     />
                   </div>
                 </span>
               </div>
               <div className="modal__row">
                 <span />
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!romPayload || !romSelection) {
-                      return;
-                    }
-                    const selectionTiles = clampRect(
-                      romSelection,
-                      Math.floor(romPayload.width / ROM_TILE_SIZE),
-                      Math.floor(romPayload.height / ROM_TILE_SIZE)
-                    );
-                    const selection = clampRect(
-                      {
-                        x: selectionTiles.x * ROM_TILE_SIZE,
-                        y: selectionTiles.y * ROM_TILE_SIZE,
-                        width: selectionTiles.width * ROM_TILE_SIZE,
-                        height: selectionTiles.height * ROM_TILE_SIZE,
-                      },
-                      romPayload.width,
-                      romPayload.height
-                    );
-                    const extracted = extractIndexedRegion(
-                      romPayload.pixels,
-                      romPayload.width,
-                      romPayload.height,
-                      selection
-                    );
-                    const scaled = scaleIndexedNearest(
-                      extracted.pixels,
-                      extracted.width,
-                      extracted.height,
-                      romScale
-                    );
-
-                    const paletteStore = usePaletteStore.getState();
-                    const pixelStore = usePixelStore.getState();
-                    const used = getUsedPaletteIndices();
-                    const sourcePaletteHex = paletteToHex(romPayload.palette, romPayload.pixels);
-
-                    let map: Map<number, number>;
-                    let mappedPixels: Uint8Array;
-                    if (romPaletteMode === 'unused') {
-                      const result = buildUnusedPaletteMap(
-                        sourcePaletteHex,
-                        paletteStore.colors,
-                        used
-                      );
-                      const ok = window.confirm(
-                        'This will write ROM colors into unused palette slots (and may append new colors). Continue?'
-                      );
-                      if (!ok) {
-                        return;
-                      }
-                      paletteStore.setPalette(
-                        result.palette,
-                        paletteStore.primaryIndex,
-                        paletteStore.secondaryIndex
-                      );
-                      map = result.map;
-                      mappedPixels = applyPaletteMap(scaled.pixels, map);
-                    } else {
-                      if (!romPayload.palette) {
-                        window.alert('ROM palette is missing.');
-                        return;
-                      }
-                      map = buildNearestPaletteMap(romPayload.palette, paletteStore.colors);
-                      mappedPixels = applyPaletteMap(scaled.pixels, map);
-                    }
-
-                    const viewport = useViewportStore.getState();
-                    const viewWidth = viewport.width / viewport.camera.zoom;
-                    const viewHeight = viewport.height / viewport.camera.zoom;
-                    const centerX = viewport.camera.x + viewWidth / 2;
-                    const centerY = viewport.camera.y + viewHeight / 2;
-                    const originX = Math.floor(centerX - scaled.width / 2);
-                    const originY = Math.floor(centerY - scaled.height / 2);
-
-                    const layerId = pixelStore.activeLayerId;
-                    const changes: Array<{ x: number; y: number; prev: number; next: number }> = [];
-                    for (let i = 0; i < mappedPixels.length; i += 1) {
-                      const next = mappedPixels[i] ?? 0;
-                      if (next === 0) {
-                        continue;
-                      }
-                      const x = originX + (i % scaled.width);
-                      const y = originY + Math.floor(i / scaled.width);
-                      const prev = pixelStore.getPixelInLayer(layerId, x, y);
-                      if (prev !== next) {
-                        changes.push({ x, y, prev, next });
-                      }
-                    }
-
-                    enqueuePixelChanges(changes, { label: 'Import ROM Segment' });
-                    closeRomImport();
-                  }}
-                >
-                  Import Selection (Pixels)
+                <button type="button" onClick={sendRomSelectionsToStamp}>
+                  Send to Stamp Tool
                 </button>
               </div>
             </div>
