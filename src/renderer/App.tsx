@@ -2577,8 +2577,8 @@ const App = () => {
               </div>
               <div className="modal__row">
                 <span>Pick region</span>
-                <span style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div style={{ maxHeight: 320, overflow: 'auto', border: '1px solid #333' }}>
+                <span className="rom-import__grid">
+                  <div className="rom-import__selection">
                     <canvas
                       ref={romCanvasRef}
                       style={{
@@ -2637,7 +2637,7 @@ const App = () => {
                       }}
                     />
                   </div>
-                  <div style={{ border: '1px solid #333' }}>
+                  <div className="rom-import__preview">
                     <canvas
                       ref={romPreviewRef}
                       style={{
