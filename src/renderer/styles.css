@@ -100,6 +100,9 @@ body {
   position: relative;
   z-index: 1;
   width: min(480px, 90vw);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
   background: rgba(20, 24, 36, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
@@ -112,6 +115,11 @@ body {
   max-height: min(70vh, 720px);
   display: flex;
   flex-direction: column;
+}
+
+.modal__content--rom {
+  width: min(90vw, 1200px);
+  max-height: 90vh;
 }
 
 .modal__header {
@@ -143,6 +151,8 @@ body {
 .modal__body {
   display: grid;
   gap: 10px;
+  overflow: auto;
+  flex: 1;
 }
 
 .modal__body--license {
@@ -165,6 +175,43 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 13px;
+}
+
+.rom-import__grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(360px, 2fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.rom-import__selection {
+  overflow: hidden;
+  border: 1px solid #333;
+  border-radius: 12px;
+  background: #0e1118;
+  padding: 8px;
+}
+
+.rom-import__preview {
+  border: 1px solid #333;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0e1118;
+  padding: 8px;
+}
+
+.rom-import__canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  touch-action: none;
+}
+
+@media (max-width: 620px) {
+  .rom-import__grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .viewport {

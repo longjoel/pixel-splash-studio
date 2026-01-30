@@ -1,4 +1,4 @@
-import { Tool, CursorState } from '@/core/tools';
+import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { useBrushStore } from '@/state/brushStore';
 import { usePreviewStore } from '@/state/previewStore';

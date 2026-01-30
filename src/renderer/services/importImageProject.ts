@@ -123,6 +123,10 @@ export const importImageAsProject = async () => {
   if (!payload) {
     return null;
   }
+  if (payload.format === 'nes' || payload.format === 'gb' || payload.format === 'gbc' || payload.format === 'chr') {
+    window.alert('ROM import now uses the in-app picker. Use File → Import ROMs… from the main window.');
+    return null;
+  }
   if (payload.width > 512 || payload.height > 512) {
     window.alert('Large images (over 512x512) can take a while to load.');
   }
@@ -163,4 +167,33 @@ export const importImageAsProject = async () => {
   clipboardStore.clear();
   useProjectStore.getState().setDirty(true);
   return true;
+};
+
+export const applyImportedImageAsNewProject = (payload: ImportedImagePayload) => {
+  const paletteStore = usePaletteStore.getState();
+  const pixelStore = usePixelStore.getState();
+  const selectionStore = useSelectionStore.getState();
+  const clipboardStore = useClipboardStore.getState();
+
+  newProject();
+
+  if (payload.colorType === 'indexed') {
+    const mapped = mapIndexedPixels(payload);
+    const paletteColors = mapped.paletteColors.length > 0 ? mapped.paletteColors : ['#000000'];
+    paletteStore.setPalette(paletteColors, 0, Math.min(1, Math.max(0, paletteColors.length - 1)));
+    if (mapped.pixels.length > 0) {
+      pixelStore.setPixels(mapped.pixels);
+    }
+  } else {
+    const mapped = mapRgbaPixels(payload);
+    const paletteColors = mapped.paletteColors.length > 0 ? mapped.paletteColors : ['#000000'];
+    paletteStore.setPalette(paletteColors, 0, Math.min(1, Math.max(0, paletteColors.length - 1)));
+    if (mapped.pixels.length > 0) {
+      pixelStore.setPixels(mapped.pixels);
+    }
+  }
+
+  selectionStore.clear();
+  clipboardStore.clear();
+  useProjectStore.getState().setDirty(true);
 };

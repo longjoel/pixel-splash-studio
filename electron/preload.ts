@@ -9,6 +9,8 @@ contextBridge.exposeInMainWorld('projectApi', {
     ipcRenderer.invoke('project:save', payload, existingPath),
   load: (existingPath?: string) =>
     ipcRenderer.invoke('project:load', existingPath),
+  read: (existingPath?: string) =>
+    ipcRenderer.invoke('project:read', existingPath),
   exportPng: (data: Uint8Array, suggestedName?: string) =>
     ipcRenderer.invoke('export:png', data, suggestedName),
   exportGbr: (data: Uint8Array, suggestedName?: string) =>

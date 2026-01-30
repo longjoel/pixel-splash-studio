@@ -1,0 +1,8 @@
+node_modules
+dist
+dist-electron
+out
+build
+test-results
+coverage
+

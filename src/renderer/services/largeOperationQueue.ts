@@ -26,23 +26,24 @@ const inProgressBlockCounts = new Map<string, number>();
 
 let running = false;
 let nextOperationId = 1;
-let scheduledFrame: number | null = null;
+type FrameHandle = number | ReturnType<typeof setTimeout>;
+let scheduledFrame: FrameHandle | null = null;
 
 const getNow = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
 
-const requestFrame = (handler: (timestamp: number) => void) => {
+const requestFrame = (handler: (timestamp: number) => void): FrameHandle => {
   if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
     return window.requestAnimationFrame(handler);
   }
-  return setTimeout(() => handler(getNow()), 0) as unknown as number;
+  return setTimeout(() => handler(getNow()), 0);
 };
 
-const cancelFrame = (id: number) => {
+const cancelFrame = (id: FrameHandle) => {
   if (typeof window !== 'undefined' && typeof window.cancelAnimationFrame === 'function') {
-    window.cancelAnimationFrame(id);
+    window.cancelAnimationFrame(id as number);
     return;
   }
-  clearTimeout(id as unknown as ReturnType<typeof setTimeout>);
+  clearTimeout(id as ReturnType<typeof setTimeout>);
 };
 
 const blockKeyForPixel = (x: number, y: number) => {

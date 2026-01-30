@@ -1,8 +1,9 @@
-import { Tool, CursorState } from '@/core/tools';
+import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { usePreviewStore } from '@/state/previewStore';
 import { useSelectionStore } from '@/state/selectionStore';
-import { useSelectionRectangleStore, SelectionSnap } from '@/state/selectionRectangleStore';
+import type { SelectionSnap } from '@/state/selectionRectangleStore';
+import { useSelectionRectangleStore } from '@/state/selectionRectangleStore';
 
 type GridPoint = { x: number; y: number };
 

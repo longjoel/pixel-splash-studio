@@ -1,11 +1,12 @@
-import { Tool, CursorState } from '@/core/tools';
+import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { useClipboardStore } from '@/state/clipboardStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useSelectionStore } from '@/state/selectionStore';
-import { useStampStore, StampRotation, StampScale } from '@/state/stampStore';
+import type { StampRotation, StampScale } from '@/state/stampStore';
+import { useStampStore } from '@/state/stampStore';
 import { duplicateClipboardPalette } from '@/services/clipboardPaletteDuplicate';
 
 type TransformedPixel = { x: number; y: number; paletteIndex: number };

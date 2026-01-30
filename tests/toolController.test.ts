@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { CursorState, ToolController } from '@/core/tools';
+import type { CursorState} from '@/core/tools';
+import { ToolController } from '@/core/tools';
 
 const makeCursor = (): CursorState => ({
   screenX: 10,

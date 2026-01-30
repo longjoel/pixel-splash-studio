@@ -3,7 +3,8 @@ import { useViewportStore } from '@/state/viewportStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { usePreviewStore } from '@/state/previewStore';
-import { CursorState, ToolController } from '@/core/tools';
+import type { CursorState } from '@/core/tools';
+import { ToolController } from '@/core/tools';
 import { PenTool } from '@/tools/penTool';
 import { SprayTool } from '@/tools/sprayTool';
 import { BLOCK_SIZE } from '@/core/canvasStore';
@@ -37,7 +38,7 @@ import {
   getReferenceTransform,
   getReferenceWorldCorners,
 } from '@/core/referenceTransforms';
-import { MIN_TOOL_ZOOM, WHEEL_ZOOM_MAX_STEP, WHEEL_ZOOM_SCALE } from '../../constants';
+import { WHEEL_ZOOM_MAX_STEP, WHEEL_ZOOM_SCALE } from '../../constants';
 
 const drawGrid = (
   context: CanvasRenderingContext2D,
@@ -639,7 +640,6 @@ const ViewportCanvas = () => {
   const tileCacheRef = useRef<Map<string, TileCacheEntry>>(new Map());
   const lastPerfLogRef = useRef(0);
   const setSize = useViewportStore((state) => state.setSize);
-  const zoom = useViewportStore((state) => state.camera.zoom);
   const [isPanning, setIsPanning] = useState(false);
   const panStartRef = useRef<{
     screenX: number;
@@ -657,6 +657,7 @@ const ViewportCanvas = () => {
   useEffect(() => {
     const wrapper = wrapperRef.current;
     const canvas = canvasRef.current;
+    const wheelZoomState = wheelZoomRef.current;
     if (!wrapper || !canvas) {
       return undefined;
     }
@@ -940,12 +941,12 @@ const ViewportCanvas = () => {
       if (frameRef.current) {
         cancelAnimationFrame(frameRef.current);
       }
-      if (wheelZoomRef.current.frame) {
-        cancelAnimationFrame(wheelZoomRef.current.frame);
-        wheelZoomRef.current.frame = null;
+      if (wheelZoomState.frame) {
+        cancelAnimationFrame(wheelZoomState.frame);
+        wheelZoomState.frame = null;
       }
     };
-  }, []);
+  }, [setSize]);
 
   const toCursorState = (event: React.PointerEvent): CursorState => {
     const rect = event.currentTarget.getBoundingClientRect();

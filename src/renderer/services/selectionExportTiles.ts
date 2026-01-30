@@ -1,5 +1,5 @@
 import { hexToRgb } from '@/core/colorUtils';
-import { CollectedSelection } from './selectionData';
+import type { CollectedSelection } from './selectionData';
 
 type Rgb = { r: number; g: number; b: number };
 

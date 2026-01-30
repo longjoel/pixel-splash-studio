@@ -9,6 +9,8 @@ type TileBounds = {
   maxTileY: number;
 };
 
+const ATLAS_EXTRUDE_PX = 1;
+
 const buildTileAtlas = async (
   tileSet: { tileWidth: number; tileHeight: number; tiles: Array<{ pixels: number[] }> },
   palette: string[],
@@ -16,18 +18,32 @@ const buildTileAtlas = async (
 ) => {
   const columns = Math.min(16, Math.max(1, tileIndices.length));
   const rows = Math.max(1, Math.ceil(tileIndices.length / columns));
-  const width = columns * tileSet.tileWidth;
-  const height = rows * tileSet.tileHeight;
+  const extrude = ATLAS_EXTRUDE_PX;
+  const margin = extrude;
+  const spacing = extrude * 2;
+  const width = columns * (tileSet.tileWidth + spacing);
+  const height = rows * (tileSet.tileHeight + spacing);
   const rgba = new Uint8ClampedArray(width * height * 4);
   const paletteRgb = palette.map((color) => hexToRgb(color) ?? { r: 0, g: 0, b: 0 });
+
+  const setRgba = (x: number, y: number, color: { r: number; g: number; b: number }) => {
+    if (x < 0 || y < 0 || x >= width || y >= height) {
+      return;
+    }
+    const dest = (y * width + x) * 4;
+    rgba[dest] = color.r;
+    rgba[dest + 1] = color.g;
+    rgba[dest + 2] = color.b;
+    rgba[dest + 3] = 255;
+  };
 
   tileIndices.forEach((tileIndex, index) => {
     const tile = tileSet.tiles[tileIndex];
     if (!tile) {
       return;
     }
-    const baseX = (index % columns) * tileSet.tileWidth;
-    const baseY = Math.floor(index / columns) * tileSet.tileHeight;
+    const baseX = (index % columns) * (tileSet.tileWidth + spacing);
+    const baseY = Math.floor(index / columns) * (tileSet.tileHeight + spacing);
     for (let y = 0; y < tileSet.tileHeight; y += 1) {
       for (let x = 0; x < tileSet.tileWidth; x += 1) {
         const paletteIndex = tile.pixels[y * tileSet.tileWidth + x] ?? 0;
@@ -35,11 +51,24 @@ const buildTileAtlas = async (
           continue;
         }
         const color = paletteRgb[paletteIndex] ?? paletteRgb[0] ?? { r: 0, g: 0, b: 0 };
-        const dest = ((baseY + y) * width + (baseX + x)) * 4;
-        rgba[dest] = color.r;
-        rgba[dest + 1] = color.g;
-        rgba[dest + 2] = color.b;
-        rgba[dest + 3] = 255;
+        const destX = baseX + margin + x;
+        const destY = baseY + margin + y;
+        setRgba(destX, destY, color);
+
+        // Extrude edge pixels into the surrounding border to avoid visible seams when
+        // tiles are rendered with filtering.
+        if (extrude > 0) {
+          if (x === 0) setRgba(destX - 1, destY, color);
+          if (x === tileSet.tileWidth - 1) setRgba(destX + 1, destY, color);
+          if (y === 0) setRgba(destX, destY - 1, color);
+          if (y === tileSet.tileHeight - 1) setRgba(destX, destY + 1, color);
+
+          if (x === 0 && y === 0) setRgba(destX - 1, destY - 1, color);
+          if (x === 0 && y === tileSet.tileHeight - 1) setRgba(destX - 1, destY + 1, color);
+          if (x === tileSet.tileWidth - 1 && y === 0) setRgba(destX + 1, destY - 1, color);
+          if (x === tileSet.tileWidth - 1 && y === tileSet.tileHeight - 1)
+            setRgba(destX + 1, destY + 1, color);
+        }
       }
     }
   });
@@ -60,7 +89,7 @@ const buildTileAtlas = async (
     throw new Error('Unable to export tile atlas.');
   }
   const buffer = new Uint8Array(await blob.arrayBuffer());
-  return { buffer, columns, rows, width, height };
+  return { buffer, columns, rows, width, height, margin, spacing };
 };
 
 export const exportTileMapRegion = async (bounds: TileBounds) => {
@@ -143,7 +172,7 @@ export const exportTileMapRegion = async (bounds: TileBounds) => {
 
   const tmx = `<?xml version="1.0" encoding="UTF-8"?>
 <map version="1.0" orientation="orthogonal" renderorder="right-down" width="${mapWidth}" height="${mapHeight}" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" infinite="0" nextlayerid="2" nextobjectid="1">
-  <tileset firstgid="1" name="tiles" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" tilecount="${atlas.columns * atlas.rows}" columns="${atlas.columns}">
+  <tileset firstgid="1" name="tiles" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" tilecount="${usedTileIndices.length}" columns="${atlas.columns}" spacing="${atlas.spacing}" margin="${atlas.margin}">
     <image source="tiles.png" width="${atlas.width}" height="${atlas.height}"/>
   </tileset>
   <layer id="1" name="Tile Layer 1" width="${mapWidth}" height="${mapHeight}">

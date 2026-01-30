@@ -1,6 +1,7 @@
 import { useSelectionStore } from '@/state/selectionStore';
 import { usePixelStore } from '@/state/pixelStore';
-import { useClipboardStore, ClipboardPixel } from '@/state/clipboardStore';
+import type { ClipboardPixel } from '@/state/clipboardStore';
+import { useClipboardStore } from '@/state/clipboardStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useToolStore } from '@/state/toolStore';
 import { BLOCK_SIZE } from '@/core/canvasStore';
