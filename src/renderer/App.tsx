@@ -4,6 +4,7 @@ import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
 import TileBar from './ui/TileBar';
 import DropdownSelect from './ui/DropdownSelect';
+import pssLogoUrl from './assets/pss-logo.png';
 import { loadProject, newProject, saveProject } from './services/project';
 import { mergeProjectPixels, readSplashProject } from './services/projectMerge';
 import { useHistoryStore } from './state/historyStore';
@@ -697,6 +698,22 @@ const App = () => {
     [romPayload, romTilesAcross, romTilesDown]
   );
 
+  const getUsedPaletteIndices = useCallback(() => {
+    const pixelStore = usePixelStore.getState();
+    const used = new Set<number>();
+    for (const layer of pixelStore.layers) {
+      for (const block of layer.store.getBlocks()) {
+        for (let i = 0; i < block.block.length; i += 1) {
+          const v = block.block[i] ?? 0;
+          if (v !== 0) {
+            used.add(v);
+          }
+        }
+      }
+    }
+    return used;
+  }, []);
+
   const sendRomSelectionsToStamp = useCallback(() => {
     if (!romPayload || romSelections.length === 0) {
       return;
@@ -812,22 +829,6 @@ const App = () => {
     romTilesAcross,
     romTilesDown,
   ]);
-
-  const getUsedPaletteIndices = useCallback(() => {
-    const pixelStore = usePixelStore.getState();
-    const used = new Set<number>();
-    for (const layer of pixelStore.layers) {
-      for (const block of layer.store.getBlocks()) {
-        for (let i = 0; i < block.block.length; i += 1) {
-          const v = block.block[i] ?? 0;
-          if (v !== 0) {
-            used.add(v);
-          }
-        }
-      }
-    }
-    return used;
-  }, []);
 
   useEffect(() => {
     const activeSelection = romSelections[romSelections.length - 1] ?? null;
@@ -1417,14 +1418,14 @@ const App = () => {
         <ViewportCanvas />
       </div>
       <div className="app__ui-layer">
-        {showSplash && (
-          <div className="app__splash" aria-hidden="true">
-            <img src="/pss-logo.png" alt="" />
-          </div>
-        )}
-        <div
-          className={`app__toolbar panel${toolbarCollapsed ? ' app__toolbar--collapsed panel--collapsed' : ''}`}
-        >
+	        {showSplash && (
+	          <div className="app__splash" aria-hidden="true">
+	            <img src={pssLogoUrl} alt="" />
+	          </div>
+	        )}
+	        <div
+	          className={`app__toolbar panel${toolbarCollapsed ? ' app__toolbar--collapsed panel--collapsed' : ''}`}
+	        >
           <div className="panel__header">
             <h2>{toolbarTitle}</h2>
             <button
