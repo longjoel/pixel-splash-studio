@@ -100,6 +100,9 @@ body {
   position: relative;
   z-index: 1;
   width: min(480px, 90vw);
+  max-height: min(80vh, 720px);
+  display: flex;
+  flex-direction: column;
   background: rgba(20, 24, 36, 0.98);
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 16px;
@@ -143,6 +146,8 @@ body {
 .modal__body {
   display: grid;
   gap: 10px;
+  overflow: auto;
+  flex: 1;
 }
 
 .modal__body--license {
