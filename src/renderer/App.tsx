@@ -179,6 +179,15 @@ const TOOL_ICONS = {
       <path d="M12 6v14" />
     </svg>
   ),
+  'magic-wand': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M4 20l8-8" />
+      <path d="M10 4l2 2" />
+      <path d="M14 6l-2 2" />
+      <path d="M16 10l-2 2" />
+      <path d="M20 4l-8 8" />
+    </svg>
+  ),
   'reference-handle': (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="5" y="5" width="14" height="14" rx="2" />
@@ -1590,6 +1599,16 @@ const App = () => {
                       aria-label="Selection Oval"
                     >
                       <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'magic-wand'}
+                      onClick={() => setActiveTool('magic-wand')}
+                      title="Magic Wand"
+                      aria-label="Magic Wand"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS['magic-wand']}</span>
                     </button>
                     <button
                       type="button"

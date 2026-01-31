@@ -11,6 +11,7 @@ export type ToolId =
   | 'eyedropper'
   | 'reference-handle'
   | 'stamp'
+  | 'magic-wand'
   | 'selection-rect'
   | 'selection-oval'
   | 'selection-lasso'

@@ -88,6 +88,7 @@ export const TOOL_LABELS = {
   eyedropper: 'Eyedropper',
   'reference-handle': 'Reference',
   stamp: 'Stamp',
+  'magic-wand': 'Magic Wand',
   'selection-rect': 'Select',
   'selection-oval': 'Select Oval',
   'selection-lasso': 'Lasso',
