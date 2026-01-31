@@ -26,6 +26,7 @@ import { TilePenTool } from '@/tools/tilePenTool';
 import { TileRandomTool } from '@/tools/tileRandomTool';
 import { TileExportTool } from '@/tools/tileExportTool';
 import { TileNineSliceTool } from '@/tools/tileNineSliceTool';
+import { TextTool } from '@/tools/textTool';
 import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
@@ -672,6 +673,7 @@ const ViewportCanvas = () => {
       rectangle: new RectangleTool(),
       oval: new OvalTool(),
       'fill-bucket': new FillBucketTool(),
+      text: new TextTool(),
       eyedropper: new EyeDropperTool(),
       'reference-handle': new ReferenceHandleTool(),
       stamp: new StampTool(),

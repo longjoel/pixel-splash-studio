@@ -4,12 +4,13 @@ import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
 import TileBar from './ui/TileBar';
 import DropdownSelect from './ui/DropdownSelect';
+import { TextToolModal } from './ui/TextToolModal';
 import pssLogoUrl from './assets/pss-logo.png';
 import { loadProject, newProject, saveProject } from './services/project';
 import { mergeProjectPixels, readSplashProject } from './services/projectMerge';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
-import { useToolStore } from './state/toolStore';
+import { type ToolId, useToolStore } from './state/toolStore';
 import { useBrushStore } from './state/brushStore';
 import { useSprayStore } from './state/sprayStore';
 import { useRectangleStore } from './state/rectangleStore';
@@ -42,6 +43,7 @@ import { usePaletteStore } from './state/paletteStore';
 import { useViewportStore } from './state/viewportStore';
 import { useLayerVisibilityStore } from './state/layerVisibilityStore';
 import { addReferenceFromFile } from './services/references';
+import { copyTextToClipboard, type TextFontFamily } from './services/textClipboard';
 import {
   traceReferenceWithMaxColors,
   traceReferenceWithPaletteRange,
@@ -169,6 +171,12 @@ const TOOL_ICONS = {
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M7 10l7-7 4 4-7 7H7z" />
       <path d="M7 14h6" />
+    </svg>
+  ),
+  text: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 6h14" />
+      <path d="M12 6v14" />
     </svg>
   ),
   'reference-handle': (
@@ -374,6 +382,11 @@ const App = () => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [textModalOpen, setTextModalOpen] = useState(false);
+  const [textModalReturnTool, setTextModalReturnTool] = useState<ToolId>('pen');
+  const [textToolDraft, setTextToolDraft] = useState('');
+  const [textToolFontFamily, setTextToolFontFamily] = useState<TextFontFamily>('monospace');
+  const [textToolFontSize, setTextToolFontSize] = useState(16);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSourcePath, setMergeSourcePath] = useState<string | null>(null);
   const [mergePayload, setMergePayload] = useState<ProjectLoadResult | null>(null);
@@ -436,6 +449,7 @@ const App = () => {
   const fillGradientDither = useFillBucketStore((state) => state.gradientDither);
   const setFillGradientDither = useFillBucketStore((state) => state.setGradientDither);
   const paletteSelectionCount = usePaletteStore((state) => state.selectedIndices.length);
+  const primaryPaletteIndex = usePaletteStore((state) => state.primaryIndex);
   const stampMode = useStampStore((state) => state.mode);
   const stampSnap = useStampStore((state) => state.snap);
   const stampRotation = useStampStore((state) => state.rotation);
@@ -1115,6 +1129,12 @@ const App = () => {
     undo,
   ]);
 
+  useEffect(() => {
+    if (activeTool !== 'text' && textModalOpen) {
+      setTextModalOpen(false);
+    }
+  }, [activeTool, textModalOpen]);
+
   const handleAddReference = async () => {
     const file = await openImageFilePicker();
     if (!file) {
@@ -1501,6 +1521,20 @@ const App = () => {
                       aria-label="Fill"
                     >
                       <span className="toolbar__tool-icon">{TOOL_ICONS['fill-bucket']}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="panel__item toolbar__tool-button"
+                      data-active={activeTool === 'text'}
+                      onClick={() => {
+                        setTextModalReturnTool((prev) => (activeTool === 'text' ? prev : activeTool));
+                        setActiveTool('text');
+                        setTextModalOpen(true);
+                      }}
+                      title="Text"
+                      aria-label="Text"
+                    >
+                      <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
                     </button>
                   </div>
                 </div>
@@ -3141,6 +3175,29 @@ SOFTWARE.
             </div>
           </div>
         </div>
+      )}
+      {textModalOpen && activeTool === 'text' && (
+        <TextToolModal
+          initialText={textToolDraft}
+          initialFontFamily={textToolFontFamily}
+          initialFontSize={textToolFontSize}
+          onCancel={() => {
+            setTextModalOpen(false);
+            setActiveTool(textModalReturnTool);
+          }}
+          onConfirm={({ text, fontFamily, fontSize }) => {
+            setTextToolDraft(text);
+            setTextToolFontFamily(fontFamily);
+            setTextToolFontSize(fontSize);
+            copyTextToClipboard({
+              text,
+              fontFamily,
+              fontSize,
+              paletteIndex: primaryPaletteIndex,
+            });
+            setTextModalOpen(false);
+          }}
+        />
       )}
     </div>
   );

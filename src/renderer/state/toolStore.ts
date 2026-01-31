@@ -7,6 +7,7 @@ export type ToolId =
   | 'rectangle'
   | 'oval'
   | 'fill-bucket'
+  | 'text'
   | 'eyedropper'
   | 'reference-handle'
   | 'stamp'

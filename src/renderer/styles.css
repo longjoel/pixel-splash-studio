@@ -122,6 +122,11 @@ body {
   max-height: 90vh;
 }
 
+.modal__content--text {
+  width: min(720px, 92vw);
+  max-height: min(80vh, 720px);
+}
+
 .modal__header {
   display: flex;
   justify-content: space-between;
@@ -175,6 +180,30 @@ body {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   font-size: 13px;
+}
+
+.text-tool__text-field {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.text-tool__text-input {
+  width: min(420px, 100%);
+}
+
+.text-tool__preview {
+  height: 220px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  overflow: hidden;
+}
+
+.text-tool__preview canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
 }
 
 .rom-import__grid {

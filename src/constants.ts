@@ -84,6 +84,7 @@ export const TOOL_LABELS = {
   rectangle: 'Rectangle',
   oval: 'Oval',
   'fill-bucket': 'Fill',
+  text: 'Text',
   eyedropper: 'Eyedropper',
   'reference-handle': 'Reference',
   stamp: 'Stamp',
