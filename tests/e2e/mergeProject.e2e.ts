@@ -21,7 +21,11 @@ const buildSplashFile = async (filePath: string, options: { pixels: Array<{ x: n
     'data.json',
     JSON.stringify(
       {
-        palette: { colors: DEFAULT_COLORS, primaryIndex: 0, secondaryIndex: 1 },
+        palette: {
+          colors: DEFAULT_COLORS,
+          primaryIndex: DEFAULT_COLORS.length - 1,
+          secondaryIndex: DEFAULT_COLORS.length - 2,
+        },
         camera: DEFAULT_CAMERA,
         history: { undoStack: [], redoStack: [] },
         pixelLayers: { layers: [{ id: layerId, name: 'Layer 1', visible: true }], activeLayerId: layerId },
@@ -107,4 +111,3 @@ test('merges another .splash pixels with offset and undo', async () => {
   await app.close();
   await rm(tempDir, { recursive: true, force: true });
 });
-

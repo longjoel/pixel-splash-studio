@@ -25,12 +25,17 @@ body {
   min-height: 100vh;
   overflow: hidden;
   --palette-bar-height: 96px;
+  --topbar-height: 42px;
 }
 
 .app__canvas-layer,
 .app__ui-layer {
   position: absolute;
   inset: 0;
+}
+
+.app--compact-tools .app__canvas-layer {
+  top: calc(var(--topbar-height) * var(--ui-scale));
 }
 
 .app__canvas-layer {
@@ -44,6 +49,84 @@ body {
   transform-origin: top left;
   width: calc(100% / var(--ui-scale));
   height: calc(100% / var(--ui-scale));
+}
+
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--topbar-height);
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(12, 14, 18, 0.78);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+  z-index: 3;
+}
+
+.topbar__tools {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.topbar__tool-button {
+  width: 30px;
+  height: 28px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+}
+
+.topbar__tool-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.topbar__tool-button[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.topbar__tool-button[data-active='true'] {
+  border-color: rgba(245, 197, 66, 0.8);
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.2);
+}
+
+.topbar__divider {
+  width: 1px;
+  height: 18px;
+  background: rgba(255, 255, 255, 0.14);
+  margin: 0 6px;
+  flex: 0 0 auto;
+}
+
+.topbar__mode-button {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.82);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+
+.topbar__mode-button:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .app__splash {
@@ -313,6 +396,10 @@ body {
   gap: 10px;
   width: min(280px, calc(100vw - 32px));
   max-width: calc(100vw - 32px);
+}
+
+.app--compact-tools .app__toolbar {
+  top: calc(16px + var(--topbar-height));
 }
 
 .app__toolbar--collapsed {

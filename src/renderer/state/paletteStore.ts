@@ -1,6 +1,12 @@
 import { create } from 'zustand';
 import { DEFAULT_COLORS } from '../../constants';
 
+const DEFAULT_PRIMARY_INDEX = Math.max(0, DEFAULT_COLORS.length - 1);
+const DEFAULT_SECONDARY_INDEX = Math.max(
+  0,
+  DEFAULT_COLORS.length > 1 ? DEFAULT_COLORS.length - 2 : DEFAULT_PRIMARY_INDEX
+);
+
 type PaletteState = {
   colors: string[];
   primaryIndex: number;
@@ -18,8 +24,8 @@ type PaletteState = {
 
 export const usePaletteStore = create<PaletteState>((set) => ({
   colors: DEFAULT_COLORS,
-  primaryIndex: 0,
-  secondaryIndex: 1,
+  primaryIndex: DEFAULT_PRIMARY_INDEX,
+  secondaryIndex: DEFAULT_SECONDARY_INDEX,
   selectedIndices: [],
   addColor: (color) =>
     set((state) => ({
@@ -70,8 +76,8 @@ export const usePaletteStore = create<PaletteState>((set) => ({
   reset: () =>
     set({
       colors: DEFAULT_COLORS,
-      primaryIndex: 0,
-      secondaryIndex: 1,
+      primaryIndex: DEFAULT_PRIMARY_INDEX,
+      secondaryIndex: DEFAULT_SECONDARY_INDEX,
       selectedIndices: [],
     }),
   setPrimary: (index) => set({ primaryIndex: index }),
