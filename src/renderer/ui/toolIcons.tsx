@@ -1,6 +1,20 @@
 import React from 'react';
 
 export const TOOL_ICONS: Record<string, React.ReactNode> = {
+  undo: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M9 7H5v4" />
+      <path d="M5 11c2.2-3.4 6.1-5.5 10.2-5.5 4.8 0 8.8 3 9.8 7.3" />
+      <path d="M5 11l4-4" />
+    </svg>
+  ),
+  redo: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M15 7h4v4" />
+      <path d="M19 11c-2.2-3.4-6.1-5.5-10.2-5.5-4.8 0-8.8 3-9.8 7.3" />
+      <path d="M19 11l-4-4" />
+    </svg>
+  ),
   pen: (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M4 20l4-1 12-12-3-3L5 16l-1 4z" />
@@ -155,4 +169,3 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
     </svg>
   ),
 };
-

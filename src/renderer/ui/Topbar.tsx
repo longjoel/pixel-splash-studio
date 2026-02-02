@@ -1,6 +1,7 @@
 import React from 'react';
 import type { ToolId } from '@/state/toolStore';
 import { TOOL_ICONS } from '@/ui/toolIcons';
+import { useHistoryStore } from '@/state/historyStore';
 
 type TopbarProps = {
   activeTool: ToolId;
@@ -40,10 +41,41 @@ class TopbarErrorBoundary extends React.Component<
   }
 }
 
-export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact }: TopbarProps) => (
-  <TopbarErrorBoundary onDisable={onExitCompact}>
+const TopbarInner = ({
+  activeTool,
+  selectionCount,
+  activateTool,
+}: Pick<TopbarProps, 'activeTool' | 'selectionCount' | 'activateTool'>) => {
+  const historyLocked = useHistoryStore((state) => state.locked);
+  const undoAvailable = useHistoryStore((state) => state.undoStack.length > 0);
+  const redoAvailable = useHistoryStore((state) => state.redoStack.length > 0);
+  const undo = useHistoryStore((state) => state.undo);
+  const redo = useHistoryStore((state) => state.redo);
+
+  return (
     <div className="topbar" role="toolbar" aria-label="Tools">
       <div className="topbar__tools" role="presentation">
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={undo}
+          title="Undo (Ctrl/Cmd+Z)"
+          aria-label="Undo"
+          disabled={historyLocked || !undoAvailable}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.undo}</span>
+        </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={redo}
+          title="Redo (Ctrl/Cmd+Shift+Z)"
+          aria-label="Redo"
+          disabled={historyLocked || !redoAvailable}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.redo}</span>
+        </button>
+        <span className="topbar__divider" aria-hidden="true" />
         <button
           type="button"
           className="topbar__tool-button"
@@ -249,5 +281,15 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
         </button>
       </div>
     </div>
+  );
+};
+
+export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact }: TopbarProps) => (
+  <TopbarErrorBoundary onDisable={onExitCompact}>
+    <TopbarInner
+      activeTool={activeTool}
+      selectionCount={selectionCount}
+      activateTool={activateTool}
+    />
   </TopbarErrorBoundary>
 );

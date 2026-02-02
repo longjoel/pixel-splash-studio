@@ -7,6 +7,7 @@ import DropdownSelect from './ui/DropdownSelect';
 import { TextToolModal } from './ui/TextToolModal';
 import { Topbar } from './ui/Topbar';
 import { ToolGroups } from './ui/ToolGroups';
+import BottomDockControls from './ui/BottomDockControls';
 import pssLogoUrl from './assets/pss-logo.png';
 import { loadProject, newProject, saveProject } from './services/project';
 import { mergeProjectPixels, readSplashProject } from './services/projectMerge';
@@ -22,6 +23,7 @@ import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
+import { openImageFilePicker } from './services/filePickers';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
 import { exportSelectionAsChr } from './services/selectionExportChr';
 import {
@@ -142,49 +144,6 @@ const formatBytes = (bytes: number) => {
 const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
   blocks.reduce((total, entry) => total + entry.block.byteLength, 0);
 
-const openImageFilePicker = () =>
-  new Promise<File | null>((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.style.position = 'fixed';
-    input.style.left = '-1000px';
-    input.style.opacity = '0';
-    input.setAttribute('aria-hidden', 'true');
-    let settled = false;
-    const cleanup = () => {
-      if (input.isConnected) {
-        input.remove();
-      }
-      window.removeEventListener('focus', handleWindowFocus);
-    };
-    const finalize = (file: File | null) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      cleanup();
-      resolve(file);
-    };
-    const handleWindowFocus = () => {
-      window.setTimeout(() => {
-        if (settled) {
-          return;
-        }
-        if (!input.files?.length) {
-          finalize(null);
-        }
-      }, 0);
-    };
-    input.addEventListener('change', () => {
-      const file = input.files?.[0] ?? null;
-      finalize(file);
-    });
-    window.addEventListener('focus', handleWindowFocus);
-    document.body.appendChild(input);
-    input.click();
-  });
-
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
     return false;
@@ -258,11 +217,7 @@ const buildMemorySummary = () => {
 const App = () => {
   const undo = useHistoryStore((state) => state.undo);
   const redo = useHistoryStore((state) => state.redo);
-  const undoAvailable = useHistoryStore((state) => state.undoStack.length > 0);
-  const redoAvailable = useHistoryStore((state) => state.redoStack.length > 0);
-  const historyLocked = useHistoryStore((state) => state.locked);
   const selectionCount = useSelectionStore((state) => state.selectedCount);
-  const clearSelection = useSelectionStore((state) => state.clear);
   const projectPath = useProjectStore((state) => state.path);
   const dirty = useProjectStore((state) => state.dirty);
   const [showShortcuts, setShowShortcuts] = useState(false);
@@ -317,12 +272,6 @@ const App = () => {
   const setShowPixelGrid = useLayerVisibilityStore((state) => state.setShowPixelGrid);
   const setShowTileGrid = useLayerVisibilityStore((state) => state.setShowTileGrid);
   const setShowAxes = useLayerVisibilityStore((state) => state.setShowAxes);
-  const toggleReferenceLayer = useLayerVisibilityStore((state) => state.toggleReferenceLayer);
-  const togglePixelLayer = useLayerVisibilityStore((state) => state.togglePixelLayer);
-  const toggleTileLayer = useLayerVisibilityStore((state) => state.toggleTileLayer);
-  const togglePixelGrid = useLayerVisibilityStore((state) => state.togglePixelGrid);
-  const toggleTileGrid = useLayerVisibilityStore((state) => state.toggleTileGrid);
-  const toggleAxes = useLayerVisibilityStore((state) => state.toggleAxes);
   const tileSets = useTileMapStore((state) => state.tileSets);
   const tileMaps = useTileMapStore((state) => state.tileMaps);
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
@@ -1432,81 +1381,6 @@ const App = () => {
               )}
               <div className="toolbar__body">
                 <div className="panel__section">
-                  <div className="panel__group">
-                    <span className="panel__label">Layers</span>
-                    <div className="panel__toggle-group">
-                      <label className="panel__toggle" data-active={showReferenceLayer}>
-                        <input
-                          type="checkbox"
-                          checked={showReferenceLayer}
-                          onChange={toggleReferenceLayer}
-                        />
-                        Reference
-                      </label>
-                      <label className="panel__toggle" data-active={showPixelLayer}>
-                        <input
-                          type="checkbox"
-                          checked={showPixelLayer}
-                          onChange={togglePixelLayer}
-                        />
-                        Pixels
-                      </label>
-                      <label className="panel__toggle" data-active={showTileLayer}>
-                        <input
-                          type="checkbox"
-                          checked={showTileLayer}
-                          onChange={toggleTileLayer}
-                        />
-                        Tiles
-                      </label>
-                    </div>
-                  </div>
-                  <div className="panel__group">
-                    <span className="panel__label">Overlays</span>
-                    <div className="panel__toggle-group">
-                      <label
-                        className="panel__toggle"
-                        data-active={showPixelGrid}
-                        title="Toggle pixel grid visibility"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={showPixelGrid}
-                          onChange={togglePixelGrid}
-                          aria-label="Toggle pixel grid visibility"
-                        />
-                        Pixel Grid
-                      </label>
-                      <label
-                        className="panel__toggle"
-                        data-active={showTileGrid}
-                        title="Toggle tile grid visibility"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={showTileGrid}
-                          onChange={toggleTileGrid}
-                          aria-label="Toggle tile grid visibility"
-                        />
-                        Tile Grid
-                      </label>
-                      <label
-                        className="panel__toggle"
-                        data-active={showAxes}
-                        title="Toggle axis visibility"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={showAxes}
-                          onChange={toggleAxes}
-                          aria-label="Toggle axis visibility"
-                        />
-                        Axes
-                      </label>
-                    </div>
-                  </div>
-                </div>
-                <div className="panel__section">
                   {activeTool === 'pen' || activeTool === 'selection-lasso' ? (
                     <>
                       <div className="panel__group">
@@ -2390,77 +2264,6 @@ const App = () => {
                     </div>
                   )}
                 </div>
-                <div className="panel__section">
-                  <span className="panel__label">Actions</span>
-                  <button type="button" className="panel__item" onClick={handleAddReference}>
-                    Add Reference
-                  </button>
-                  {undoAvailable && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={undo}
-                      disabled={historyLocked}
-                    >
-                      Undo
-                    </button>
-                  )}
-                  {redoAvailable && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={redo}
-                      disabled={historyLocked}
-                    >
-                      Redo
-                    </button>
-                  )}
-                  {historyLocked && (
-                    <div className="panel__note">Undo/redo disabled while operation runs.</div>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => copySelectionToClipboard()}
-                    >
-                      Copy Selection (Active Layer)
-                    </button>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => copySelectionToClipboard({ deep: true })}
-                    >
-                      Deep Copy Selection (Merged)
-                    </button>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => cutSelectionToClipboard()}
-                    >
-                      Cut Selection
-                    </button>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => void exportSelectionAsPng()}
-                    >
-                      Export PNG
-                    </button>
-                  )}
-                 
-                  {selectionCount > 0 && (
-                    <button type="button" className="panel__item" onClick={clearSelection}>
-                      Clear Selection
-                    </button>
-                  )}
-                </div>
               </div>
             </>
           )}
@@ -2480,7 +2283,12 @@ const App = () => {
             aria-label="Resize palette bar"
             onPointerDown={startPaletteResize}
           />
-          {isTilingTool ? <TileBar /> : <PaletteBar />}
+          <div className={`bottom-bar${isTilingTool ? ' bottom-bar--tile' : ''}`}>
+            <div className="bottom-bar__left">
+              <BottomDockControls />
+            </div>
+            <div className="bottom-bar__center">{isTilingTool ? <TileBar /> : <PaletteBar />}</div>
+          </div>
         </div>
         {!minimapCollapsed ? (
           <div className="app__minimap panel">
