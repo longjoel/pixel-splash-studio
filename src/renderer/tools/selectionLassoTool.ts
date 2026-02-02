@@ -146,15 +146,6 @@ export class SelectionLassoTool implements Tool {
   onBegin = (cursor: CursorState) => {
     const preview = usePreviewStore.getState();
     preview.clear();
-    if (cursor.secondary) {
-      useSelectionStore.getState().clear();
-      this.drawing = false;
-      this.isRemoving = false;
-      this.startPoint = null;
-      this.lastPoint = null;
-      this.path = [];
-      return;
-    }
     this.drawing = true;
     this.isRemoving = cursor.ctrl;
     const point = toGridPoint(cursor);

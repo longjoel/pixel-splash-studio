@@ -12,7 +12,6 @@ const cursorAt = (x: number, y: number) => ({
   canvasX: x * PIXEL_SIZE,
   canvasY: y * PIXEL_SIZE,
   primary: true,
-  secondary: false,
   alt: false,
   ctrl: false,
   shift: false,

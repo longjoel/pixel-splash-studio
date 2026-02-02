@@ -2,13 +2,13 @@ import { usePaletteStore } from '@/state/paletteStore';
 
 export const getPaletteSelectionRamp = (): number[] => {
   const palette = usePaletteStore.getState();
-  const unique = palette.selectedIndices
+  const uniqueInSelectionOrder = palette.selectedIndices
     .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
     .filter((idx) => idx >= 0 && idx < palette.colors.length);
-  if (unique.length <= 1) {
+  if (uniqueInSelectionOrder.length <= 1) {
     return [];
   }
-  return unique.sort((a, b) => a - b);
+  return uniqueInSelectionOrder;
 };
 
 export const paletteIndexFromRamp = (ramp: number[], t: number): number => {
@@ -22,4 +22,3 @@ export const paletteIndexFromRamp = (ramp: number[], t: number): number => {
   const idx = Math.round(clamped * (ramp.length - 1));
   return ramp[Math.min(ramp.length - 1, Math.max(0, idx))] ?? ramp[0] ?? 0;
 };
-

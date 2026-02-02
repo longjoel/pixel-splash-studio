@@ -1,91 +1,102 @@
 import { create } from 'zustand';
 import { DEFAULT_COLORS } from '../../constants';
 
-const DEFAULT_PRIMARY_INDEX = Math.max(0, DEFAULT_COLORS.length - 1);
-const DEFAULT_SECONDARY_INDEX = Math.max(
-  0,
-  DEFAULT_COLORS.length > 1 ? DEFAULT_COLORS.length - 2 : DEFAULT_PRIMARY_INDEX
-);
+const DEFAULT_SELECTED_INDICES = [Math.max(0, DEFAULT_COLORS.length - 1)];
 
 type PaletteState = {
   colors: string[];
-  primaryIndex: number;
-  secondaryIndex: number;
   selectedIndices: number[];
   addColor: (color: string) => void;
   removeColor: (index: number) => void;
   setColor: (index: number, color: string) => void;
-  setPalette: (colors: string[], primaryIndex: number, secondaryIndex: number) => void;
+  setPalette: (colors: string[]) => void;
   reset: () => void;
-  setPrimary: (index: number) => void;
-  setSecondary: (index: number) => void;
   setSelectedIndices: (indices: number[]) => void;
+  setActiveIndex: (index: number) => void;
+  getActiveIndex: () => number;
 };
 
-export const usePaletteStore = create<PaletteState>((set) => ({
+const dedupe = (indices: number[]) => {
+  const result: number[] = [];
+  const seen = new Set<number>();
+  for (const value of indices) {
+    if (seen.has(value)) {
+      continue;
+    }
+    seen.add(value);
+    result.push(value);
+  }
+  return result;
+};
+
+const clampSelection = (indices: number[], colorCount: number) => {
+  const clamped = dedupe(indices).filter((idx) => idx >= 0 && idx < colorCount);
+  if (clamped.length > 0) {
+    return clamped;
+  }
+  return [Math.max(0, colorCount - 1)];
+};
+
+export const usePaletteStore = create<PaletteState>((set, get) => ({
   colors: DEFAULT_COLORS,
-  primaryIndex: DEFAULT_PRIMARY_INDEX,
-  secondaryIndex: DEFAULT_SECONDARY_INDEX,
-  selectedIndices: [],
+  selectedIndices: DEFAULT_SELECTED_INDICES,
   addColor: (color) =>
-    set((state) => ({
-      colors: [...state.colors, color],
-    })),
+    set((state) => {
+      const colors = [...state.colors, color];
+      const activeIndex = colors.length - 1;
+      return {
+        colors,
+        selectedIndices: clampSelection(
+          [...state.selectedIndices.filter((idx) => idx !== activeIndex), activeIndex],
+          colors.length
+        ),
+      };
+    }),
   removeColor: (index) =>
     set((state) => {
       if (state.colors.length <= 1) {
         return state;
       }
       const colors = state.colors.filter((_, idx) => idx !== index);
-      const clampIndex = (value: number) =>
-        Math.max(0, Math.min(value, colors.length - 1));
-      let primaryIndex = state.primaryIndex;
-      let secondaryIndex = state.secondaryIndex;
-      if (index < primaryIndex) {
-        primaryIndex -= 1;
-      } else if (index === primaryIndex) {
-        primaryIndex = clampIndex(primaryIndex);
-      }
-      if (index < secondaryIndex) {
-        secondaryIndex -= 1;
-      } else if (index === secondaryIndex) {
-        secondaryIndex = clampIndex(secondaryIndex);
-      }
-      const selectedIndices = state.selectedIndices
-        .filter((idx) => idx !== index)
-        .map((idx) => (idx > index ? idx - 1 : idx))
-        .filter((idx, pos, arr) => arr.indexOf(idx) === pos);
-      return { colors, primaryIndex, secondaryIndex, selectedIndices };
+      const selectedIndices = clampSelection(
+        state.selectedIndices
+          .filter((idx) => idx !== index)
+          .map((idx) => (idx > index ? idx - 1 : idx)),
+        colors.length
+      );
+      return { colors, selectedIndices };
     }),
   setColor: (index, color) =>
     set((state) => ({
       colors: state.colors.map((entry, idx) => (idx === index ? color : entry)),
     })),
-  setPalette: (colors, primaryIndex, secondaryIndex) =>
+  setPalette: (colors) =>
     set((state) => ({
       colors,
-      primaryIndex,
-      secondaryIndex,
-      selectedIndices: state.selectedIndices.filter(
-        (idx, pos, arr) =>
-          idx >= 0 &&
-          idx < colors.length &&
-          arr.indexOf(idx) === pos
-      ),
+      selectedIndices: clampSelection(state.selectedIndices, colors.length),
     })),
   reset: () =>
     set({
       colors: DEFAULT_COLORS,
-      primaryIndex: DEFAULT_PRIMARY_INDEX,
-      secondaryIndex: DEFAULT_SECONDARY_INDEX,
-      selectedIndices: [],
+      selectedIndices: DEFAULT_SELECTED_INDICES,
     }),
-  setPrimary: (index) => set({ primaryIndex: index }),
-  setSecondary: (index) => set({ secondaryIndex: index }),
   setSelectedIndices: (indices) =>
     set((state) => ({
-      selectedIndices: indices
-        .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
-        .filter((idx) => idx >= 0 && idx < state.colors.length),
+      selectedIndices: clampSelection(indices, state.colors.length),
     })),
+  setActiveIndex: (index) =>
+    set((state) => ({
+      selectedIndices: clampSelection(
+        [...state.selectedIndices.filter((idx) => idx !== index), index],
+        state.colors.length
+      ),
+    })),
+  getActiveIndex: () => {
+    const state = get();
+    const active = state.selectedIndices[state.selectedIndices.length - 1];
+    if (typeof active === 'number') {
+      return active;
+    }
+    return Math.max(0, state.colors.length - 1);
+  },
 }));

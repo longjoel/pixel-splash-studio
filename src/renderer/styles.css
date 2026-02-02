@@ -1260,7 +1260,7 @@ body {
   left: 4px;
 }
 
-.palette-bar__swatch[data-primary='true'] {
+.palette-bar__swatch[data-active='true'] {
   outline: 2px solid rgba(255, 255, 255, 0.9);
   outline-offset: 1px;
 }
@@ -1324,6 +1324,55 @@ body {
 .palette-bar__menu-item[disabled] {
   opacity: 0.4;
   cursor: default;
+}
+
+.tool-context-menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 220px;
+  padding: 10px;
+  display: grid;
+  gap: 6px;
+  background: rgba(17, 20, 28, 0.98);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+
+.tool-context-menu__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.02em;
+  padding: 2px 4px 4px 4px;
+}
+
+.tool-context-menu__label {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  padding: 2px 4px 0 4px;
+}
+
+.tool-context-menu__separator {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
+}
+
+.tool-context-menu__item {
+  text-align: left;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+}
+
+.tool-context-menu__item:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .palette-bar__menu-label {

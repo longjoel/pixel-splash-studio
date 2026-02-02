@@ -18,7 +18,7 @@
 - Rectangle tool (filled, outlined; automatic gradient when multiple palette swatches are selected)
 - Oval tool (filled, outlined; automatic gradient when multiple palette swatches are selected)
 - Fill bucket (color fill, selection fill, gradient dither)
-- Eyedropper (primary and secondary color selection)
+- Eyedropper (sets the active palette swatch; Ctrl adds to selection)
 - Stamp tool (paste clipboard with rotate/scale/flip, soft/hard mode, drag mode, snap)
 
 ## Selection Tools
@@ -51,7 +51,7 @@
 
 ## Palette
 - 256-color indexed palette
-- Primary/secondary colors
+- Palette swatch selection (multi-select); active paint color is the last selected swatch
 - Palette context menu (set, add, remove)
 - Multi-select palette swatches (shift range, alt/meta toggle)
 - Edit selected colors in batch

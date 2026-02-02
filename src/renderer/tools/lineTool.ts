@@ -93,9 +93,10 @@ export class LineTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     const palette = usePaletteStore.getState();
+    const paletteIndex = cursor.alt ? 0 : palette.getActiveIndex();
     const gridX = Math.floor(cursor.canvasX / PIXEL_SIZE);
     const gridY = Math.floor(cursor.canvasY / PIXEL_SIZE);
-    setPreviewPixel(gridX, gridY, palette.primaryIndex);
+    setPreviewPixel(gridX, gridY, paletteIndex);
   };
 
   onBegin = (cursor: CursorState) => {
@@ -103,8 +104,8 @@ export class LineTool implements Tool {
     preview.clear();
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
-    this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
-    this.activeRamp = getPaletteSelectionRamp();
+    this.activeIndex = cursor.alt ? 0 : palette.getActiveIndex();
+    this.activeRamp = cursor.alt ? [] : getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),

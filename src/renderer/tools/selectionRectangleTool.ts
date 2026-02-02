@@ -70,13 +70,6 @@ export class SelectionRectangleTool implements Tool {
   onBegin = (cursor: CursorState) => {
     const preview = usePreviewStore.getState();
     preview.clear();
-    if (cursor.secondary) {
-      useSelectionStore.getState().clear();
-      this.start = null;
-      this.last = null;
-      this.isRemoving = false;
-      return;
-    }
     this.isRemoving = cursor.ctrl;
     this.snap = useSelectionRectangleStore.getState().snap;
     this.start = toSnappedPoint(cursor, this.snap);

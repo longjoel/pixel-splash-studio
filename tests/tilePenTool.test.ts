@@ -3,14 +3,13 @@ import { TilePenTool } from '@/tools/tilePenTool';
 import { usePreviewStore } from '@/state/previewStore';
 import { useTileMapStore } from '@/state/tileMapStore';
 
-const makeCursor = (secondary: boolean) => ({
+const makeCursor = (erasing: boolean) => ({
   screenX: 0,
   screenY: 0,
   canvasX: 0,
   canvasY: 0,
-  primary: !secondary,
-  secondary,
-  alt: false,
+  primary: true,
+  alt: erasing,
   ctrl: false,
   shift: false,
 });
@@ -21,7 +20,7 @@ describe('TilePenTool', () => {
     useTileMapStore.getState().clear();
   });
 
-  it('erases tiles with secondary button', () => {
+  it('erases tiles with Alt', () => {
     const tileStore = useTileMapStore.getState();
     const tileSetId = tileStore.addTileSet({
       name: 'Test Set',
@@ -52,4 +51,3 @@ describe('TilePenTool', () => {
     expect(next?.tiles[0]).toBe(-1);
   });
 });
-

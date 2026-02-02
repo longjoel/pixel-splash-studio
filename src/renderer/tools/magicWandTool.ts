@@ -69,11 +69,6 @@ export class MagicWandTool implements Tool {
   id = 'magic-wand';
 
   onBegin = (cursor: CursorState) => {
-    if (cursor.secondary) {
-      useSelectionStore.getState().clear();
-      return;
-    }
-
     const bounds = getViewportBounds();
     if (!bounds) {
       return;
@@ -100,4 +95,3 @@ export class MagicWandTool implements Tool {
       .setSelections(pixels.map((pixel) => ({ x: pixel.x, y: pixel.y, selected })));
   };
 }
-

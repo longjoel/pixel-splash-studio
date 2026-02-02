@@ -9,11 +9,13 @@ const pickColorAtCursor = (cursor: CursorState) => {
   const gridY = Math.floor(cursor.canvasY / PIXEL_SIZE);
   const paletteIndex = usePixelStore.getState().getPixelComposite(gridX, gridY);
   const palette = usePaletteStore.getState();
-  if (cursor.secondary || cursor.ctrl) {
-    palette.setSecondary(paletteIndex);
+  if (cursor.ctrl) {
+    palette.setSelectedIndices(
+      [...palette.selectedIndices.filter((idx) => idx !== paletteIndex), paletteIndex]
+    );
     return;
   }
-  palette.setPrimary(paletteIndex);
+  palette.setSelectedIndices([paletteIndex]);
 };
 
 export class EyeDropperTool implements Tool {

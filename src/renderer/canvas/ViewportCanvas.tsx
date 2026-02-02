@@ -33,6 +33,7 @@ import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useTileMapStore } from '@/state/tileMapStore';
 import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
+import ToolContextMenu from '@/ui/ToolContextMenu';
 import { getBlocksUnderConstruction } from '@/services/largeOperationQueue';
 import { addReferencesFromFiles } from '@/services/references';
 import {
@@ -643,6 +644,11 @@ const ViewportCanvas = () => {
   const lastPerfLogRef = useRef(0);
   const setSize = useViewportStore((state) => state.setSize);
   const [isPanning, setIsPanning] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{
+    open: boolean;
+    x: number;
+    y: number;
+  }>({ open: false, x: 0, y: 0 });
   const panStartRef = useRef<{
     screenX: number;
     screenY: number;
@@ -963,7 +969,6 @@ const ViewportCanvas = () => {
       canvasX: screenX / state.camera.zoom + state.camera.x,
       canvasY: screenY / state.camera.zoom + state.camera.y,
       primary: (event.buttons & 1) === 1,
-      secondary: (event.buttons & 2) === 2,
       alt: event.altKey,
       ctrl: event.ctrlKey,
       shift: event.shiftKey,
@@ -1008,6 +1013,9 @@ const ViewportCanvas = () => {
       startPan(event);
       return;
     }
+    if (event.button === 2) {
+      return;
+    }
     event.currentTarget.setPointerCapture(event.pointerId);
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('begin', cursor);
@@ -1019,7 +1027,7 @@ const ViewportCanvas = () => {
       return;
     }
     const cursor = toCursorState(event);
-    const isDrawing = (event.buttons & 1) === 1 || (event.buttons & 2) === 2;
+    const isDrawing = (event.buttons & 1) === 1;
     controllerRef.current?.handleEvent(isDrawing ? 'move' : 'hover', cursor);
   };
 
@@ -1111,6 +1119,11 @@ const ViewportCanvas = () => {
     wheelZoomRef.current.frame = requestAnimationFrame(tick);
   };
 
+  const handleContextMenu = (event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenu({ open: true, x: event.clientX, y: event.clientY });
+  };
+
   return (
     <div className="viewport" ref={wrapperRef}>
       <canvas
@@ -1119,6 +1132,7 @@ const ViewportCanvas = () => {
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerLeave={handlePointerLeave}
+        onContextMenu={handleContextMenu}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onWheel={handleWheel}
@@ -1126,6 +1140,13 @@ const ViewportCanvas = () => {
           cursor: isPanning ? 'grabbing' : 'crosshair',
         }}
       />
+      {contextMenu.open && (
+        <ToolContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu((prev) => (prev.open ? { ...prev, open: false } : prev))}
+        />
+      )}
     </div>
   );
 };

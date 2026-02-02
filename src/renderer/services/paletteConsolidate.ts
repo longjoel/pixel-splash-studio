@@ -39,11 +39,9 @@ export const consolidatePalette = () => {
   const mapIndex = (value: number) =>
     Number.isFinite(value) && value >= 0 && value < mapped.length ? mapped[value] : 0;
 
-  paletteStore.setPalette(
-    nextColors,
-    mapIndex(paletteStore.primaryIndex),
-    mapIndex(paletteStore.secondaryIndex)
-  );
+  const mappedSelection = paletteStore.selectedIndices.map(mapIndex);
+  paletteStore.setPalette(nextColors);
+  paletteStore.setSelectedIndices(mappedSelection);
 
   const pixelStore = usePixelStore.getState();
   const remappedLayers = pixelStore.exportLayerPayloads().map((layer) => ({

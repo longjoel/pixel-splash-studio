@@ -49,7 +49,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'pen'}
           onClick={() => activateTool('pen')}
-          title="Pen"
+          title="Pen (P)"
           aria-label="Pen"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.pen}</span>
@@ -59,7 +59,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'spray'}
           onClick={() => activateTool('spray')}
-          title="Spray"
+          title="Spray (S)"
           aria-label="Spray"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.spray}</span>
@@ -69,7 +69,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'line'}
           onClick={() => activateTool('line')}
-          title="Line"
+          title="Line (L)"
           aria-label="Line"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.line}</span>
@@ -79,7 +79,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'rectangle'}
           onClick={() => activateTool('rectangle')}
-          title="Rectangle"
+          title="Rectangle (R)"
           aria-label="Rectangle"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.rectangle}</span>
@@ -89,7 +89,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'oval'}
           onClick={() => activateTool('oval')}
-          title="Oval"
+          title="Oval (O)"
           aria-label="Oval"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.oval}</span>
@@ -99,7 +99,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'fill-bucket'}
           onClick={() => activateTool('fill-bucket')}
-          title="Fill"
+          title="Fill (F)"
           aria-label="Fill"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['fill-bucket']}</span>
@@ -109,7 +109,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'text'}
           onClick={() => activateTool('text')}
-          title="Text"
+          title="Text (T)"
           aria-label="Text"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
@@ -120,7 +120,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'reference-handle'}
           onClick={() => activateTool('reference-handle')}
-          title="Reference Handle"
+          title="Reference Handle (H)"
           aria-label="Reference Handle"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['reference-handle']}</span>
@@ -130,7 +130,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'eyedropper'}
           onClick={() => activateTool('eyedropper')}
-          title="Eyedropper"
+          title="Eyedropper (E)"
           aria-label="Eyedropper"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.eyedropper}</span>
@@ -140,7 +140,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'stamp'}
           onClick={() => activateTool('stamp')}
-          title="Stamp"
+          title="Stamp (V)"
           aria-label="Stamp"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.stamp}</span>
@@ -150,7 +150,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'selection-rect'}
           onClick={() => activateTool('selection-rect')}
-          title="Selection Rectangle"
+          title="Selection Rectangle (Alt+R)"
           aria-label="Selection Rectangle"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['selection-rect']}</span>
@@ -160,7 +160,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'selection-oval'}
           onClick={() => activateTool('selection-oval')}
-          title="Selection Oval"
+          title="Selection Oval (Alt+O)"
           aria-label="Selection Oval"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
@@ -170,7 +170,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'magic-wand'}
           onClick={() => activateTool('magic-wand')}
-          title="Magic Wand"
+          title="Magic Wand (W)"
           aria-label="Magic Wand"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['magic-wand']}</span>
@@ -180,7 +180,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'selection-lasso'}
           onClick={() => activateTool('selection-lasso')}
-          title="Selection Lasso"
+          title="Selection Lasso (Alt+P)"
           aria-label="Selection Lasso"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['selection-lasso']}</span>
@@ -190,7 +190,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'texture-roll'}
           onClick={() => activateTool('texture-roll')}
-          title="Scroll Selection"
+          title="Scroll Selection (Q)"
           aria-label="Scroll Selection"
           disabled={selectionCount === 0}
         >
@@ -202,7 +202,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'tile-sampler'}
           onClick={() => activateTool('tile-sampler')}
-          title="Tile Sampler"
+          title="Tile Sampler (Shift+S)"
           aria-label="Tile Sampler"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
@@ -212,7 +212,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'tile-pen'}
           onClick={() => activateTool('tile-pen')}
-          title="Tile Pen"
+          title="Tile Pen (Shift+P)"
           aria-label="Tile Pen"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
@@ -222,7 +222,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'tile-rectangle'}
           onClick={() => activateTool('tile-rectangle')}
-          title="Tile Rectangle"
+          title="Tile Rectangle (Shift+R)"
           aria-label="Tile Rectangle"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['tile-rectangle']}</span>
@@ -232,7 +232,7 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'tile-9slice'}
           onClick={() => activateTool('tile-9slice')}
-          title="Tile 9-Slice"
+          title="Tile 9-Slice (Shift+N)"
           aria-label="Tile 9-Slice"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['tile-9slice']}</span>
@@ -242,21 +242,12 @@ export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact
           className="topbar__tool-button"
           data-active={activeTool === 'tile-export'}
           onClick={() => activateTool('tile-export')}
-          title="Tile Export"
+          title="Tile Export (Shift+E)"
           aria-label="Tile Export"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['tile-export']}</span>
         </button>
       </div>
-      <button
-        type="button"
-        className="topbar__mode-button"
-        onClick={onExitCompact}
-        title="Exit compact tools mode"
-      >
-        Exit Compact
-      </button>
     </div>
   </TopbarErrorBoundary>
 );
-

@@ -14,7 +14,6 @@ const makeCursor = () => ({
   canvasX: 0,
   canvasY: 0,
   primary: true,
-  secondary: false,
   alt: false,
   ctrl: false,
   shift: false,
@@ -30,8 +29,7 @@ describe('SprayTool', () => {
     usePreviewStore.getState().clear();
     useHistoryStore.getState().clear();
     useSelectionStore.getState().clear();
-    usePaletteStore.getState().setPrimary(1);
-    usePaletteStore.getState().setSecondary(2);
+    usePaletteStore.getState().setSelectedIndices([1]);
     useSprayStore.getState().setRadius(3);
     useSprayStore.getState().setDensity(100);
     useSprayStore.getState().setFalloff(0);

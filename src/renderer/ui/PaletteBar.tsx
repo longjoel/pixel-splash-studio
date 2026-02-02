@@ -256,15 +256,19 @@ const openColorPicker = (initial: string, onPick: (value: string) => void) => {
 
 const PaletteBar = () => {
   const colors = usePaletteStore((state) => state.colors);
-  const primaryIndex = usePaletteStore((state) => state.primaryIndex);
-  const secondaryIndex = usePaletteStore((state) => state.secondaryIndex);
   const selectedIndices = usePaletteStore((state) => state.selectedIndices);
-  const setPrimary = usePaletteStore((state) => state.setPrimary);
   const setColor = usePaletteStore((state) => state.setColor);
   const setPalette = usePaletteStore((state) => state.setPalette);
   const setSelectedIndices = usePaletteStore((state) => state.setSelectedIndices);
+  const activeIndex = usePaletteStore((state) => state.getActiveIndex());
   const addColor = usePaletteStore((state) => state.addColor);
   const removeColor = usePaletteStore((state) => state.removeColor);
+
+  const ensureActiveLast = (indices: number[], active: number) => {
+    const next = indices.filter((idx) => idx !== active);
+    next.push(active);
+    return next;
+  };
 
   const [menu, setMenu] = useState<MenuState>({
     open: false,
@@ -310,9 +314,7 @@ const PaletteBar = () => {
     if (typeof index === 'number') {
       const selection = new Set(selectedIndices);
       if (!selection.has(index)) {
-        selection.clear();
-        selection.add(index);
-        setSelectedIndices(Array.from(selection));
+        setSelectedIndices([index]);
       }
       lastSelectedRef.current = index;
     }
@@ -373,7 +375,7 @@ const PaletteBar = () => {
   const baseSwatchColor =
     menu.index !== null && menu.index >= 0 && menu.index < colors.length
       ? colors[menu.index]
-      : colors[primaryIndex] ?? '#ffffff';
+      : colors[selectedIndices[selectedIndices.length - 1] ?? 0] ?? '#ffffff';
   const swatchPresets = buildSwatchPresets(baseSwatchColor);
   const hasDuplicates =
     new Set(colors.map((color) => color.trim().toLowerCase())).size !== colors.length;
@@ -435,7 +437,7 @@ const PaletteBar = () => {
     for (const index of orderedSelection) {
       nextColors[index] = clearColor;
     }
-    setPalette(nextColors, primaryIndex, secondaryIndex);
+    setPalette(nextColors);
     closeMenu();
   };
 
@@ -451,7 +453,7 @@ const PaletteBar = () => {
       for (const index of orderedSelection) {
         nextColors[index] = value;
       }
-      setPalette(nextColors, primaryIndex, secondaryIndex);
+      setPalette(nextColors);
     });
   };
 
@@ -476,12 +478,7 @@ const PaletteBar = () => {
       }
       return Math.max(0, Math.min(next, nextColors.length - 1));
     };
-    setPalette(
-      nextColors,
-      adjustIndex(primaryIndex),
-      adjustIndex(secondaryIndex)
-    );
-    setSelectedIndices([]);
+    setPalette(nextColors);
     closeMenu();
   };
 
@@ -509,7 +506,7 @@ const PaletteBar = () => {
       nextColors[ordered[i]] = nextColors[ordered[i - 1]];
     }
     nextColors[ordered[0]] = lastColor;
-    setPalette(nextColors, primaryIndex, secondaryIndex);
+    setPalette(nextColors);
     closeMenu();
   };
 
@@ -543,10 +540,8 @@ const PaletteBar = () => {
     try {
       const payload = await window.paletteApi.importLospec(input);
       const nextColors = payload.colors.length > 0 ? payload.colors : colors;
-      const primary = 0;
-      const secondary = nextColors.length > 1 ? 1 : 0;
-      setPalette(nextColors, primary, secondary);
-      setSelectedIndices([]);
+      setPalette(nextColors);
+      setSelectedIndices([Math.max(0, nextColors.length - 1)]);
       useProjectStore.getState().setDirty(true);
       closeLospec();
     } catch (error) {
@@ -626,7 +621,7 @@ const PaletteBar = () => {
             type="button"
             className="palette-bar__swatch"
             style={{ background: color }}
-            data-primary={index === primaryIndex}
+            data-active={index === activeIndex}
             data-selected={selectionSet.has(index)}
             onMouseDown={(event) => {
               if (isMac && event.button === 0 && event.ctrlKey) {
@@ -646,12 +641,11 @@ const PaletteBar = () => {
               if (dragAdditiveRef.current) {
                 const merged = new Set(dragBaseSelectionRef.current);
                 next.forEach((value) => merged.add(value));
-                setSelectedIndices(Array.from(merged));
+                setSelectedIndices(ensureActiveLast(Array.from(merged), index));
               } else {
-                setSelectedIndices(next);
+                setSelectedIndices(ensureActiveLast(next, index));
               }
               lastSelectedRef.current = index;
-              setPrimary(index);
             }}
             onPointerEnter={() => {
               if (!selectingRef.current || selectionAnchorRef.current === null) {
@@ -662,9 +656,9 @@ const PaletteBar = () => {
               if (dragAdditiveRef.current) {
                 const merged = new Set(dragBaseSelectionRef.current);
                 range.forEach((value) => merged.add(value));
-                setSelectedIndices(Array.from(merged));
+                setSelectedIndices(ensureActiveLast(Array.from(merged), index));
               } else {
-                setSelectedIndices(range);
+                setSelectedIndices(ensureActiveLast(range, index));
               }
             }}
             onClick={(event) => {
@@ -683,9 +677,8 @@ const PaletteBar = () => {
                 for (let i = start; i <= end; i += 1) {
                   next.add(i);
                 }
-                setSelectedIndices(Array.from(next));
+                setSelectedIndices(ensureActiveLast(Array.from(next), index));
                 lastSelectedRef.current = index;
-                setPrimary(index);
               } else if (event.metaKey || event.altKey) {
                 const next = new Set(selectionSet);
                 if (next.has(index)) {
@@ -693,9 +686,11 @@ const PaletteBar = () => {
                 } else {
                   next.add(index);
                 }
-                setSelectedIndices(Array.from(next));
+                const nextIndices = Array.from(next);
+                setSelectedIndices(
+                  next.has(index) ? ensureActiveLast(nextIndices, index) : nextIndices
+                );
                 lastSelectedRef.current = index;
-                setPrimary(index);
               } else if (event.ctrlKey) {
                 const next = new Set(selectionSet);
                 if (next.has(index)) {
@@ -703,13 +698,14 @@ const PaletteBar = () => {
                 } else {
                   next.add(index);
                 }
-                setSelectedIndices(Array.from(next));
+                const nextIndices = Array.from(next);
+                setSelectedIndices(
+                  next.has(index) ? ensureActiveLast(nextIndices, index) : nextIndices
+                );
                 lastSelectedRef.current = index;
-                setPrimary(index);
               } else {
                 setSelection([index]);
                 lastSelectedRef.current = index;
-                setPrimary(index);
               }
             }}
             onContextMenu={(event) => openMenu(event, index)}

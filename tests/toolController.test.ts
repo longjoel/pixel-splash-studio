@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { CursorState} from '@/core/tools';
+import type { CursorState } from '@/core/tools';
 import { ToolController } from '@/core/tools';
 
 const makeCursor = (): CursorState => ({
@@ -8,7 +8,6 @@ const makeCursor = (): CursorState => ({
   canvasX: 1,
   canvasY: 2,
   primary: true,
-  secondary: false,
   alt: false,
   ctrl: false,
   shift: false,

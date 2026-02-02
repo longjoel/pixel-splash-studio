@@ -193,11 +193,7 @@ const ensurePaletteEntries = (colors: Rgb[]) => {
   }
 
   if (newColors.length > 0) {
-    paletteStore.setPalette(
-      [...paletteColors, ...newColors],
-      paletteStore.primaryIndex,
-      paletteStore.secondaryIndex
-    );
+    paletteStore.setPalette([...paletteColors, ...newColors]);
   }
 
   return entries;

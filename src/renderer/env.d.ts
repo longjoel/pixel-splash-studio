@@ -38,8 +38,9 @@ type ProjectPayload = {
   data: {
     palette: {
       colors: string[];
-      primaryIndex: number;
-      secondaryIndex: number;
+      selectedIndices?: number[];
+      primaryIndex?: number;
+      secondaryIndex?: number;
     };
     camera: {
       x: number;

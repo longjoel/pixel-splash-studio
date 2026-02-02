@@ -65,7 +65,8 @@ export class PenTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     const palette = usePaletteStore.getState();
-    drawPoint(cursor, palette.primaryIndex);
+    const paletteIndex = cursor.alt ? 0 : palette.getActiveIndex();
+    drawPoint(cursor, paletteIndex);
   };
 
   onBegin = (cursor: CursorState) => {
@@ -73,7 +74,7 @@ export class PenTool implements Tool {
     preview.clear();
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
-    this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
+    this.activeIndex = cursor.alt ? 0 : palette.getActiveIndex();
     this.drawing = true;
     this.changes.clear();
     drawPoint(cursor, this.activeIndex);

@@ -43,7 +43,7 @@ export const TextToolModal = ({
   onConfirm,
 }: TextToolModalProps) => {
   const paletteColors = usePaletteStore((state) => state.colors);
-  const primaryIndex = usePaletteStore((state) => state.primaryIndex);
+  const activeIndex = usePaletteStore((state) => state.getActiveIndex());
   const [text, setText] = React.useState(initialText);
   const [fontFamily, setFontFamily] = React.useState<TextFontFamily>(initialFontFamily);
   const [fontSize, setFontSize] = React.useState<number>(quantizeFontSize(initialFontSize));
@@ -62,12 +62,12 @@ export const TextToolModal = ({
         text,
         fontFamily,
         fontSize,
-        paletteIndex: primaryIndex,
+        paletteIndex: activeIndex,
       });
     } catch {
       return null;
     }
-  }, [fontFamily, fontSize, primaryIndex, text]);
+  }, [activeIndex, fontFamily, fontSize, text]);
 
   useEffect(() => {
     const wrapper = previewWrapperRef.current;
@@ -118,7 +118,7 @@ export const TextToolModal = ({
       context.strokeStyle = borderColor;
       context.strokeRect(offsetX, offsetY, scaledWidth, scaledHeight);
 
-      const fillColor = paletteColors[primaryIndex] ?? paletteColors[0] ?? '#ffffff';
+      const fillColor = paletteColors[activeIndex] ?? paletteColors[0] ?? '#ffffff';
       context.fillStyle = fillColor;
       for (const pixel of rasterized.pixels) {
         context.fillRect(
@@ -138,7 +138,7 @@ export const TextToolModal = ({
       unsubscribePalette();
       resizeObserver.disconnect();
     };
-  }, [paletteColors, primaryIndex, rasterized]);
+  }, [activeIndex, paletteColors, rasterized]);
 
   return (
     <div
@@ -234,4 +234,3 @@ export const TextToolModal = ({
     </div>
   );
 };
-

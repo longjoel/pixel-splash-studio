@@ -23,8 +23,7 @@ const buildSplashFile = async (filePath: string, options: { pixels: Array<{ x: n
       {
         palette: {
           colors: DEFAULT_COLORS,
-          primaryIndex: DEFAULT_COLORS.length - 1,
-          secondaryIndex: DEFAULT_COLORS.length - 2,
+          selectedIndices: [DEFAULT_COLORS.length - 1],
         },
         camera: DEFAULT_CAMERA,
         history: { undoStack: [], redoStack: [] },

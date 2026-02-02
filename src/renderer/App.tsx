@@ -46,6 +46,7 @@ import { useViewportStore } from './state/viewportStore';
 import { useLayerVisibilityStore } from './state/layerVisibilityStore';
 import { addReferenceFromFile } from './services/references';
 import { copyTextToClipboard, type TextFontFamily } from './services/textClipboard';
+import { getGlobalHotkeyAction } from './services/hotkeys';
 import {
   traceReferenceWithMaxColors,
   traceReferenceWithPaletteRange,
@@ -345,7 +346,7 @@ const App = () => {
   const fillGradientDither = useFillBucketStore((state) => state.gradientDither);
   const setFillGradientDither = useFillBucketStore((state) => state.setGradientDither);
   const paletteSelectionCount = usePaletteStore((state) => state.selectedIndices.length);
-  const primaryPaletteIndex = usePaletteStore((state) => state.primaryIndex);
+  const activePaletteIndex = usePaletteStore((state) => state.getActiveIndex());
   const stampMode = useStampStore((state) => state.mode);
   const stampSnap = useStampStore((state) => state.snap);
   const stampRotation = useStampStore((state) => state.rotation);
@@ -426,10 +427,8 @@ const App = () => {
       if (colors.length === 0) {
         return;
       }
-      const primaryIndex = Math.max(0, colors.length - 1);
-      const secondaryIndex = Math.max(0, colors.length > 1 ? colors.length - 2 : primaryIndex);
       const paletteStore = usePaletteStore.getState();
-      paletteStore.setPalette(colors, primaryIndex, secondaryIndex);
+      paletteStore.setPalette(colors);
       paletteStore.setSelectedIndices([]);
       useProjectStore.getState().setDirty(true);
     });
@@ -740,7 +739,8 @@ const App = () => {
       if (!ok) {
         return;
       }
-      paletteStore.setPalette(result.palette, paletteStore.primaryIndex, paletteStore.secondaryIndex);
+      paletteStore.setPalette(result.palette);
+      paletteStore.setSelectedIndices([]);
       mappedPacked = applyPaletteMap(packed, result.map);
     } else {
       const map = buildNearestPaletteMap(romPayload.palette, paletteStore.colors);
@@ -969,6 +969,28 @@ const App = () => {
           event.preventDefault();
           removeReference(selectedReference.id);
         }
+        const action = getGlobalHotkeyAction({
+          key: event.key,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+        });
+        if (action) {
+          if (action.type === 'tool') {
+            event.preventDefault();
+            activateTool(action.tool);
+            return;
+          }
+          if (action.type === 'palette-primary') {
+            const palette = usePaletteStore.getState();
+            if (action.index >= 0 && action.index < palette.colors.length) {
+              event.preventDefault();
+              palette.setSelectedIndices([action.index]);
+            }
+            return;
+          }
+        }
         return;
       }
       const key = event.key.toLowerCase();
@@ -1051,6 +1073,7 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [
     activeTool,
+    activateTool,
     handleLoad,
     handleNew,
     handleSave,
@@ -1389,14 +1412,6 @@ const App = () => {
           <div className="panel__header">
             <h2>{toolbarTitle}</h2>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                type="button"
-                className="panel__toggle"
-                onClick={() => setCompactTools((prev) => !prev)}
-                title="Toggle compact tools mode"
-              >
-                {compactTools ? 'Standard' : 'Compact'}
-              </button>
               <button
                 type="button"
                 className="panel__toggle"
@@ -2811,7 +2826,7 @@ const App = () => {
           <div className="modal__backdrop" onClick={() => setShowShortcuts(false)} />
           <div className="modal__content" role="dialog" aria-modal="true">
             <div className="modal__header">
-              <h2>Shortcut Map</h2>
+              <h2>Shortcut Map & Hotkeys</h2>
               <button type="button" onClick={() => setShowShortcuts(false)}>
                 Close
               </button>
@@ -2860,6 +2875,38 @@ const App = () => {
               <div className="modal__row">
                 <span>Cut Selection</span>
                 <span>Ctrl+X</span>
+              </div>
+              <div className="modal__row">
+                <span style={{ opacity: 0.8 }}>Tool hotkeys</span>
+                <span style={{ opacity: 0.8 }}>Global</span>
+              </div>
+              <div className="modal__row">
+                <span>Palette primary color 0–9</span>
+                <span>0–9</span>
+              </div>
+              <div className="modal__row">
+                <span>Pen / Rectangle / Oval</span>
+                <span>P / R / O</span>
+              </div>
+              <div className="modal__row">
+                <span>Spray / Line / Fill / Text</span>
+                <span>S / L / F / T</span>
+              </div>
+              <div className="modal__row">
+                <span>Eyedropper / Magic Wand</span>
+                <span>E / W</span>
+              </div>
+              <div className="modal__row">
+                <span>Stamp / Reference Handle / Scroll Selection</span>
+                <span>V / H / Q</span>
+              </div>
+              <div className="modal__row">
+                <span>Select Oval / Rectangle / Lasso</span>
+                <span>Alt+O / Alt+R / Alt+P</span>
+              </div>
+              <div className="modal__row">
+                <span>Tile tools</span>
+                <span>Shift+S / Shift+P / Shift+R / Shift+N / Shift+E</span>
               </div>
               <div className="modal__row">
                 <span>Trace Palette Range</span>
@@ -2928,7 +2975,7 @@ SOFTWARE.
               text,
               fontFamily,
               fontSize,
-              paletteIndex: primaryPaletteIndex,
+              paletteIndex: activePaletteIndex,
             });
             setTextModalOpen(false);
           }}

@@ -164,9 +164,6 @@ export class TextureRollTool implements Tool {
 
   onBegin = (cursor: CursorState) => {
     usePreviewStore.getState().clear();
-    if (cursor.secondary) {
-      return;
-    }
     const selection = useSelectionStore.getState();
     if (selection.selectedCount === 0) {
       return;

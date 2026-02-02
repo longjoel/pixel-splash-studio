@@ -11,7 +11,6 @@ const cursorAt = (x: number, y: number, overrides?: Partial<ReturnType<typeof cu
   canvasX: x * PIXEL_SIZE,
   canvasY: y * PIXEL_SIZE,
   primary: true,
-  secondary: false,
   alt: false,
   ctrl: false,
   shift: false,

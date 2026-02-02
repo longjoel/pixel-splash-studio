@@ -774,7 +774,7 @@ test('large pen circle draw stays responsive after fill', async () => {
     const palette = await import('/src/renderer/state/paletteStore');
     const state = store.getState() as { getPixel: (gx: number, gy: number) => number };
     return {
-      expectedIndex: palette.usePaletteStore.getState().primaryIndex,
+      expectedIndex: palette.usePaletteStore.getState().getActiveIndex(),
       alreadyPainted: state.getPixel(x, y) !== 0,
     };
   }, targetGrid);

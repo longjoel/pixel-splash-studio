@@ -311,7 +311,7 @@ export class TilePenTool implements Tool {
     preview.clear();
     this.drawing = true;
     this.changes.clear();
-    this.erasing = cursor.secondary;
+    this.erasing = cursor.alt;
     this.activeTile = getActiveTileContext();
     if (!this.activeTile) {
       this.drawing = false;
@@ -339,7 +339,7 @@ export class TilePenTool implements Tool {
     if (!this.activeTile || !this.activeMap) {
       return;
     }
-    this.erasing = cursor.secondary;
+    this.erasing = cursor.alt;
     const nextPixelPoint = toPixelPoint(cursor);
     const nextWorldPoint = this.toWorldTilePoint(nextPixelPoint);
     if (!nextWorldPoint) {

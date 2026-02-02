@@ -676,7 +676,7 @@ app.whenReady().then(() => {
       label: 'Help',
       submenu: [
         {
-          label: 'Shortcut Map',
+          label: 'Shortcut Map & Hotkeys',
           accelerator: 'CmdOrCtrl+/',
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
@@ -725,8 +725,9 @@ export type ProjectPayload = {
   data: {
     palette: {
       colors: string[];
-      primaryIndex: number;
-      secondaryIndex: number;
+      selectedIndices?: number[];
+      primaryIndex?: number;
+      secondaryIndex?: number;
     };
     camera: {
       x: number;
