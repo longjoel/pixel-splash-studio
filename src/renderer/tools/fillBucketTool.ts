@@ -132,13 +132,13 @@ const fillByColor = (
 
 const buildGradientRampFromPalette = () => {
   const palette = usePaletteStore.getState();
-  const selection = palette.selectedIndices.filter(
-    (idx, pos, arr) => arr.indexOf(idx) === pos && idx >= 0 && idx < palette.colors.length
-  );
+  const selection = palette.selectedIndices
+    .filter((idx, pos, arr) => arr.indexOf(idx) === pos)
+    .filter((idx) => idx >= 0 && idx < palette.colors.length);
   if (selection.length > 0) {
-    return [...selection].sort((a, b) => a - b);
+    return selection;
   }
-  return [palette.primaryIndex];
+  return [palette.getActiveIndex()];
 };
 
 const collectFloodRegion = (
@@ -250,7 +250,7 @@ export class FillBucketTool implements Tool {
     const mode = useFillBucketStore.getState().mode;
     const ramp = buildGradientRampFromPalette();
     const hasGradient = ramp.length > 1;
-    const paletteIndex = ramp[0] ?? palette.primaryIndex;
+    const paletteIndex = ramp[0] ?? palette.getActiveIndex();
     const { gradientDirection, gradientDither } = useFillBucketStore.getState();
     const startX = Math.floor(cursor.canvasX / PIXEL_SIZE);
     const startY = Math.floor(cursor.canvasY / PIXEL_SIZE);

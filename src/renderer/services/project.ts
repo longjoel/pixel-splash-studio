@@ -67,8 +67,7 @@ export const buildProjectPayload = () => {
     data: {
       palette: {
         colors: palette.colors,
-        primaryIndex: palette.primaryIndex,
-        secondaryIndex: palette.secondaryIndex,
+        selectedIndices: palette.selectedIndices,
       },
       camera: viewport.camera,
       history: {
@@ -97,11 +96,14 @@ export const applyProjectPayload = async (payload: ProjectPayload) => {
   clearLargeOperationQueue();
   useBookmarkStore.getState().clear();
   const palette = usePaletteStore.getState();
-  palette.setPalette(
-    payload.data.palette.colors,
-    payload.data.palette.primaryIndex,
-    payload.data.palette.secondaryIndex
-  );
+  palette.setPalette(payload.data.palette.colors);
+  if (Array.isArray(payload.data.palette.selectedIndices)) {
+    palette.setSelectedIndices(payload.data.palette.selectedIndices);
+  } else if (typeof payload.data.palette.primaryIndex === 'number') {
+    palette.setSelectedIndices([payload.data.palette.primaryIndex]);
+  } else {
+    palette.setSelectedIndices([]);
+  }
 
   const viewport = useViewportStore.getState();
   viewport.setCamera(payload.data.camera);

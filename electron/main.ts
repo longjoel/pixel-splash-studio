@@ -474,6 +474,22 @@ app.whenReady().then(() => {
         },
         { type: 'separator' as const },
         {
+          label: 'Debug Console',
+          accelerator: process.platform === 'darwin' ? 'Alt+Command+I' : 'Ctrl+Shift+I',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            if (!window) {
+              return;
+            }
+            if (window.webContents.isDevToolsOpened()) {
+              window.webContents.closeDevTools();
+              return;
+            }
+            window.webContents.openDevTools({ mode: 'detach' });
+          },
+        },
+        { type: 'separator' as const },
+        {
           label: 'Layers',
           submenu: [
             {
@@ -660,7 +676,7 @@ app.whenReady().then(() => {
       label: 'Help',
       submenu: [
         {
-          label: 'Shortcut Map',
+          label: 'Shortcut Map & Hotkeys',
           accelerator: 'CmdOrCtrl+/',
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
@@ -709,8 +725,9 @@ export type ProjectPayload = {
   data: {
     palette: {
       colors: string[];
-      primaryIndex: number;
-      secondaryIndex: number;
+      selectedIndices?: number[];
+      primaryIndex?: number;
+      secondaryIndex?: number;
     };
     camera: {
       x: number;

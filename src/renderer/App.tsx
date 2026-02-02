@@ -4,12 +4,16 @@ import MinimapPanel from './canvas/MinimapPanel';
 import PaletteBar from './ui/PaletteBar';
 import TileBar from './ui/TileBar';
 import DropdownSelect from './ui/DropdownSelect';
+import { TextToolModal } from './ui/TextToolModal';
+import { Topbar } from './ui/Topbar';
+import { ToolGroups } from './ui/ToolGroups';
+import BottomDockControls from './ui/BottomDockControls';
 import pssLogoUrl from './assets/pss-logo.png';
 import { loadProject, newProject, saveProject } from './services/project';
 import { mergeProjectPixels, readSplashProject } from './services/projectMerge';
 import { useHistoryStore } from './state/historyStore';
 import { useProjectStore, getProjectTitle } from './state/projectStore';
-import { useToolStore } from './state/toolStore';
+import { type ToolId, useToolStore } from './state/toolStore';
 import { useBrushStore } from './state/brushStore';
 import { useSprayStore } from './state/sprayStore';
 import { useRectangleStore } from './state/rectangleStore';
@@ -19,6 +23,7 @@ import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
+import { openImageFilePicker } from './services/filePickers';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
 import { exportSelectionAsChr } from './services/selectionExportChr';
 import {
@@ -42,6 +47,8 @@ import { usePaletteStore } from './state/paletteStore';
 import { useViewportStore } from './state/viewportStore';
 import { useLayerVisibilityStore } from './state/layerVisibilityStore';
 import { addReferenceFromFile } from './services/references';
+import { copyTextToClipboard, type TextFontFamily } from './services/textClipboard';
+import { getGlobalHotkeyAction } from './services/hotkeys';
 import {
   traceReferenceWithMaxColors,
   traceReferenceWithPaletteRange,
@@ -134,162 +141,8 @@ const formatBytes = (bytes: number) => {
   return `${gb.toFixed(1)}GB`;
 };
 
-const TOOL_ICONS = {
-  pen: (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M4 20l4-1 10-10-3-3-10 10-1 4z" />
-      <path d="M14 6l3 3" />
-    </svg>
-  ),
-  spray: (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M8 10h6l2 2v2H8z" />
-      <path d="M6 12h2" />
-      <path d="M17 12h1.5" />
-      <path d="M12 6v4" />
-      <path d="M15 16l.8.8M13 17.5l.5 1M10.5 17.2l-.7.9M9 16l-1 1" />
-    </svg>
-  ),
-  line: (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <line x1="5" y1="19" x2="19" y2="5" />
-    </svg>
-  ),
-  rectangle: (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="5" y="5" width="14" height="14" rx="1.5" />
-    </svg>
-  ),
-  oval: (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <ellipse cx="12" cy="12" rx="7" ry="5.5" />
-    </svg>
-  ),
-  'fill-bucket': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M7 10l7-7 4 4-7 7H7z" />
-      <path d="M7 14h6" />
-    </svg>
-  ),
-  'reference-handle': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="5" y="5" width="14" height="14" rx="2" />
-      <path d="M12 8v8M8 12h8" />
-    </svg>
-  ),
-  eyedropper: (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M5 16l7-7 4 4-7 7H5z" />
-      <path d="M14 6l4 4" />
-    </svg>
-  ),
-  stamp: (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M7 14h10v4H7z" />
-      <path d="M9 14v-4a3 3 0 016 0v4" />
-    </svg>
-  ),
-  'selection-rect': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="5" y="5" width="14" height="14" rx="1.5" strokeDasharray="2 2" />
-    </svg>
-  ),
-  'selection-oval': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <ellipse cx="12" cy="12" rx="7" ry="5.5" strokeDasharray="2 2" />
-    </svg>
-  ),
-  'selection-lasso': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <path d="M8 12c0-3 2-5 4-5s4 2 4 5-2 5-4 5-4-2-4-5z" strokeDasharray="2 2" />
-      <path d="M12 17v4M12 21h3" />
-    </svg>
-  ),
-  'texture-roll': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="5" y="5" width="14" height="14" rx="1.5" />
-      <path d="M9 9h6M9 12h6M9 15h6" />
-      <path d="M7 12l-2 2 2 2" />
-      <path d="M17 12l2-2-2-2" />
-    </svg>
-  ),
-  'tile-sampler': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="5" y="5" width="14" height="14" rx="1.5" strokeDasharray="2 2" />
-      <path d="M9 9h2v2H9zM13 9h2v2h-2zM9 13h2v2H9zM13 13h2v2h-2z" />
-    </svg>
-  ),
-  'tile-pen': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="4" y="4" width="10" height="10" rx="1.5" />
-      <path d="M14.5 14.5l5.5-5.5-3-3-5.5 5.5-1 4 4-1z" />
-    </svg>
-  ),
-  'tile-rectangle': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="4" y="6" width="16" height="12" rx="2" />
-      <path d="M8 10h4M8 14h8" />
-    </svg>
-  ),
-  'tile-9slice': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="4" y="4" width="16" height="16" rx="2" />
-      <path d="M4 10h16M4 14h16M10 4v16M14 4v16" />
-    </svg>
-  ),
-  'tile-export': (
-    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
-      <rect x="4" y="4" width="12" height="12" rx="2" />
-      <path d="M12 12h8M16 8l4 4-4 4" />
-    </svg>
-  ),
-} as const;
-
 const sumBlockBytes = (blocks: Array<{ block: Uint8Array }>) =>
   blocks.reduce((total, entry) => total + entry.block.byteLength, 0);
-
-const openImageFilePicker = () =>
-  new Promise<File | null>((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.style.position = 'fixed';
-    input.style.left = '-1000px';
-    input.style.opacity = '0';
-    input.setAttribute('aria-hidden', 'true');
-    let settled = false;
-    const cleanup = () => {
-      if (input.isConnected) {
-        input.remove();
-      }
-      window.removeEventListener('focus', handleWindowFocus);
-    };
-    const finalize = (file: File | null) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      cleanup();
-      resolve(file);
-    };
-    const handleWindowFocus = () => {
-      window.setTimeout(() => {
-        if (settled) {
-          return;
-        }
-        if (!input.files?.length) {
-          finalize(null);
-        }
-      }, 0);
-    };
-    input.addEventListener('change', () => {
-      const file = input.files?.[0] ?? null;
-      finalize(file);
-    });
-    window.addEventListener('focus', handleWindowFocus);
-    document.body.appendChild(input);
-    input.click();
-  });
 
 const isEditableTarget = (target: EventTarget | null) => {
   if (!(target instanceof HTMLElement)) {
@@ -364,16 +217,28 @@ const buildMemorySummary = () => {
 const App = () => {
   const undo = useHistoryStore((state) => state.undo);
   const redo = useHistoryStore((state) => state.redo);
-  const undoAvailable = useHistoryStore((state) => state.undoStack.length > 0);
-  const redoAvailable = useHistoryStore((state) => state.redoStack.length > 0);
-  const historyLocked = useHistoryStore((state) => state.locked);
   const selectionCount = useSelectionStore((state) => state.selectedCount);
-  const clearSelection = useSelectionStore((state) => state.clear);
   const projectPath = useProjectStore((state) => state.path);
   const dirty = useProjectStore((state) => state.dirty);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [compactTools, setCompactTools] = useState(() => {
+    try {
+      const stored = window.localStorage.getItem('pss.toolsCompact');
+      if (stored === null) {
+        return true;
+      }
+      return stored === '1';
+    } catch {
+      return true;
+    }
+  });
+  const [textModalOpen, setTextModalOpen] = useState(false);
+  const [textModalReturnTool, setTextModalReturnTool] = useState<ToolId>('pen');
+  const [textToolDraft, setTextToolDraft] = useState('');
+  const [textToolFontFamily, setTextToolFontFamily] = useState<TextFontFamily>('monospace');
+  const [textToolFontSize, setTextToolFontSize] = useState(16);
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSourcePath, setMergeSourcePath] = useState<string | null>(null);
   const [mergePayload, setMergePayload] = useState<ProjectLoadResult | null>(null);
@@ -407,12 +272,6 @@ const App = () => {
   const setShowPixelGrid = useLayerVisibilityStore((state) => state.setShowPixelGrid);
   const setShowTileGrid = useLayerVisibilityStore((state) => state.setShowTileGrid);
   const setShowAxes = useLayerVisibilityStore((state) => state.setShowAxes);
-  const toggleReferenceLayer = useLayerVisibilityStore((state) => state.toggleReferenceLayer);
-  const togglePixelLayer = useLayerVisibilityStore((state) => state.togglePixelLayer);
-  const toggleTileLayer = useLayerVisibilityStore((state) => state.toggleTileLayer);
-  const togglePixelGrid = useLayerVisibilityStore((state) => state.togglePixelGrid);
-  const toggleTileGrid = useLayerVisibilityStore((state) => state.toggleTileGrid);
-  const toggleAxes = useLayerVisibilityStore((state) => state.toggleAxes);
   const tileSets = useTileMapStore((state) => state.tileSets);
   const tileMaps = useTileMapStore((state) => state.tileMaps);
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
@@ -436,6 +295,7 @@ const App = () => {
   const fillGradientDither = useFillBucketStore((state) => state.gradientDither);
   const setFillGradientDither = useFillBucketStore((state) => state.setGradientDither);
   const paletteSelectionCount = usePaletteStore((state) => state.selectedIndices.length);
+  const activePaletteIndex = usePaletteStore((state) => state.getActiveIndex());
   const stampMode = useStampStore((state) => state.mode);
   const stampSnap = useStampStore((state) => state.snap);
   const stampRotation = useStampStore((state) => state.rotation);
@@ -448,6 +308,24 @@ const App = () => {
   const setTileDebugOverlay = useTileMapStore((state) => state.setTileDebugOverlay);
   const nineSlice = useTileMapStore((state) => state.nineSlice);
   const tileSelectionCols = useTileMapStore((state) => state.selectedTileCols);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem('pss.toolsCompact', compactTools ? '1' : '0');
+    } catch {
+      // Ignore.
+    }
+  }, [compactTools]);
+
+  const disableCompactTools = useCallback(() => {
+    setCompactTools(false);
+    try {
+      window.localStorage.setItem('pss.toolsCompact', '0');
+    } catch {
+      // Ignore.
+    }
+  }, []);
+
   const tileSelectionRows = useTileMapStore((state) => state.selectedTileRows);
   const removeReference = useReferenceStore((state) => state.removeReference);
   const pasteShortcutRef = React.useRef(false);
@@ -498,10 +376,8 @@ const App = () => {
       if (colors.length === 0) {
         return;
       }
-      const primaryIndex = 0;
-      const secondaryIndex = colors.length > 1 ? 1 : 0;
       const paletteStore = usePaletteStore.getState();
-      paletteStore.setPalette(colors, primaryIndex, secondaryIndex);
+      paletteStore.setPalette(colors);
       paletteStore.setSelectedIndices([]);
       useProjectStore.getState().setDirty(true);
     });
@@ -521,6 +397,24 @@ const App = () => {
   const setSprayRadius = useSprayStore((state) => state.setRadius);
   const setSprayDensity = useSprayStore((state) => state.setDensity);
   const setSprayFalloff = useSprayStore((state) => state.setFalloff);
+  const activateTool = useCallback(
+    (tool: ToolId) => {
+      if (tool === 'selection-lasso') {
+        setActiveTool('selection-lasso');
+        setBrushSize(1);
+        setBrushShape('round');
+        return;
+      }
+      if (tool === 'text') {
+        setTextModalReturnTool((prev) => (activeTool === 'text' ? prev : activeTool));
+        setActiveTool('text');
+        setTextModalOpen(true);
+        return;
+      }
+      setActiveTool(tool);
+    },
+    [activeTool, setActiveTool, setBrushShape, setBrushSize]
+  );
   const paletteColors = usePaletteStore((state) => state.colors);
   const referenceSnap = useReferenceHandleStore((state) => state.snap);
   const setReferenceSnap = useReferenceHandleStore((state) => state.setSnap);
@@ -794,7 +688,8 @@ const App = () => {
       if (!ok) {
         return;
       }
-      paletteStore.setPalette(result.palette, paletteStore.primaryIndex, paletteStore.secondaryIndex);
+      paletteStore.setPalette(result.palette);
+      paletteStore.setSelectedIndices([]);
       mappedPacked = applyPaletteMap(packed, result.map);
     } else {
       const map = buildNearestPaletteMap(romPayload.palette, paletteStore.colors);
@@ -1023,6 +918,28 @@ const App = () => {
           event.preventDefault();
           removeReference(selectedReference.id);
         }
+        const action = getGlobalHotkeyAction({
+          key: event.key,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+        });
+        if (action) {
+          if (action.type === 'tool') {
+            event.preventDefault();
+            activateTool(action.tool);
+            return;
+          }
+          if (action.type === 'palette-primary') {
+            const palette = usePaletteStore.getState();
+            if (action.index >= 0 && action.index < palette.colors.length) {
+              event.preventDefault();
+              palette.setSelectedIndices([action.index]);
+            }
+            return;
+          }
+        }
         return;
       }
       const key = event.key.toLowerCase();
@@ -1105,6 +1022,7 @@ const App = () => {
     return () => window.removeEventListener('keydown', handleKey);
   }, [
     activeTool,
+    activateTool,
     handleLoad,
     handleNew,
     handleSave,
@@ -1114,6 +1032,12 @@ const App = () => {
     selectedReference,
     undo,
   ]);
+
+  useEffect(() => {
+    if (activeTool !== 'text' && textModalOpen) {
+      setTextModalOpen(false);
+    }
+  }, [activeTool, textModalOpen]);
 
   const handleAddReference = async () => {
     const file = await openImageFilePicker();
@@ -1413,11 +1337,19 @@ const App = () => {
   ]);
 
   return (
-    <div className="app">
+    <div className={`app${compactTools ? ' app--compact-tools' : ''}`}>
       <div className="app__canvas-layer">
         <ViewportCanvas />
       </div>
       <div className="app__ui-layer">
+        {compactTools && (
+          <Topbar
+            activeTool={activeTool}
+            selectionCount={selectionCount}
+            activateTool={activateTool}
+            onExitCompact={disableCompactTools}
+          />
+        )}
 	        {showSplash && (
 	          <div className="app__splash" aria-hidden="true">
 	            <img src={pssLogoUrl} alt="" />
@@ -1428,300 +1360,26 @@ const App = () => {
 	        >
           <div className="panel__header">
             <h2>{toolbarTitle}</h2>
-            <button
-              type="button"
-              className="panel__toggle"
-              onClick={() => setToolbarCollapsed((prev) => !prev)}
-            >
-              {toolbarCollapsed ? 'Expand' : 'Collapse'}
-            </button>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <button
+                type="button"
+                className="panel__toggle"
+                onClick={() => setToolbarCollapsed((prev) => !prev)}
+              >
+                {toolbarCollapsed ? 'Expand' : 'Collapse'}
+              </button>
+            </div>
           </div>
           {!toolbarCollapsed && (
             <>
-              <div className="toolbar__tools">
-                <div className="toolbar__tool-group">
-                  <span className="panel__label">Drawing</span>
-                  <div className="toolbar__tools-grid">
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'pen'}
-                      onClick={() => setActiveTool('pen')}
-                      title="Pen"
-                      aria-label="Pen"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS.pen}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'spray'}
-                      onClick={() => setActiveTool('spray')}
-                      title="Spray"
-                      aria-label="Spray"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS.spray}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'line'}
-                      onClick={() => setActiveTool('line')}
-                      title="Line"
-                      aria-label="Line"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS.line}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'rectangle'}
-                      onClick={() => setActiveTool('rectangle')}
-                      title="Rectangle"
-                      aria-label="Rectangle"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS.rectangle}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'oval'}
-                      onClick={() => setActiveTool('oval')}
-                      title="Oval"
-                      aria-label="Oval"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS.oval}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'fill-bucket'}
-                      onClick={() => setActiveTool('fill-bucket')}
-                      title="Fill"
-                      aria-label="Fill"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['fill-bucket']}</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="toolbar__tool-group">
-                  <span className="panel__label">Editing</span>
-                  <div className="toolbar__tools-grid">
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'reference-handle'}
-                      onClick={() => setActiveTool('reference-handle')}
-                      title="Reference Handle"
-                      aria-label="Reference Handle"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['reference-handle']}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'eyedropper'}
-                      onClick={() => setActiveTool('eyedropper')}
-                      title="Eyedropper"
-                      aria-label="Eyedropper"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS.eyedropper}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'stamp'}
-                      onClick={() => setActiveTool('stamp')}
-                      title="Stamp"
-                      aria-label="Stamp"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS.stamp}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'selection-rect'}
-                      onClick={() => setActiveTool('selection-rect')}
-                      title="Selection Rectangle"
-                      aria-label="Selection Rectangle"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['selection-rect']}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'selection-oval'}
-                      onClick={() => setActiveTool('selection-oval')}
-                      title="Selection Oval"
-                      aria-label="Selection Oval"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'selection-lasso'}
-                      onClick={() => {
-                        setActiveTool('selection-lasso');
-                        setBrushSize(1);
-                        setBrushShape('round');
-                      }}
-                      title="Selection Lasso"
-                      aria-label="Selection Lasso"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['selection-lasso']}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'texture-roll'}
-                      onClick={() => setActiveTool('texture-roll')}
-                      title="Scroll Selection"
-                      aria-label="Scroll Selection"
-                      disabled={selectionCount === 0}
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['texture-roll']}</span>
-                    </button>
-                  </div>
-                </div>
-                <div className="toolbar__tool-group">
-                  <span className="panel__label">Tiling</span>
-                  <div className="toolbar__tools-grid">
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'tile-sampler'}
-                      onClick={() => setActiveTool('tile-sampler')}
-                      title="Tile Sampler"
-                      aria-label="Tile Sampler"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'tile-pen'}
-                      onClick={() => setActiveTool('tile-pen')}
-                      title="Tile Pen"
-                      aria-label="Tile Pen"
-                    >
-                      <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'tile-rectangle'}
-                      onClick={() => setActiveTool('tile-rectangle')}
-                      title="Tile Rectangle"
-                      aria-label="Tile Rectangle"
-                    >
-                      <span className="toolbar__tool-icon">
-                        {TOOL_ICONS['tile-rectangle']}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'tile-9slice'}
-                      onClick={() => setActiveTool('tile-9slice')}
-                      title="Tile 9-Slice"
-                      aria-label="Tile 9-Slice"
-                    >
-                      <span className="toolbar__tool-icon">
-                        {TOOL_ICONS['tile-9slice']}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      className="panel__item toolbar__tool-button"
-                      data-active={activeTool === 'tile-export'}
-                      onClick={() => setActiveTool('tile-export')}
-                      title="Tile Export"
-                      aria-label="Tile Export"
-                    >
-                      <span className="toolbar__tool-icon">
-                        {TOOL_ICONS['tile-export']}
-                      </span>
-                    </button>
-                  </div>
-                </div>
-              </div>
+              {!compactTools && (
+                <ToolGroups
+                  activeTool={activeTool}
+                  selectionCount={selectionCount}
+                  activateTool={activateTool}
+                />
+              )}
               <div className="toolbar__body">
-                <div className="panel__section">
-                  <div className="panel__group">
-                    <span className="panel__label">Layers</span>
-                    <div className="panel__toggle-group">
-                      <label className="panel__toggle" data-active={showReferenceLayer}>
-                        <input
-                          type="checkbox"
-                          checked={showReferenceLayer}
-                          onChange={toggleReferenceLayer}
-                        />
-                        Reference
-                      </label>
-                      <label className="panel__toggle" data-active={showPixelLayer}>
-                        <input
-                          type="checkbox"
-                          checked={showPixelLayer}
-                          onChange={togglePixelLayer}
-                        />
-                        Pixels
-                      </label>
-                      <label className="panel__toggle" data-active={showTileLayer}>
-                        <input
-                          type="checkbox"
-                          checked={showTileLayer}
-                          onChange={toggleTileLayer}
-                        />
-                        Tiles
-                      </label>
-                    </div>
-                  </div>
-                  <div className="panel__group">
-                    <span className="panel__label">Overlays</span>
-                    <div className="panel__toggle-group">
-                      <label
-                        className="panel__toggle"
-                        data-active={showPixelGrid}
-                        title="Toggle pixel grid visibility"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={showPixelGrid}
-                          onChange={togglePixelGrid}
-                          aria-label="Toggle pixel grid visibility"
-                        />
-                        Pixel Grid
-                      </label>
-                      <label
-                        className="panel__toggle"
-                        data-active={showTileGrid}
-                        title="Toggle tile grid visibility"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={showTileGrid}
-                          onChange={toggleTileGrid}
-                          aria-label="Toggle tile grid visibility"
-                        />
-                        Tile Grid
-                      </label>
-                      <label
-                        className="panel__toggle"
-                        data-active={showAxes}
-                        title="Toggle axis visibility"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={showAxes}
-                          onChange={toggleAxes}
-                          aria-label="Toggle axis visibility"
-                        />
-                        Axes
-                      </label>
-                    </div>
-                  </div>
-                </div>
                 <div className="panel__section">
                   {activeTool === 'pen' || activeTool === 'selection-lasso' ? (
                     <>
@@ -2606,77 +2264,6 @@ const App = () => {
                     </div>
                   )}
                 </div>
-                <div className="panel__section">
-                  <span className="panel__label">Actions</span>
-                  <button type="button" className="panel__item" onClick={handleAddReference}>
-                    Add Reference
-                  </button>
-                  {undoAvailable && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={undo}
-                      disabled={historyLocked}
-                    >
-                      Undo
-                    </button>
-                  )}
-                  {redoAvailable && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={redo}
-                      disabled={historyLocked}
-                    >
-                      Redo
-                    </button>
-                  )}
-                  {historyLocked && (
-                    <div className="panel__note">Undo/redo disabled while operation runs.</div>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => copySelectionToClipboard()}
-                    >
-                      Copy Selection (Active Layer)
-                    </button>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => copySelectionToClipboard({ deep: true })}
-                    >
-                      Deep Copy Selection (Merged)
-                    </button>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => cutSelectionToClipboard()}
-                    >
-                      Cut Selection
-                    </button>
-                  )}
-                  {selectionCount > 0 && (
-                    <button
-                      type="button"
-                      className="panel__item"
-                      onClick={() => void exportSelectionAsPng()}
-                    >
-                      Export PNG
-                    </button>
-                  )}
-                 
-                  {selectionCount > 0 && (
-                    <button type="button" className="panel__item" onClick={clearSelection}>
-                      Clear Selection
-                    </button>
-                  )}
-                </div>
               </div>
             </>
           )}
@@ -2696,7 +2283,12 @@ const App = () => {
             aria-label="Resize palette bar"
             onPointerDown={startPaletteResize}
           />
-          {isTilingTool ? <TileBar /> : <PaletteBar />}
+          <div className={`bottom-bar${isTilingTool ? ' bottom-bar--tile' : ''}`}>
+            <div className="bottom-bar__left">
+              <BottomDockControls />
+            </div>
+            <div className="bottom-bar__center">{isTilingTool ? <TileBar /> : <PaletteBar />}</div>
+          </div>
         </div>
         {!minimapCollapsed ? (
           <div className="app__minimap panel">
@@ -3042,7 +2634,7 @@ const App = () => {
           <div className="modal__backdrop" onClick={() => setShowShortcuts(false)} />
           <div className="modal__content" role="dialog" aria-modal="true">
             <div className="modal__header">
-              <h2>Shortcut Map</h2>
+              <h2>Shortcut Map & Hotkeys</h2>
               <button type="button" onClick={() => setShowShortcuts(false)}>
                 Close
               </button>
@@ -3093,6 +2685,38 @@ const App = () => {
                 <span>Ctrl+X</span>
               </div>
               <div className="modal__row">
+                <span style={{ opacity: 0.8 }}>Tool hotkeys</span>
+                <span style={{ opacity: 0.8 }}>Global</span>
+              </div>
+              <div className="modal__row">
+                <span>Palette primary color 0–9</span>
+                <span>0–9</span>
+              </div>
+              <div className="modal__row">
+                <span>Pen / Rectangle / Oval</span>
+                <span>P / R / O</span>
+              </div>
+              <div className="modal__row">
+                <span>Spray / Line / Fill / Text</span>
+                <span>S / L / F / T</span>
+              </div>
+              <div className="modal__row">
+                <span>Eyedropper / Magic Wand</span>
+                <span>E / W</span>
+              </div>
+              <div className="modal__row">
+                <span>Stamp / Reference Handle / Scroll Selection</span>
+                <span>V / H / Q</span>
+              </div>
+              <div className="modal__row">
+                <span>Select Oval / Rectangle / Lasso</span>
+                <span>Alt+O / Alt+R / Alt+P</span>
+              </div>
+              <div className="modal__row">
+                <span>Tile tools</span>
+                <span>Shift+S / Shift+P / Shift+R / Shift+N / Shift+E</span>
+              </div>
+              <div className="modal__row">
                 <span>Trace Palette Range</span>
                 <span>Reference panel button</span>
               </div>
@@ -3141,6 +2765,29 @@ SOFTWARE.
             </div>
           </div>
         </div>
+      )}
+      {textModalOpen && activeTool === 'text' && (
+        <TextToolModal
+          initialText={textToolDraft}
+          initialFontFamily={textToolFontFamily}
+          initialFontSize={textToolFontSize}
+          onCancel={() => {
+            setTextModalOpen(false);
+            setActiveTool(textModalReturnTool);
+          }}
+          onConfirm={({ text, fontFamily, fontSize }) => {
+            setTextToolDraft(text);
+            setTextToolFontFamily(fontFamily);
+            setTextToolFontSize(fontSize);
+            copyTextToClipboard({
+              text,
+              fontFamily,
+              fontSize,
+              paletteIndex: activePaletteIndex,
+            });
+            setTextModalOpen(false);
+          }}
+        />
       )}
     </div>
   );

@@ -71,21 +71,17 @@ Palette
  - when a project is loaded, check the existing palette, if there is a matching one, use that one
  - if there isn't a copy of it locally, you will be given the option to import it from the file.
  - palette bar UI is docked to the bottom of the screen (full width), showing all colors at once
- - primary color = left click on a swatch
- - secondary color = ctrl + left click on a swatch
+ - click a swatch to select it (active color is the last selected swatch)
  - right click opens a context menu: set color, remove color, add color, add swatch
  - add swatch offers preset palettes (complementary, analogous, split complementary, triad, tetrad, tints + shades, pastel, muted, vibrant, monochrome ramp, hue sweep)
  - set color and add color open a color picker dialog
- - primary/secondary indicators shown on the lower left of the palette bar (DOS Paint style)
  - palette shows current palette size, with an empty swatch at the end for quick add
 
 Cursor
  - connects a tool to a viewport
- - primary index
- - secondary index
  - screen x, y
  - canvas x, y
- - primary (left click) | secondary (right click) | modifiers (ctrl, alt, shift)
+ - primary (left click) | modifiers (ctrl, alt, shift)
 
 Minimap [first tab]
  - shows the full extent of the canvas in a mini map, that acts as a pan and zoom
@@ -176,10 +172,10 @@ Performance work log
  
 Drawing Tools
 - Pen
- - draws either the primary color or the secondary color depending on the mouse button or trigger.
+ - draws using the active palette swatch (last selected); hold Alt to erase (writes palette index 0)
  - brush can either be 1px, 4px, 8px, and square or round
  - on hover: display the brush in the preview layer, clearing the preview layer every frame 
- - on begin use: start tracking coordinates of the pen and if its a primary or secondary palette index
+ - on begin use: start tracking coordinates of the pen stroke
  - on use tool: write data to the preview layer.
  - on release: flush the writes to the canvas.
  - restricted to the viewport and selection layer
@@ -187,12 +183,12 @@ Drawing Tools
  - draws a single pixel wide line from a start coordinate to an end coordinate
  - on hover: do nothing
  - on begin use: keep track of where the start coordinates are
- - on use tool: write data to the preview layer, clear the preview layer between renders, using either the primary or secondary color
+ - on use tool: write data to the preview layer, clear the preview layer between renders, using the active color (or gradient when multiple palette swatches are selected)
  - on release: write the preview layer to pixel layer, then clear the preview layer.
  - restricted to the viewport and selection layer
 - Rectangle
  - draws a rectangle
- - can be filled, outlined, or primary outline with secondary fill
+ - can be filled or outlined; uses gradient when multiple palette swatches are selected
  - on hover: do nothing
  - on begin use: start tracking the first corner of the rectangle at cursor coordinates
  - on use tool: track the current cursor coordinates, write to the preview buffer.
@@ -200,7 +196,7 @@ Drawing Tools
  - restricted to the viewport and selection layer
 - Oval
  - draws an oval
- - can be filled, outlined, or primary outline with secondary fill
+ - can be filled or outlined; uses gradient when multiple palette swatches are selected
  - on hover: do nothing
  - on begin use: start tracking the first corner of the oval at cursor coordinates
  - on use tool: track the current cursor coordinates, write to the preview buffer.
@@ -208,7 +204,7 @@ Drawing Tools
  - restricted to the viewport and selection layer
  - drawing tools are restricted to selected pixels when a selection exists
 - Fill Bucket
- - flood fills a region with the primary color.
+ - flood fills a region with the active color (or a gradient when multiple palette swatches are selected).
  - flood fill can either fill based on source color, or fill based on selection area
  - if it's the selection area, it's the entire selection area, regardless of if it's continuous or not.
  - you are not allowed to flood fill in an unbounded area.
@@ -219,7 +215,7 @@ Drawing Tools
  - restricted to the viewport, the selection area or pixels bound to the current selected shape of a matching color.
 - Eyedropper
  - selects the palette index under the cursor
- - left click sets the primary color, ctrl + left click or right click sets the secondary color
+ - click sets the active palette swatch; Ctrl+click adds the swatch to the palette selection
  - on hover: clear the preview layer
  - on begin use: read the pixel at cursor position and set the palette index
 Editing Tools

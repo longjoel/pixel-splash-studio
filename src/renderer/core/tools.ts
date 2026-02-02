@@ -4,7 +4,6 @@ export type CursorState = {
   canvasX: number;
   canvasY: number;
   primary: boolean;
-  secondary: boolean;
   alt: boolean;
   ctrl: boolean;
   shift: boolean;

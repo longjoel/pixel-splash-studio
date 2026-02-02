@@ -94,7 +94,8 @@ export class SprayTool implements Tool {
       const falloff = Math.min(1, Math.max(0, settings.falloff));
       const exp = 0.5 + falloff * 2.5;
       const random = this.rng ?? Math.random;
-      const selectedIndices = getSelectedPaletteIndices();
+      const selectedIndices =
+        this.activeIndex === 0 ? [0] : getSelectedPaletteIndices();
       const useDither = selectedIndices.length > 1;
       const ditherIndices = useDither ? selectedIndices : null;
       const singleIndex = selectedIndices[0] ?? this.activeIndex;
@@ -125,7 +126,8 @@ export class SprayTool implements Tool {
     const palette = usePaletteStore.getState();
     const x = Math.floor(cursor.canvasX / PIXEL_SIZE);
     const y = Math.floor(cursor.canvasY / PIXEL_SIZE);
-    setPreviewPixel(cursor, x, y, palette.primaryIndex);
+    const paletteIndex = cursor.alt ? 0 : palette.getActiveIndex();
+    setPreviewPixel(cursor, x, y, paletteIndex);
   };
 
   onBegin = (cursor: CursorState) => {
@@ -133,7 +135,7 @@ export class SprayTool implements Tool {
     preview.clear();
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
-    this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
+    this.activeIndex = cursor.alt ? 0 : palette.getActiveIndex();
     this.drawing = true;
     this.changes.clear();
     this.lastCursor = cursor;

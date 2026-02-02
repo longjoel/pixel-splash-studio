@@ -42,7 +42,7 @@ test('captures drawing tool tutorial screenshots', async () => {
         useBrushStore.getState().setSize(1);
         useRectangleStore.getState().setMode('filled');
         useFillBucketStore.getState().setMode('color');
-        usePaletteStore.getState().setPrimary(44);
+        usePaletteStore.getState().setSelectedIndices([44]);
         useLayerVisibilityStore.getState().setShowPixelLayer(true);
 
         const start = Date.now();

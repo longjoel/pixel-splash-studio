@@ -75,8 +75,8 @@ export class RectangleTool implements Tool {
     preview.clear();
     const palette = usePaletteStore.getState();
     this.layerId = usePixelStore.getState().activeLayerId;
-    this.activeIndex = cursor.secondary ? palette.secondaryIndex : palette.primaryIndex;
-    this.activeRamp = getPaletteSelectionRamp();
+    this.activeIndex = cursor.alt ? 0 : palette.getActiveIndex();
+    this.activeRamp = cursor.alt ? [] : getPaletteSelectionRamp();
     this.start = {
       x: Math.floor(cursor.canvasX / PIXEL_SIZE),
       y: Math.floor(cursor.canvasY / PIXEL_SIZE),

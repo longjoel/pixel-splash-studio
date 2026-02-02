@@ -34,11 +34,7 @@ export const duplicateClipboardPalette = () => {
     return { ...pixel, paletteIndex: mapped };
   });
 
-  paletteStore.setPalette(
-    nextColors,
-    paletteStore.primaryIndex,
-    paletteStore.secondaryIndex
-  );
+  paletteStore.setPalette(nextColors);
 
   useClipboardStore.getState().setBuffer({
     pixels: nextPixels,
