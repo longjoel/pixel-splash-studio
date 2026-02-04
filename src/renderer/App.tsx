@@ -953,28 +953,6 @@ const App = () => {
             return;
           }
         }
-        const action = getGlobalHotkeyAction({
-          key: event.key,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          shiftKey: event.shiftKey,
-        });
-        if (action) {
-          if (action.type === 'tool') {
-            event.preventDefault();
-            activateTool(action.tool);
-            return;
-          }
-          if (action.type === 'palette-primary') {
-            const palette = usePaletteStore.getState();
-            if (action.index >= 0 && action.index < palette.colors.length) {
-              event.preventDefault();
-              palette.setSelectedIndices([action.index]);
-            }
-            return;
-          }
-        }
         return;
       }
       const key = event.key.toLowerCase();
