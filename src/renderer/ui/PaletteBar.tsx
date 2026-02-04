@@ -400,8 +400,15 @@ const PaletteBar = () => {
 
   const handleAddColor = () => {
     closeMenu();
+    const newIndex = colors.length;
+    let added = false;
     openColorPicker('#ffffff', (value) => {
-      addColor(value);
+      if (!added) {
+        added = true;
+        addColor(value);
+        return;
+      }
+      setColor(newIndex, value);
     });
   };
 
@@ -717,8 +724,7 @@ const PaletteBar = () => {
           type="button"
           className="palette-bar__swatch palette-bar__swatch--empty"
           onClick={() => {
-            setSelectedIndices([]);
-            addColor('#ffffff');
+            handleAddColor();
           }}
           onContextMenu={(event) => openMenu(event, null)}
           aria-label="Add palette color"

@@ -1,5 +1,12 @@
 import { useClipboardStore } from '@/state/clipboardStore';
+import { useFillBucketStore } from '@/state/fillBucketStore';
 import { useToolStore } from '@/state/toolStore';
+import { getPaletteSelectionRamp } from '@/services/paletteRamp';
+import { computeGradientPaletteMap, type Bounds } from '@/services/gradientRamp';
+import type {
+  FillBucketGradientDirection,
+  FillBucketGradientDither,
+} from '@/state/fillBucketStore';
 
 export type TextFontFamily = 'monospace' | 'sans-serif' | 'serif';
 
@@ -14,6 +21,33 @@ export type RasterizedText = {
   pixels: Array<{ x: number; y: number; paletteIndex: number }>;
   width: number;
   height: number;
+};
+
+export const applyGradientToRasterizedText = (
+  rasterized: RasterizedText,
+  ramp: number[],
+  direction: FillBucketGradientDirection,
+  dither: FillBucketGradientDither
+): RasterizedText => {
+  if (ramp.length <= 1 || rasterized.pixels.length === 0) {
+    return rasterized;
+  }
+
+  const bounds: Bounds = {
+    minX: 0,
+    minY: 0,
+    maxX: Math.max(0, rasterized.width - 1),
+    maxY: Math.max(0, rasterized.height - 1),
+  };
+  const points = rasterized.pixels.map((pixel) => ({ x: pixel.x, y: pixel.y }));
+  const paletteMap = computeGradientPaletteMap(points, bounds, ramp, direction, dither);
+  return {
+    ...rasterized,
+    pixels: rasterized.pixels.map((pixel) => ({
+      ...pixel,
+      paletteIndex: paletteMap.get(`${pixel.x}:${pixel.y}`) ?? ramp[0] ?? pixel.paletteIndex,
+    })),
+  };
 };
 
 export const rasterizeText = (options: {
@@ -121,16 +155,24 @@ export const copyTextToClipboard = (options: {
   fontSize: number;
   paletteIndex: number;
 }) => {
-  const rasterized = rasterizeText(options);
+  const ramp = getPaletteSelectionRamp();
+  const { gradientDirection, gradientDither } = useFillBucketStore.getState();
+  const rasterized = rasterizeText({
+    ...options,
+    paletteIndex: ramp[0] ?? options.paletteIndex,
+  });
   if (!rasterized) {
     return;
   }
+  const withGradient =
+    ramp.length > 1
+      ? applyGradientToRasterizedText(rasterized, ramp, gradientDirection, gradientDither)
+      : rasterized;
   useClipboardStore.getState().setBuffer({
-    pixels: rasterized.pixels,
+    pixels: withGradient.pixels,
     origin: { x: 0, y: 0 },
-    width: rasterized.width,
-    height: rasterized.height,
+    width: withGradient.width,
+    height: withGradient.height,
   });
   useToolStore.getState().setActiveTool('stamp');
 };
-

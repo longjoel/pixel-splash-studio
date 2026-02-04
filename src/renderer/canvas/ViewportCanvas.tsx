@@ -657,10 +657,10 @@ const ViewportCanvas = () => {
     zoom: number;
   } | null>(null);
   const wheelZoomRef = useRef<{
-    remainingDelta: number;
+    remainingLogDelta: number;
     anchor: { x: number; y: number } | null;
     frame: number | null;
-  }>({ remainingDelta: 0, anchor: null, frame: null });
+  }>({ remainingLogDelta: 0, anchor: null, frame: null });
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -1086,14 +1086,17 @@ const ViewportCanvas = () => {
       x: screenX / state.camera.zoom + state.camera.x,
       y: screenY / state.camera.zoom + state.camera.y,
     };
-    let zoomDelta = -event.deltaY * WHEEL_ZOOM_SCALE;
-    if (zoomDelta > WHEEL_ZOOM_MAX_STEP) {
-      zoomDelta = WHEEL_ZOOM_MAX_STEP;
-    } else if (zoomDelta < -WHEEL_ZOOM_MAX_STEP) {
-      zoomDelta = -WHEEL_ZOOM_MAX_STEP;
+    const deltaModeScale =
+      event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? Math.max(240, state.height) : 1;
+    const deltaPixels = event.deltaY * deltaModeScale;
+    let logZoomDelta = -deltaPixels * WHEEL_ZOOM_SCALE;
+    if (logZoomDelta > WHEEL_ZOOM_MAX_STEP) {
+      logZoomDelta = WHEEL_ZOOM_MAX_STEP;
+    } else if (logZoomDelta < -WHEEL_ZOOM_MAX_STEP) {
+      logZoomDelta = -WHEEL_ZOOM_MAX_STEP;
     }
 
-    wheelZoomRef.current.remainingDelta += zoomDelta;
+    wheelZoomRef.current.remainingLogDelta += logZoomDelta;
     wheelZoomRef.current.anchor = anchor;
     if (wheelZoomRef.current.frame) {
       return;
@@ -1101,18 +1104,27 @@ const ViewportCanvas = () => {
 
     const tick = () => {
       const wheelState = wheelZoomRef.current;
-      const remaining = wheelState.remainingDelta;
+      const remaining = wheelState.remainingLogDelta;
       if (!Number.isFinite(remaining) || Math.abs(remaining) < 0.0005) {
-        wheelState.remainingDelta = 0;
+        wheelState.remainingLogDelta = 0;
         wheelState.frame = null;
         return;
       }
       const eased = remaining * 0.35;
-      const minStep = 0.02;
+      const minStep = 0.001;
       const maxStep = Math.max(minStep, WHEEL_ZOOM_MAX_STEP * 0.25);
       const applyDelta = Math.sign(eased) * Math.min(Math.abs(eased), maxStep);
-      useViewportStore.getState().zoomBy(applyDelta, wheelState.anchor ?? undefined);
-      wheelState.remainingDelta -= applyDelta;
+      const viewport = useViewportStore.getState();
+      const currentZoom = viewport.camera.zoom;
+      const targetZoom = currentZoom * Math.exp(applyDelta);
+      const zoomDelta = targetZoom - currentZoom;
+      if (!Number.isFinite(zoomDelta) || Math.abs(zoomDelta) < 1e-12) {
+        wheelState.remainingLogDelta = 0;
+        wheelState.frame = null;
+        return;
+      }
+      viewport.zoomBy(zoomDelta, wheelState.anchor ?? undefined);
+      wheelState.remainingLogDelta -= applyDelta;
       wheelState.frame = requestAnimationFrame(tick);
     };
 

@@ -21,7 +21,11 @@ import { useOvalStore } from './state/ovalStore';
 import { useSelectionRectangleStore } from './state/selectionRectangleStore';
 import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
-import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
+import {
+  clearSelectionPixels,
+  copySelectionToClipboard,
+  cutSelectionToClipboard,
+} from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
 import { openImageFilePicker } from './services/filePickers';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
@@ -917,6 +921,15 @@ const App = () => {
         ) {
           event.preventDefault();
           removeReference(selectedReference.id);
+          return;
+        }
+        if (key === 'delete' || key === 'backspace') {
+          if (useSelectionStore.getState().selectedCount === 0) {
+            return;
+          }
+          event.preventDefault();
+          clearSelectionPixels();
+          return;
         }
         const action = getGlobalHotkeyAction({
           key: event.key,
