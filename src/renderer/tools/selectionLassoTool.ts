@@ -23,6 +23,106 @@ const getBrushOffsets = (radius: number, shape: 'square' | 'round') => {
   return offsets;
 };
 
+const fillEnclosedPixelsFromStroke = (strokePixels: Array<{ x: number; y: number }>) => {
+  if (strokePixels.length === 0) {
+    return [];
+  }
+
+  let minX = strokePixels[0]?.x ?? 0;
+  let maxX = strokePixels[0]?.x ?? 0;
+  let minY = strokePixels[0]?.y ?? 0;
+  let maxY = strokePixels[0]?.y ?? 0;
+  for (const pixel of strokePixels) {
+    minX = Math.min(minX, pixel.x);
+    maxX = Math.max(maxX, pixel.x);
+    minY = Math.min(minY, pixel.y);
+    maxY = Math.max(maxY, pixel.y);
+  }
+
+  const pad = 1;
+  const originX = minX - pad;
+  const originY = minY - pad;
+  const width = maxX - minX + 1 + pad * 2;
+  const height = maxY - minY + 1 + pad * 2;
+
+  if (width <= 0 || height <= 0) {
+    return [];
+  }
+
+  const cellCount = width * height;
+  // Safety cap: avoid huge allocations if the user somehow creates an enormous lasso.
+  if (cellCount > 5_000_000) {
+    return strokePixels;
+  }
+
+  const boundary = new Uint8Array(cellCount);
+  for (const pixel of strokePixels) {
+    const localX = pixel.x - originX;
+    const localY = pixel.y - originY;
+    if (localX < 0 || localX >= width || localY < 0 || localY >= height) {
+      continue;
+    }
+    boundary[localX + localY * width] = 1;
+  }
+
+  const visited = new Uint8Array(cellCount);
+  const queue: number[] = [];
+  let head = 0;
+
+  const enqueue = (localX: number, localY: number) => {
+    const idx = localX + localY * width;
+    if (visited[idx] === 1 || boundary[idx] === 1) {
+      return;
+    }
+    visited[idx] = 1;
+    queue.push(idx);
+  };
+
+  // Seed flood-fill from the padded bounding box edges (outside region).
+  for (let x = 0; x < width; x += 1) {
+    enqueue(x, 0);
+    enqueue(x, height - 1);
+  }
+  for (let y = 1; y < height - 1; y += 1) {
+    enqueue(0, y);
+    enqueue(width - 1, y);
+  }
+
+  while (head < queue.length) {
+    const idx = queue[head] ?? 0;
+    head += 1;
+    const localX = idx % width;
+    const localY = Math.floor(idx / width);
+
+    if (localX > 0) {
+      enqueue(localX - 1, localY);
+    }
+    if (localX + 1 < width) {
+      enqueue(localX + 1, localY);
+    }
+    if (localY > 0) {
+      enqueue(localX, localY - 1);
+    }
+    if (localY + 1 < height) {
+      enqueue(localX, localY + 1);
+    }
+  }
+
+  const filled: Array<{ x: number; y: number }> = [];
+  for (let localY = 1; localY < height - 1; localY += 1) {
+    for (let localX = 1; localX < width - 1; localX += 1) {
+      const idx = localX + localY * width;
+      const isBoundary = boundary[idx] === 1;
+      const isOutside = visited[idx] === 1;
+      if (!isOutside || isBoundary) {
+        filled.push({ x: originX + localX, y: originY + localY });
+      }
+    }
+  }
+
+  return filled;
+};
+
 const toGridPoint = (cursor: CursorState): GridPoint => ({
   x: Math.floor(cursor.canvasX / PIXEL_SIZE),
   y: Math.floor(cursor.canvasY / PIXEL_SIZE),
@@ -180,6 +280,14 @@ export class SelectionLassoTool implements Tool {
     const preview = usePreviewStore.getState();
     const selection = useSelectionStore.getState();
     const selected = !this.isRemoving;
+
+    const { shape } = useBrushStore.getState();
+    const startPoint = this.startPoint;
+    const endPoint = this.lastPoint;
+    if (startPoint && endPoint && (startPoint.x !== endPoint.x || startPoint.y !== endPoint.y)) {
+      drawLinePreview(endPoint, startPoint);
+    }
+
     const path: GridPoint[] = [];
     for (const point of this.path) {
       const last = path[path.length - 1];
@@ -187,21 +295,17 @@ export class SelectionLassoTool implements Tool {
         path.push(point);
       }
     }
-    const start = this.startPoint ?? path[0] ?? null;
+    const start = startPoint ?? path[0] ?? null;
     const last = path[path.length - 1] ?? null;
     if (start && last && (start.x !== last.x || start.y !== last.y)) {
       path.push(start);
     }
 
-    const fillPixels = fillPolygonPixels(path);
-    const pixels: Array<{ x: number; y: number; selected: boolean }> =
-      fillPixels.length > 0
-        ? fillPixels.map((pixel) => ({ x: pixel.x, y: pixel.y, selected }))
-        : Array.from(preview.entries()).map((pixel) => ({
-            x: pixel.x,
-            y: pixel.y,
-            selected,
-          }));
+    const strokePixels = Array.from(preview.entries()).map((pixel) => ({ x: pixel.x, y: pixel.y }));
+    const fillPixels = shape === 'point' ? fillPolygonPixels(path) : fillEnclosedPixelsFromStroke(strokePixels);
+    const pixels: Array<{ x: number; y: number; selected: boolean }> = (
+      fillPixels.length > 0 ? fillPixels : strokePixels
+    ).map((pixel) => ({ x: pixel.x, y: pixel.y, selected }));
     selection.setSelections(pixels);
     preview.clear();
     this.drawing = false;

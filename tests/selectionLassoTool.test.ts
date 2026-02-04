@@ -25,7 +25,8 @@ describe('SelectionLassoTool', () => {
     useBrushStore.getState().setShape('round');
   });
 
-  it('fills the enclosed area when closing the loop', () => {
+  it('fills the enclosed area when closing the loop (point brush)', () => {
+    useBrushStore.getState().setShape('point');
     const tool = new SelectionLassoTool();
 
     tool.onBegin?.(cursorAt(0, 0));
@@ -44,7 +45,30 @@ describe('SelectionLassoTool', () => {
     expect(selection.isSelected(-1, -1)).toBe(false);
   });
 
+  it('uses the exterior outline when using a sized brush', () => {
+    useBrushStore.getState().setShape('round');
+    useBrushStore.getState().setSize(1);
+
+    const tool = new SelectionLassoTool();
+
+    tool.onBegin?.(cursorAt(0, 0));
+    tool.onMove?.(cursorAt(4, 0));
+    tool.onMove?.(cursorAt(4, 4));
+    tool.onMove?.(cursorAt(0, 4));
+    tool.onEnd?.();
+
+    const selection = useSelectionStore.getState();
+    expect(selection.selectedCount).toBeGreaterThan(16);
+    // Pixels just outside the centerline polygon should become included.
+    expect(selection.isSelected(-1, 2)).toBe(true);
+    expect(selection.isSelected(5, 2)).toBe(true);
+    // Still outside the stroke's exterior outline for a radius-1 round brush.
+    expect(selection.isSelected(-1, -1)).toBe(false);
+    expect(selection.isSelected(6, 2)).toBe(false);
+  });
+
   it('subtracts the enclosed area with ctrl', () => {
+    useBrushStore.getState().setShape('point');
     const initial: Array<{ x: number; y: number; selected: boolean }> = [];
     for (let y = 0; y < 4; y += 1) {
       for (let x = 0; x < 4; x += 1) {
