@@ -1,11 +1,14 @@
 const { FusesPlugin } = require('@electron-forge/plugin-fuses');
 const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 
+const offlineBuild = process.env.PSS_OFFLINE_BUILD === '1';
+
 module.exports = {
   packagerConfig: {
     asar: true,
     icon: 'build/icon',
     executableName: 'pixel-splash-studio',
+    ...(offlineBuild ? { download: { unsafelyDisableChecksums: true } } : {}),
   },
   rebuildConfig: {},
   makers: [
