@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useRef } from 'react';
 import { usePaletteStore } from '@/state/paletteStore';
 import { ensureContrast, getComplement, hexToRgb, mix, toRgb, toRgba } from '@/core/colorUtils';
 import type { TextFontFamily } from '@/services/textClipboard';
-import { quantizeFontSize, rasterizeText } from '@/services/textClipboard';
+import { applyGradientToRasterizedText, quantizeFontSize, rasterizeText } from '@/services/textClipboard';
+import { getPaletteSelectionRamp } from '@/services/paletteRamp';
+import { useFillBucketStore } from '@/state/fillBucketStore';
 
 type TextToolModalProps = {
   initialText?: string;
@@ -43,7 +45,10 @@ export const TextToolModal = ({
   onConfirm,
 }: TextToolModalProps) => {
   const paletteColors = usePaletteStore((state) => state.colors);
+  const selectedIndices = usePaletteStore((state) => state.selectedIndices);
   const activeIndex = usePaletteStore((state) => state.getActiveIndex());
+  const gradientDirection = useFillBucketStore((state) => state.gradientDirection);
+  const gradientDither = useFillBucketStore((state) => state.gradientDither);
   const [text, setText] = React.useState(initialText);
   const [fontFamily, setFontFamily] = React.useState<TextFontFamily>(initialFontFamily);
   const [fontSize, setFontSize] = React.useState<number>(quantizeFontSize(initialFontSize));
@@ -58,16 +63,24 @@ export const TextToolModal = ({
 
   const rasterized = useMemo(() => {
     try {
-      return rasterizeText({
+      const base = rasterizeText({
         text,
         fontFamily,
         fontSize,
         paletteIndex: activeIndex,
       });
+      if (!base) {
+        return null;
+      }
+      const ramp = getPaletteSelectionRamp();
+      if (ramp.length <= 1) {
+        return base;
+      }
+      return applyGradientToRasterizedText(base, ramp, gradientDirection, gradientDither);
     } catch {
       return null;
     }
-  }, [activeIndex, fontFamily, fontSize, text]);
+  }, [activeIndex, fontFamily, fontSize, gradientDirection, gradientDither, selectedIndices, text]);
 
   useEffect(() => {
     const wrapper = previewWrapperRef.current;
@@ -118,15 +131,26 @@ export const TextToolModal = ({
       context.strokeStyle = borderColor;
       context.strokeRect(offsetX, offsetY, scaledWidth, scaledHeight);
 
-      const fillColor = paletteColors[activeIndex] ?? paletteColors[0] ?? '#ffffff';
-      context.fillStyle = fillColor;
+      const groups = new Map<number, Array<{ x: number; y: number }>>();
       for (const pixel of rasterized.pixels) {
-        context.fillRect(
-          offsetX + pixel.x * scale,
-          offsetY + pixel.y * scale,
-          scale,
-          scale
-        );
+        const entry = groups.get(pixel.paletteIndex);
+        if (entry) {
+          entry.push({ x: pixel.x, y: pixel.y });
+        } else {
+          groups.set(pixel.paletteIndex, [{ x: pixel.x, y: pixel.y }]);
+        }
+      }
+
+      for (const [paletteIndex, pixels] of groups) {
+        context.fillStyle = paletteColors[paletteIndex] ?? paletteColors[activeIndex] ?? '#ffffff';
+        for (const pixel of pixels) {
+          context.fillRect(
+            offsetX + pixel.x * scale,
+            offsetY + pixel.y * scale,
+            scale,
+            scale
+          );
+        }
       }
     };
 

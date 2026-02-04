@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { quantizeFontSize } from '@/services/textClipboard';
+import { applyGradientToRasterizedText, quantizeFontSize } from '@/services/textClipboard';
 
 describe('quantizeFontSize', () => {
   it('clamps to 8..32 and snaps to multiples of 8', () => {
@@ -16,3 +16,20 @@ describe('quantizeFontSize', () => {
   });
 });
 
+describe('applyGradientToRasterizedText', () => {
+  it('maps pixels across bounds using the selected ramp', () => {
+    const rasterized = {
+      width: 3,
+      height: 1,
+      pixels: [
+        { x: 0, y: 0, paletteIndex: 0 },
+        { x: 1, y: 0, paletteIndex: 0 },
+        { x: 2, y: 0, paletteIndex: 0 },
+      ],
+    };
+
+    const ramp = [10, 11, 12];
+    const out = applyGradientToRasterizedText(rasterized, ramp, 'left-right', 'none');
+    expect(out.pixels.map((pixel) => pixel.paletteIndex)).toEqual([10, 11, 12]);
+  });
+});

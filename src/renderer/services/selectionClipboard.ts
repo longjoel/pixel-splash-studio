@@ -135,3 +135,46 @@ export const cutSelectionToClipboard = () => {
   useSelectionStore.getState().clear();
   useToolStore.getState().setActiveTool('stamp');
 };
+
+export const clearSelectionPixels = () => {
+  const selection = useSelectionStore.getState();
+  if (selection.selectedCount === 0) {
+    return;
+  }
+  const history = useHistoryStore.getState();
+  if (history.locked) {
+    return;
+  }
+
+  const pixelStore = usePixelStore.getState();
+  const layerId = pixelStore.activeLayerId;
+  const changes: Array<{ x: number; y: number; prev: number; next: number }> = [];
+  const pixelsToCommit: Array<{ x: number; y: number; paletteIndex: number }> = [];
+
+  const blocks = selection.store.getBlocks();
+  for (const { row, col, block } of blocks) {
+    const baseX = col * BLOCK_SIZE;
+    const baseY = row * BLOCK_SIZE;
+    for (let y = 0; y < BLOCK_SIZE; y += 1) {
+      for (let x = 0; x < BLOCK_SIZE; x += 1) {
+        if (block[y * BLOCK_SIZE + x] !== 1) {
+          continue;
+        }
+        const worldX = baseX + x;
+        const worldY = baseY + y;
+        const prev = pixelStore.getPixelInLayer(layerId, worldX, worldY);
+        if (prev === 0) {
+          continue;
+        }
+        changes.push({ x: worldX, y: worldY, prev, next: 0 });
+        pixelsToCommit.push({ x: worldX, y: worldY, paletteIndex: 0 });
+      }
+    }
+  }
+
+  if (pixelsToCommit.length === 0) {
+    return;
+  }
+  pixelStore.setPixelsInLayer(layerId, pixelsToCommit);
+  history.pushBatch({ layerId, changes });
+};

@@ -21,7 +21,11 @@ import { useOvalStore } from './state/ovalStore';
 import { useSelectionRectangleStore } from './state/selectionRectangleStore';
 import { useFillBucketStore } from './state/fillBucketStore';
 import { useSelectionStore } from './state/selectionStore';
-import { copySelectionToClipboard, cutSelectionToClipboard } from './services/selectionClipboard';
+import {
+  clearSelectionPixels,
+  copySelectionToClipboard,
+  cutSelectionToClipboard,
+} from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
 import { openImageFilePicker } from './services/filePickers';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
@@ -917,6 +921,37 @@ const App = () => {
         ) {
           event.preventDefault();
           removeReference(selectedReference.id);
+          return;
+        }
+        if (key === 'delete' || key === 'backspace') {
+          if (useSelectionStore.getState().selectedCount === 0) {
+            return;
+          }
+          event.preventDefault();
+          clearSelectionPixels();
+          return;
+        }
+        const action = getGlobalHotkeyAction({
+          key: event.key,
+          altKey: event.altKey,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey,
+        });
+        if (action) {
+          if (action.type === 'tool') {
+            event.preventDefault();
+            activateTool(action.tool);
+            return;
+          }
+          if (action.type === 'palette-primary') {
+            const palette = usePaletteStore.getState();
+            if (action.index >= 0 && action.index < palette.colors.length) {
+              event.preventDefault();
+              palette.setSelectedIndices([action.index]);
+            }
+            return;
+          }
         }
         const action = getGlobalHotkeyAction({
           key: event.key,
