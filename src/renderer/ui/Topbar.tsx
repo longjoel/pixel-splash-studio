@@ -146,6 +146,16 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
         </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          data-active={activeTool === 'ai'}
+          onClick={() => activateTool('ai')}
+          title="AI Prompt"
+          aria-label="AI Prompt"
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.ai}</span>
+        </button>
         <span className="topbar__divider" aria-hidden="true" />
         <button
           type="button"

@@ -5,6 +5,8 @@ import PaletteBar from './ui/PaletteBar';
 import TileBar from './ui/TileBar';
 import DropdownSelect from './ui/DropdownSelect';
 import { TextToolModal } from './ui/TextToolModal';
+import { OptionsModal } from './ui/OptionsModal';
+import { AiPromptModal } from './ui/AiPromptModal';
 import { Topbar } from './ui/Topbar';
 import { ToolGroups } from './ui/ToolGroups';
 import BottomDockControls from './ui/BottomDockControls';
@@ -226,6 +228,7 @@ const App = () => {
   const dirty = useProjectStore((state) => state.dirty);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [compactTools, setCompactTools] = useState(() => {
     try {
@@ -243,6 +246,9 @@ const App = () => {
   const [textToolDraft, setTextToolDraft] = useState('');
   const [textToolFontFamily, setTextToolFontFamily] = useState<TextFontFamily>('monospace');
   const [textToolFontSize, setTextToolFontSize] = useState(16);
+  const [aiModalOpen, setAiModalOpen] = useState(false);
+  const [aiModalReturnTool, setAiModalReturnTool] = useState<ToolId>('pen');
+  const [aiPromptDraft, setAiPromptDraft] = useState('');
   const [mergeModalOpen, setMergeModalOpen] = useState(false);
   const [mergeSourcePath, setMergeSourcePath] = useState<string | null>(null);
   const [mergePayload, setMergePayload] = useState<ProjectLoadResult | null>(null);
@@ -413,6 +419,12 @@ const App = () => {
         setTextModalReturnTool((prev) => (activeTool === 'text' ? prev : activeTool));
         setActiveTool('text');
         setTextModalOpen(true);
+        return;
+      }
+      if (tool === 'ai') {
+        setAiModalReturnTool((prev) => (activeTool === 'ai' ? prev : activeTool));
+        setActiveTool('ai');
+        setAiModalOpen(true);
         return;
       }
       setActiveTool(tool);
@@ -1283,6 +1295,9 @@ const App = () => {
           break;
         case 'license':
           setShowLicense(true);
+          break;
+        case 'options':
+          setShowOptions(true);
           break;
         case 'uiScale:reset':
           window.uiScaleApi?.resetScale?.();
@@ -2779,6 +2794,13 @@ SOFTWARE.
           </div>
         </div>
       )}
+      {showOptions && (
+        <OptionsModal
+          onClose={() => {
+            setShowOptions(false);
+          }}
+        />
+      )}
       {textModalOpen && activeTool === 'text' && (
         <TextToolModal
           initialText={textToolDraft}
@@ -2799,6 +2821,19 @@ SOFTWARE.
               paletteIndex: activePaletteIndex,
             });
             setTextModalOpen(false);
+          }}
+        />
+      )}
+      {aiModalOpen && activeTool === 'ai' && (
+        <AiPromptModal
+          initialPrompt={aiPromptDraft}
+          onCancel={() => {
+            setAiModalOpen(false);
+            setActiveTool(aiModalReturnTool);
+          }}
+          onConfirm={({ prompt }) => {
+            setAiPromptDraft(prompt);
+            setAiModalOpen(false);
           }}
         />
       )}

@@ -158,6 +158,27 @@ interface Window {
       handler: (payload: { name: string; author?: string; colors: string[] }) => void
     ) => () => void;
   };
+  optionsApi: {
+    getOpenAiKeyInfo: () => Promise<{
+      hasKey: boolean;
+      encryptionAvailable: boolean;
+      storedEncrypted: boolean;
+    }>;
+    setOpenAiApiKey: (apiKey: string | null) => Promise<void>;
+    getOpenAiImageModel: () => Promise<'gpt-image-1' | 'gpt-image-1-mini'>;
+    setOpenAiImageModel: (model: 'gpt-image-1' | 'gpt-image-1-mini') => Promise<void>;
+  };
+  aiApi: {
+    generateSprite: (payload: {
+      prompt: string;
+      palette: string[];
+      cellWidth: number;
+      cellHeight: number;
+      columns: number;
+      rows: number;
+      referencePngBase64: string | null;
+    }) => Promise<{ pngBase64: string; revisedPrompt?: string }>;
+  };
   uiScaleApi: {
     getScale: () => number;
     resetScale: () => void;

@@ -27,6 +27,7 @@ import { TileRandomTool } from '@/tools/tileRandomTool';
 import { TileExportTool } from '@/tools/tileExportTool';
 import { TileNineSliceTool } from '@/tools/tileNineSliceTool';
 import { TextTool } from '@/tools/textTool';
+import { AiTool } from '@/tools/aiTool';
 import { MagicWandTool } from '@/tools/magicWandTool';
 import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
@@ -681,6 +682,7 @@ const ViewportCanvas = () => {
       oval: new OvalTool(),
       'fill-bucket': new FillBucketTool(),
       text: new TextTool(),
+      ai: new AiTool(),
       eyedropper: new EyeDropperTool(),
       'reference-handle': new ReferenceHandleTool(),
       stamp: new StampTool(),

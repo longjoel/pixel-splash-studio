@@ -210,6 +210,12 @@ body {
   max-height: min(80vh, 720px);
 }
 
+.modal__content--options,
+.modal__content--ai {
+  width: min(720px, 92vw);
+  max-height: min(85vh, 1080px);
+}
+
 .modal__header {
   display: flex;
   justify-content: space-between;
@@ -245,6 +251,56 @@ body {
 
 .modal__body--license {
   overflow: auto;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.18);
+  border-top-color: rgba(255, 255, 255, 0.75);
+  animation: spinner-rotate 0.9s linear infinite;
+}
+
+@keyframes spinner-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.progress-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.progress-bar__indeterminate {
+  position: absolute;
+  inset: 1px auto 1px 1px;
+  width: 38%;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.42),
+    rgba(255, 255, 255, 0.06)
+  );
+  animation: progress-indeterminate 1.2s ease-in-out infinite;
+}
+
+@keyframes progress-indeterminate {
+  0% {
+    transform: translateX(-110%);
+  }
+  50% {
+    transform: translateX(90%);
+  }
+  100% {
+    transform: translateX(260%);
+  }
 }
 
 .modal__license {

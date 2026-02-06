@@ -65,6 +65,13 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
       <path d="M9 18h6" />
     </svg>
   ),
+  ai: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 3l1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3z" />
+      <path d="M18 12l.9 2.8L22 16l-3.1 1.2L18 20l-.9-2.8L14 16l3.1-1.2L18 12z" />
+      <path d="M4 13l.8 2.4L7.5 16l-2.7 1L4 19.4l-.8-2.4L0.5 16l2.7-.6L4 13z" />
+    </svg>
+  ),
   'reference-handle': (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="5" y="5" width="14" height="14" rx="2" />

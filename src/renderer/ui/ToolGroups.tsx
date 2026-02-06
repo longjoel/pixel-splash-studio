@@ -83,6 +83,16 @@ export const ToolGroups = ({ activeTool, selectionCount, activateTool }: ToolGro
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
         </button>
+        <button
+          type="button"
+          className="panel__item toolbar__tool-button"
+          data-active={activeTool === 'ai'}
+          onClick={() => activateTool('ai')}
+          title="AI Prompt"
+          aria-label="AI Prompt"
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.ai}</span>
+        </button>
       </div>
     </div>
     <div className="toolbar__tool-group">

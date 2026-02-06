@@ -66,6 +66,26 @@ contextBridge.exposeInMainWorld('paletteApi', {
   },
 });
 
+contextBridge.exposeInMainWorld('optionsApi', {
+  getOpenAiKeyInfo: () => ipcRenderer.invoke('options:openai:get-key-info'),
+  setOpenAiApiKey: (apiKey: string | null) => ipcRenderer.invoke('options:openai:set-key', apiKey),
+  getOpenAiImageModel: () => ipcRenderer.invoke('options:openai:get-image-model'),
+  setOpenAiImageModel: (model: 'gpt-image-1' | 'gpt-image-1-mini') =>
+    ipcRenderer.invoke('options:openai:set-image-model', model),
+});
+
+contextBridge.exposeInMainWorld('aiApi', {
+  generateSprite: (payload: {
+    prompt: string;
+    palette: string[];
+    cellWidth: number;
+    cellHeight: number;
+    columns: number;
+    rows: number;
+    referencePngBase64: string | null;
+  }) => ipcRenderer.invoke('ai:generate-sprite', payload),
+});
+
 const zoomListeners = new Set<(scale: number) => void>();
 let suppressZoom = false;
 let uiScale = 1;

@@ -9,6 +9,13 @@ import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
 import { EXTENSION_MIME_MAP } from '../src/constants';
 import { decodeImageFile, encodeImageBuffer, type ExportImagePayload } from './imageCodecs';
+import {
+  getOpenAiImageModel,
+  getOpenAiKeyInfo,
+  setOpenAiApiKey,
+  setOpenAiImageModel,
+} from './settings';
+import { generateSprite } from './openai';
 
 // Mesa's RADV Vulkan driver often prints warnings even when Electron doesn't need Vulkan.
 // Disable Vulkan by default on Linux to reduce noisy startup logs.
@@ -597,6 +604,15 @@ app.whenReady().then(() => {
     {
       label: 'Options',
       submenu: [
+        {
+          label: 'OpenAI...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'options');
+          },
+        },
+        { type: 'separator' as const },
         {
           label: 'Consolidate Palette',
           click: () => {
@@ -1337,6 +1353,37 @@ async function importLospecPalette(urlOrSlug: string): Promise<LospecImportedPal
 
 ipcMain.handle('palette:import-lospec', async (_event, urlOrSlug: string) =>
   importLospecPalette(urlOrSlug)
+);
+
+ipcMain.handle('options:openai:get-key-info', async () => getOpenAiKeyInfo());
+
+ipcMain.handle('options:openai:set-key', async (_event, apiKey: string | null) => {
+  await setOpenAiApiKey(apiKey);
+});
+
+ipcMain.handle('options:openai:get-image-model', async () => getOpenAiImageModel());
+
+ipcMain.handle(
+  'options:openai:set-image-model',
+  async (_event, model: 'gpt-image-1' | 'gpt-image-1-mini') => {
+    await setOpenAiImageModel(model);
+  }
+);
+
+ipcMain.handle(
+  'ai:generate-sprite',
+  async (
+    _event,
+    payload: {
+      prompt: string;
+      palette: string[];
+      cellWidth: number;
+      cellHeight: number;
+      columns: number;
+      rows: number;
+      referencePngBase64: string | null;
+    }
+  ) => generateSprite(payload)
 );
 
 ipcMain.handle('debug:perf-log', async (_event, message: string) => {
