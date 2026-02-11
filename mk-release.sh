@@ -65,9 +65,17 @@ PY
 
 git add package.json package-lock.json
 
-git commit -m "Bump version to ${version}"
+if git diff --cached --quiet; then
+  echo "No version file changes to commit; continuing."
+else
+  git commit -m "Bump version to ${version}"
+fi
 
-git tag "${version}"
+if git rev-parse -q --verify "refs/tags/${version}" >/dev/null; then
+  echo "Tag ${version} already exists; reusing it."
+else
+  git tag "${version}"
+fi
 
 if ! npm run build; then
   echo "Error: npm run build failed." >&2
@@ -89,6 +97,11 @@ if [[ -z "$notes_file" ]]; then
   printf "Release %s\n" "$version" > "$notes_file"
 fi
 
-gh release create "$version" "$artifact" --title "$version" --notes-file "$notes_file"
+if gh release view "$version" >/dev/null 2>&1; then
+  gh release upload "$version" "$artifact" --clobber
+  echo "Uploaded artifact to existing release ${version}"
+else
+  gh release create "$version" "$artifact" --title "$version" --notes-file "$notes_file"
+fi
 
-echo "Release created for $version"
+echo "Release publishing completed for $version"
