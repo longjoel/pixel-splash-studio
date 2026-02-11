@@ -1,5 +1,8 @@
 # Pixel Splash Studio
 
+<img width="1619" height="1053" alt="image" src="https://github.com/user-attachments/assets/8e8a1c66-cb5b-4a90-9c39-1034262b2943" />
+
+
 Pixel Splash Studio is a fast, grid-snapped pixel art editor built with Electron + React.
 
 It focuses on a responsive “infinite canvas” workflow: paint pixels in blocks, pan/zoom freely, keep a minimap for navigation, and use reference images as an underlay for planning.
@@ -18,12 +21,6 @@ It focuses on a responsive “infinite canvas” workflow: paint pixels in block
 - Minimap: zoom/pan controls, axes, camera readout
 - `.splash` project format: zipped payload with pixel blocks + embedded reference assets
 
-## Screenshots
-
-![Canvas + tools](docs/000-new%20canvas%20-%20all%20tools.png)
-![Minimap + drawing](docs/001-%20hidden%20mini%20map%20-%20drawing%20in%20progress.png)
-![Tracing references](docs/003-%20tracing%20references.png)
-![Example art](docs/marty%20the%20wizzard.png)
 
 ## Docs
 
