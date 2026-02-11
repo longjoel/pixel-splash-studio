@@ -4,6 +4,7 @@
   background: #0f1115;
   color: #f5f5f5;
   --ui-scale: 1;
+  --topbar-height: 42px;
 }
 
 * {
@@ -25,7 +26,6 @@ body {
   min-height: 100vh;
   overflow: hidden;
   --palette-bar-height: 96px;
-  --topbar-height: 42px;
 }
 
 .app__canvas-layer,
@@ -56,7 +56,7 @@ body {
   top: 0;
   left: 0;
   right: 0;
-  height: var(--topbar-height);
+  min-height: 42px;
   padding: 6px 10px;
   display: flex;
   align-items: center;
@@ -70,12 +70,110 @@ body {
 
 .topbar__tools {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  row-gap: 6px;
   align-items: center;
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
+  overflow: visible;
+  white-space: normal;
   flex: 1;
+}
+
+.topbar__options {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: flex-end;
+}
+
+.topbar__options .panel__section {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  align-items: flex-end;
+}
+
+.topbar__options .panel__group {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.topbar__options .panel__label {
+  font-size: 10px;
+}
+
+.topbar__options .panel__item {
+  margin-bottom: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.topbar__options .panel__select {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.topbar__options .panel__range {
+  height: 16px;
+}
+
+.topbar__options .panel__number {
+  padding: 5px 8px;
+  font-size: 11px;
+}
+
+.topbar__options .panel__radio {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+
+.topbar__options .panel__row {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  width: auto;
+}
+
+.topbar__options .panel__row--dual {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.topbar__options .panel__row--cards {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.topbar__options .panel__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.topbar__options .panel__stack--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+}
+
+.topbar__options .panel__stack--inline .panel__range {
+  flex: 1 1 140px;
+  min-width: 120px;
+}
+
+.topbar__options .panel__stack--inline .panel__number {
+  width: 64px;
+}
+
+
+.topbar__options .panel__note {
+  font-size: 10px;
 }
 
 .topbar__tool-button {

@@ -15,6 +15,35 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
       <path d="M19 11l-4-4" />
     </svg>
   ),
+  cut: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <circle cx="6" cy="6" r="2.2" />
+      <circle cx="6" cy="18" r="2.2" />
+      <path d="M8 8l12 8" />
+      <path d="M8 16l6-4" />
+    </svg>
+  ),
+  copy: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="6" y="6" width="10" height="10" rx="1.6" />
+      <rect x="9" y="9" width="10" height="10" rx="1.6" />
+    </svg>
+  ),
+  'copy-deep': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="7" width="9" height="9" rx="1.4" />
+      <rect x="10" y="9" width="9" height="9" rx="1.4" />
+      <path d="M17 5v4" />
+      <path d="M15 7h4" />
+    </svg>
+  ),
+  paste: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="6" y="7" width="12" height="13" rx="1.6" />
+      <path d="M9 4h6v3H9z" />
+      <path d="M9 11h6" />
+    </svg>
+  ),
   pen: (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <path d="M4 20l4-1 12-12-3-3L5 16l-1 4z" />
@@ -173,6 +202,36 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
       <rect x="6" y="7" width="12" height="11" rx="1.5" />
       <path d="M12 4v8" />
       <path d="M9.5 6.5L12 4l2.5 2.5" />
+    </svg>
+  ),
+  export: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 4v10" />
+      <path d="M8 10l4 4 4-4" />
+      <rect x="5" y="18" width="14" height="2" rx="1" />
+    </svg>
+  ),
+  clear: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="2" />
+      <path d="M8 8l8 8" />
+      <path d="M16 8l-8 8" />
+    </svg>
+  ),
+  layers: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 4l8 4-8 4-8-4 8-4z" />
+      <path d="M4 12l8 4 8-4" />
+      <path d="M4 16l8 4 8-4" />
+    </svg>
+  ),
+  overlays: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="5" y="5" width="14" height="14" rx="1.8" />
+      <path d="M12 5v14" />
+      <path d="M5 12h14" />
+      <path d="M8 8h0" />
+      <path d="M16 16h0" />
     </svg>
   ),
 };

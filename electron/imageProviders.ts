@@ -1,4 +1,10 @@
-import { getOpenAiApiKey, getOpenAiImageModel } from './settings';
+import {
+  getAiImageProvider,
+  getLocalAiApiKey,
+  getLocalAiConfig,
+  getOpenAiApiKey,
+  getOpenAiImageModel,
+} from './settings';
 
 type GenerateSpriteRequest = {
   prompt: string;
@@ -14,9 +20,17 @@ type OpenAiImageResponse = {
   data?: Array<{ b64_json?: string; revised_prompt?: string }>;
 };
 
-const OPENAI_API_BASE = 'https://api.openai.com/v1';
+const OPENAI_BASE_URL = 'https://api.openai.com/v1';
 
-const buildSystemPrompt = (req: GenerateSpriteRequest) => {
+const joinUrl = (baseUrl: string, path: string) => {
+  const base = baseUrl.replace(/\/+$/, '');
+  const suffix = path.startsWith('/') ? path : `/${path}`;
+  return `${base}${suffix}`;
+};
+
+const decodeBase64 = (value: string) => Buffer.from(value, 'base64');
+
+const buildPrompt = (req: GenerateSpriteRequest) => {
   const totalWidth = req.cellWidth * req.columns;
   const totalHeight = req.cellHeight * req.rows;
   const palette = req.palette.filter((c) => typeof c === 'string' && c.trim()).join(', ');
@@ -35,18 +49,31 @@ const buildSystemPrompt = (req: GenerateSpriteRequest) => {
   ].join('\n');
 };
 
-const decodeBase64 = (value: string) => Buffer.from(value, 'base64');
+const buildAuthHeaders = (apiKey: string | null): Record<string, string> => {
+  const headers: Record<string, string> = {};
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
+  }
+  return headers;
+};
 
 export const generateSprite = async (
   req: GenerateSpriteRequest
 ): Promise<{ pngBase64: string; revisedPrompt?: string }> => {
-  const apiKey = process.env.OPENAI_API_KEY?.trim() || (await getOpenAiApiKey());
-  if (!apiKey) {
+  const provider = await getAiImageProvider();
+  const prompt = buildPrompt(req);
+
+  const baseUrl = provider === 'localai' ? (await getLocalAiConfig()).baseUrl : OPENAI_BASE_URL;
+  const model =
+    provider === 'localai' ? (await getLocalAiConfig()).model : await getOpenAiImageModel();
+  const apiKey =
+    provider === 'localai'
+      ? (process.env.LOCALAI_API_KEY?.trim() || (await getLocalAiApiKey()))
+      : (process.env.OPENAI_API_KEY?.trim() || (await getOpenAiApiKey()));
+
+  if (provider === 'openai' && !apiKey) {
     throw new Error('OpenAI API key not set. Open Options → OpenAI…');
   }
-
-  const model = await getOpenAiImageModel();
-  const prompt = buildSystemPrompt(req);
 
   // Use image edits when a reference image is provided, otherwise use generations.
   if (req.referencePngBase64) {
@@ -61,28 +88,30 @@ export const generateSprite = async (
       'reference.png'
     );
 
-    const response = await fetch(`${OPENAI_API_BASE}/images/edits`, {
+    const response = await fetch(joinUrl(baseUrl, '/images/edits'), {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
+      headers: buildAuthHeaders(apiKey),
       body: form,
     });
     if (!response.ok) {
       const text = await response.text().catch(() => '');
-      throw new Error(`OpenAI image edit failed (${response.status}): ${text || response.statusText}`);
+      throw new Error(
+        `Image edit failed (${response.status}): ${text || response.statusText}`
+      );
     }
     const json = (await response.json()) as OpenAiImageResponse;
     const first = json.data?.[0];
     const b64 = first?.b64_json;
     if (!b64) {
-      throw new Error('OpenAI image edit returned no image.');
+      throw new Error('Image edit returned no image.');
     }
     return { pngBase64: b64, revisedPrompt: first?.revised_prompt };
   }
 
-  const response = await fetch(`${OPENAI_API_BASE}/images/generations`, {
+  const response = await fetch(joinUrl(baseUrl, '/images/generations'), {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      ...buildAuthHeaders(apiKey),
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
@@ -95,14 +124,14 @@ export const generateSprite = async (
   if (!response.ok) {
     const text = await response.text().catch(() => '');
     throw new Error(
-      `OpenAI image generation failed (${response.status}): ${text || response.statusText}`
+      `Image generation failed (${response.status}): ${text || response.statusText}`
     );
   }
   const json = (await response.json()) as OpenAiImageResponse;
   const first = json.data?.[0];
   const b64 = first?.b64_json;
   if (!b64) {
-    throw new Error('OpenAI image generation returned no image.');
+    throw new Error('Image generation returned no image.');
   }
   return { pngBase64: b64, revisedPrompt: first?.revised_prompt };
 };

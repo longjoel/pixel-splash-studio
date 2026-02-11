@@ -8,8 +8,6 @@ import { TextToolModal } from './ui/TextToolModal';
 import { OptionsModal } from './ui/OptionsModal';
 import { AiPromptModal } from './ui/AiPromptModal';
 import { Topbar } from './ui/Topbar';
-import { ToolGroups } from './ui/ToolGroups';
-import BottomDockControls from './ui/BottomDockControls';
 import pssLogoUrl from './assets/pss-logo.png';
 import { loadProject, newProject, saveProject } from './services/project';
 import { mergeProjectPixels, readSplashProject } from './services/projectMerge';
@@ -57,7 +55,7 @@ import { copyTextToClipboard, type TextFontFamily } from './services/textClipboa
 import { getGlobalHotkeyAction } from './services/hotkeys';
 import {
   traceReferenceWithMaxColors,
-  traceReferenceWithPaletteRange,
+  traceReferenceWithPaletteSelection,
 } from './services/referenceTrace';
 import { useReferenceStore } from './state/referenceStore';
 import { useReferenceHandleStore } from './state/referenceHandleStore';
@@ -87,11 +85,17 @@ import {
   TRACE_DEFAULT_MAX_COLORS,
   TRACE_MAX_COLORS_MAX,
   TRACE_MAX_COLORS_MIN,
-  TOOL_LABELS,
 } from '../constants';
 
 const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
+
+const isTileTool = (tool: ToolId) =>
+  tool === 'tile-sampler' ||
+  tool === 'tile-pen' ||
+  tool === 'tile-rectangle' ||
+  tool === 'tile-9slice' ||
+  tool === 'tile-export';
 
 const REFERENCE_SCALE_SLIDER_MIN = 0;
 const REFERENCE_SCALE_SLIDER_MAX = 100;
@@ -229,18 +233,8 @@ const App = () => {
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showLicense, setShowLicense] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [advancedMode, setAdvancedMode] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
-  const [compactTools, setCompactTools] = useState(() => {
-    try {
-      const stored = window.localStorage.getItem('pss.toolsCompact');
-      if (stored === null) {
-        return true;
-      }
-      return stored === '1';
-    } catch {
-      return true;
-    }
-  });
   const [textModalOpen, setTextModalOpen] = useState(false);
   const [textModalReturnTool, setTextModalReturnTool] = useState<ToolId>('pen');
   const [textToolDraft, setTextToolDraft] = useState('');
@@ -262,7 +256,6 @@ const App = () => {
   const [romPage, setRomPage] = useState(0);
   const romPageTileRows = 32;
   const romDisplayScale = 2;
-  const [toolbarCollapsed, setToolbarCollapsed] = useState(false);
   const [minimapCollapsed, setMinimapCollapsed] = useState(true);
   const [memoryInfoEnabled, setMemoryInfoEnabled] = useState(false);
   const [memoryLabel, setMemoryLabel] = useState('');
@@ -304,7 +297,8 @@ const App = () => {
   const setFillGradientDirection = useFillBucketStore((state) => state.setGradientDirection);
   const fillGradientDither = useFillBucketStore((state) => state.gradientDither);
   const setFillGradientDither = useFillBucketStore((state) => state.setGradientDither);
-  const paletteSelectionCount = usePaletteStore((state) => state.selectedIndices.length);
+  const paletteSelectedIndices = usePaletteStore((state) => state.selectedIndices);
+  const paletteSelectionCount = paletteSelectedIndices.length;
   const activePaletteIndex = usePaletteStore((state) => state.getActiveIndex());
   const stampMode = useStampStore((state) => state.mode);
   const stampSnap = useStampStore((state) => state.snap);
@@ -319,22 +313,6 @@ const App = () => {
   const nineSlice = useTileMapStore((state) => state.nineSlice);
   const tileSelectionCols = useTileMapStore((state) => state.selectedTileCols);
 
-  useEffect(() => {
-    try {
-      window.localStorage.setItem('pss.toolsCompact', compactTools ? '1' : '0');
-    } catch {
-      // Ignore.
-    }
-  }, [compactTools]);
-
-  const disableCompactTools = useCallback(() => {
-    setCompactTools(false);
-    try {
-      window.localStorage.setItem('pss.toolsCompact', '0');
-    } catch {
-      // Ignore.
-    }
-  }, []);
 
   const tileSelectionRows = useTileMapStore((state) => state.selectedTileRows);
   const removeReference = useReferenceStore((state) => state.removeReference);
@@ -439,20 +417,11 @@ const App = () => {
     state.selectedId ? state.items.find((item) => item.id === state.selectedId) ?? null : null
   );
   const updateReference = useReferenceStore((state) => state.updateReference);
-  const paletteMaxIndex = Math.max(0, paletteColors.length - 1);
-  const [tracePaletteStart, setTracePaletteStart] = useState(0);
-  const [tracePaletteEnd, setTracePaletteEnd] = useState(paletteMaxIndex);
   const [traceMaxColors, setTraceMaxColors] = useState(TRACE_DEFAULT_MAX_COLORS);
   const projectTitle = getProjectTitle();
-  const toolbarTitle = TOOL_LABELS[activeTool] ?? 'Toolbar';
   const activeTileSet = tileSets.find((set) => set.id === activeTileSetId) ?? tileSets[0];
   const activeTileMap = tileMaps.find((map) => map.id === activeTileMapId) ?? tileMaps[0];
-  const isTilingTool =
-    activeTool === 'tile-sampler' ||
-    activeTool === 'tile-pen' ||
-    activeTool === 'tile-rectangle' ||
-    activeTool === 'tile-9slice' ||
-    activeTool === 'tile-export';
+  const isTilingTool = advancedMode && isTileTool(activeTool);
   const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
   const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
   const resizingRef = React.useRef(false);
@@ -491,15 +460,34 @@ const App = () => {
   const paletteRightOffset = (minimapCollapsed ? 0 : 324) + 24;
 
   useEffect(() => {
-    setTracePaletteStart((value) => clamp(value, 0, paletteMaxIndex));
-    setTracePaletteEnd((value) => clamp(value, 0, paletteMaxIndex));
-  }, [paletteMaxIndex]);
+    let cancelled = false;
+    const run = async () => {
+      try {
+        const value = await window.optionsApi.getAdvancedMode();
+        if (!cancelled) {
+          setAdvancedMode(Boolean(value));
+        }
+      } catch {
+        // Ignore and keep default.
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (activeTool !== 'reference-handle') {
       setSelectedReference(null);
     }
   }, [activeTool, setSelectedReference]);
+
+  useEffect(() => {
+    if (!advancedMode && isTileTool(activeTool)) {
+      setActiveTool('pen');
+    }
+  }, [advancedMode, activeTool, setActiveTool]);
 
   const handleSave = React.useCallback(async () => {
     await saveProject(projectPath ?? undefined);
@@ -952,6 +940,9 @@ const App = () => {
         });
         if (action) {
           if (action.type === 'tool') {
+            if (!advancedMode && isTileTool(action.tool)) {
+              return;
+            }
             event.preventDefault();
             activateTool(action.tool);
             return;
@@ -1052,6 +1043,7 @@ const App = () => {
     handleNew,
     handleSave,
     handleShortcuts,
+    advancedMode,
     redo,
     removeReference,
     selectedReference,
@@ -1106,21 +1098,40 @@ const App = () => {
     });
   };
 
+  const paletteSelectionSorted = React.useMemo(() => {
+    const maxIndex = paletteColors.length - 1;
+    if (maxIndex < 0) {
+      return [] as number[];
+    }
+    const unique = new Set<number>();
+    for (const index of paletteSelectedIndices) {
+      if (!Number.isFinite(index)) {
+        continue;
+      }
+      const normalized = Math.round(index);
+      if (normalized < 0 || normalized > maxIndex) {
+        continue;
+      }
+      unique.add(normalized);
+    }
+    return Array.from(unique).sort((a, b) => a - b);
+  }, [paletteColors.length, paletteSelectedIndices]);
+
+  const paletteSelectionLabel =
+    paletteSelectionSorted.length === 0
+      ? 'Select palette colors to trace.'
+      : paletteSelectionSorted.length === 1
+        ? 'Using 1 selected color.'
+        : `Using ${paletteSelectionSorted.length} selected colors.`;
+
   const handleTracePaletteRange = () => {
     if (!selectedReference || paletteColors.length === 0) {
       return;
     }
-    const minIndex = clamp(
-      Math.round(Math.min(tracePaletteStart, tracePaletteEnd)),
-      0,
-      paletteMaxIndex
-    );
-    const maxIndex = clamp(
-      Math.round(Math.max(tracePaletteStart, tracePaletteEnd)),
-      0,
-      paletteMaxIndex
-    );
-    traceReferenceWithPaletteRange(selectedReference, minIndex, maxIndex);
+    if (paletteSelectionSorted.length === 0) {
+      return;
+    }
+    traceReferenceWithPaletteSelection(selectedReference, paletteSelectionSorted);
   };
 
   const handleTraceMaxColors = () => {
@@ -1216,15 +1227,17 @@ const App = () => {
           case 'showAxes':
             setShowAxes(next);
             return;
-          case 'toolbarCollapsed':
-            setToolbarCollapsed(next);
-            return;
           case 'minimapCollapsed':
             setMinimapCollapsed(next);
             return;
           default:
             return;
         }
+      }
+      if (action.startsWith('options:advancedMode:')) {
+        const rawValue = action.split(':')[2] ?? '';
+        setAdvancedMode(rawValue === 'true');
+        return;
       }
       switch (action) {
         case 'new':
@@ -1325,6 +1338,7 @@ const App = () => {
     handleSaveAs,
     handleShortcuts,
     redo,
+    setAdvancedMode,
     setActiveTool,
     setMinimapCollapsed,
     setMemoryInfoEnabled,
@@ -1336,7 +1350,6 @@ const App = () => {
     setShowTileGrid,
     setShowTileLayer,
     setTileDebugOverlay,
-    setToolbarCollapsed,
     undo,
   ]);
 
@@ -1349,7 +1362,6 @@ const App = () => {
       showTileGrid,
       showAxes,
       tileDebugOverlay,
-      toolbarCollapsed,
       minimapCollapsed,
     });
   }, [
@@ -1360,942 +1372,835 @@ const App = () => {
     showTileGrid,
     showAxes,
     tileDebugOverlay,
-    toolbarCollapsed,
     minimapCollapsed,
   ]);
 
+  const renderToolOptions = () => (
+    <div className="panel__section">
+      {activeTool === 'pen' || activeTool === 'selection-lasso' ? (
+        <>
+          <div className="panel__group">
+            <span className="panel__label">Size</span>
+            <div className="panel__row">
+              {[1, 4, 8].map((size) => (
+                <button
+                  key={size}
+                  type="button"
+                  className="panel__item"
+                  data-active={brushSize === size}
+                  disabled={brushShape === 'point'}
+                  onClick={() => setBrushSize(size)}
+                >
+                  {size}px
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="panel__group">
+            <span className="panel__label">Brush</span>
+            <div className="panel__row">
+              {([
+                { id: 'point', label: 'fine-point' },
+                { id: 'square', label: 'rectangle' },
+                { id: 'round', label: 'circle' },
+              ] as const).map((shape) => (
+                <button
+                  key={shape.id}
+                  type="button"
+                  className="panel__item"
+                  data-active={brushShape === shape.id}
+                  onClick={() => setBrushShape(shape.id)}
+                >
+                  <span className="tool-label" aria-label={shape.label}>
+                    {shape.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : activeTool === 'spray' ? (
+        <>
+          <div className="panel__row panel__row--dual">
+            <div className="panel__group">
+              <span className="panel__label">Radius</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="range"
+                  className="panel__range"
+                  aria-label="Radius"
+                  min={1}
+                  max={64}
+                  step={1}
+                  value={sprayRadius}
+                  onChange={(event) => setSprayRadius(event.currentTarget.valueAsNumber)}
+                />
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Radius"
+                  min={1}
+                  max={64}
+                  step={1}
+                  value={sprayRadius}
+                  onChange={(event) => setSprayRadius(event.currentTarget.valueAsNumber)}
+                />
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Density</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="range"
+                  className="panel__range"
+                  aria-label="Density"
+                  min={10}
+                  max={2000}
+                  step={10}
+                  value={Math.min(2000, sprayDensity)}
+                  onChange={(event) => setSprayDensity(event.currentTarget.valueAsNumber)}
+                />
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Density"
+                  min={1}
+                  max={20000}
+                  step={10}
+                  value={sprayDensity}
+                  onChange={(event) => setSprayDensity(event.currentTarget.valueAsNumber)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="panel__row">
+            <div className="panel__group">
+              <span className="panel__label">Falloff</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="range"
+                  className="panel__range"
+                  aria-label="Falloff"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={sprayFalloff}
+                  onChange={(event) => setSprayFalloff(event.currentTarget.valueAsNumber)}
+                />
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Falloff"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={sprayFalloff}
+                  onChange={(event) => setSprayFalloff(event.currentTarget.valueAsNumber)}
+                />
+              </div>
+            </div>
+          </div>
+        </>
+      ) : activeTool === 'line' ? (
+        paletteSelectionCount >= 2 ? (
+          <>
+            <div className="panel__group">
+              <span className="panel__label">Direction</span>
+              <DropdownSelect
+                ariaLabel="Gradient direction"
+                value={fillGradientDirection}
+                onChange={setFillGradientDirection}
+                options={[
+                  { value: 'top-bottom', label: 'Top → Bottom' },
+                  { value: 'bottom-top', label: 'Bottom → Top' },
+                  { value: 'left-right', label: 'Left → Right' },
+                  { value: 'right-left', label: 'Right → Left' },
+                ]}
+              />
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Dither</span>
+              <DropdownSelect
+                ariaLabel="Gradient dither"
+                value={fillGradientDither}
+                onChange={setFillGradientDither}
+                options={[
+                  { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                  { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                  { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                  { value: 'none', label: 'None' },
+                  { value: 'random', label: 'Random (stable)' },
+                  { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                  { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                  { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                  { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                  { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                ]}
+              />
+            </div>
+            <div className="panel__note">
+              Select 2+ palette swatches (Shift-click) for gradient ramp.
+            </div>
+          </>
+        ) : (
+          <div className="panel__note">
+            Select 2+ palette swatches (Shift-click) for gradient ramp.
+          </div>
+        )
+      ) : activeTool === 'rectangle' ? (
+        <>
+          <div className="panel__group">
+            <span className="panel__label">Mode</span>
+            <div className="panel__row">
+              <label className="panel__radio">
+                <input
+                  type="radio"
+                  name="rectangle-mode"
+                  value="filled"
+                  checked={rectangleMode === 'filled'}
+                  onChange={() => setRectangleMode('filled')}
+                />
+                Filled
+              </label>
+              <label className="panel__radio">
+                <input
+                  type="radio"
+                  name="rectangle-mode"
+                  value="outlined"
+                  checked={rectangleMode === 'outlined'}
+                  onChange={() => setRectangleMode('outlined')}
+                />
+                Outlined
+              </label>
+            </div>
+          </div>
+          {paletteSelectionCount >= 2 && (
+            <>
+              <div className="panel__group">
+                <span className="panel__label">Direction</span>
+                <DropdownSelect
+                  ariaLabel="Gradient direction"
+                  value={fillGradientDirection}
+                  onChange={setFillGradientDirection}
+                  options={[
+                    { value: 'top-bottom', label: 'Top → Bottom' },
+                    { value: 'bottom-top', label: 'Bottom → Top' },
+                    { value: 'left-right', label: 'Left → Right' },
+                    { value: 'right-left', label: 'Right → Left' },
+                  ]}
+                />
+              </div>
+              <div className="panel__group">
+                <span className="panel__label">Dither</span>
+                <DropdownSelect
+                  ariaLabel="Gradient dither"
+                  value={fillGradientDither}
+                  onChange={setFillGradientDither}
+                  options={[
+                    { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                    { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                    { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                    { value: 'none', label: 'None' },
+                    { value: 'random', label: 'Random (stable)' },
+                    { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                    { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                    { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                    { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                    { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                  ]}
+                />
+              </div>
+              <div className="panel__note">
+                Select 2+ palette swatches (Shift-click) for gradient ramp.
+              </div>
+            </>
+          )}
+        </>
+      ) : activeTool === 'oval' ? (
+        <>
+          <div className="panel__group">
+            <span className="panel__label">Mode</span>
+            <div className="panel__row">
+              <label className="panel__radio">
+                <input
+                  type="radio"
+                  name="oval-mode"
+                  value="filled"
+                  checked={ovalMode === 'filled'}
+                  onChange={() => setOvalMode('filled')}
+                />
+                Filled
+              </label>
+              <label className="panel__radio">
+                <input
+                  type="radio"
+                  name="oval-mode"
+                  value="outlined"
+                  checked={ovalMode === 'outlined'}
+                  onChange={() => setOvalMode('outlined')}
+                />
+                Outlined
+              </label>
+            </div>
+          </div>
+          {paletteSelectionCount >= 2 && (
+            <>
+              <div className="panel__group">
+                <span className="panel__label">Direction</span>
+                <DropdownSelect
+                  ariaLabel="Gradient direction"
+                  value={fillGradientDirection}
+                  onChange={setFillGradientDirection}
+                  options={[
+                    { value: 'top-bottom', label: 'Top → Bottom' },
+                    { value: 'bottom-top', label: 'Bottom → Top' },
+                    { value: 'left-right', label: 'Left → Right' },
+                    { value: 'right-left', label: 'Right → Left' },
+                  ]}
+                />
+              </div>
+              <div className="panel__group">
+                <span className="panel__label">Dither</span>
+                <DropdownSelect
+                  ariaLabel="Gradient dither"
+                  value={fillGradientDither}
+                  onChange={setFillGradientDither}
+                  options={[
+                    { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                    { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                    { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                    { value: 'none', label: 'None' },
+                    { value: 'random', label: 'Random (stable)' },
+                    { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                    { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                    { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                    { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                    { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                  ]}
+                />
+              </div>
+              <div className="panel__note">
+                Select 2+ palette swatches (Shift-click) for gradient ramp.
+              </div>
+            </>
+          )}
+        </>
+      ) : activeTool === 'fill-bucket' ? (
+        <>
+          <div className="panel__group">
+            <span className="panel__label">Mode</span>
+            <div className="panel__row">
+              <label className="panel__radio">
+                <input
+                  type="radio"
+                  name="fill-mode"
+                  value="color"
+                  checked={fillMode === 'color'}
+                  onChange={() => setFillMode('color')}
+                />
+                Color
+              </label>
+              <label className="panel__radio">
+                <input
+                  type="radio"
+                  name="fill-mode"
+                  value="selection"
+                  checked={fillMode === 'selection'}
+                  onChange={() => setFillMode('selection')}
+                />
+                Selection
+              </label>
+            </div>
+            <div className="panel__note">
+              Select 2+ palette swatches (Shift-click) for gradient ramp.
+            </div>
+          </div>
+          {paletteSelectionCount >= 2 && (
+            <>
+              <div className="panel__group">
+                <span className="panel__label">Direction</span>
+                <DropdownSelect
+                  ariaLabel="Gradient direction"
+                  value={fillGradientDirection}
+                  onChange={setFillGradientDirection}
+                  options={[
+                    { value: 'top-bottom', label: 'Top → Bottom' },
+                    { value: 'bottom-top', label: 'Bottom → Top' },
+                    { value: 'left-right', label: 'Left → Right' },
+                    { value: 'right-left', label: 'Right → Left' },
+                  ]}
+                />
+              </div>
+              <div className="panel__group">
+                <span className="panel__label">Dither</span>
+                <DropdownSelect
+                  ariaLabel="Gradient dither"
+                  value={fillGradientDither}
+                  onChange={setFillGradientDither}
+                  options={[
+                    { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
+                    { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
+                    { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
+                    { value: 'none', label: 'None' },
+                    { value: 'random', label: 'Random (stable)' },
+                    { value: 'blue-noise', label: 'Blue noise (interleaved)' },
+                    { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
+                    { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
+                    { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
+                    { value: 'stucki', label: 'Error diffusion (Stucki)' },
+                  ]}
+                />
+              </div>
+            </>
+          )}
+        </>
+      ) : activeTool === 'texture-roll' ? (
+        <div className="panel__note">
+          {selectionCount === 0
+            ? 'Make a selection first.'
+            : 'Click and drag inside the selection to scroll it (wraps at selection bounds). Selection snap controls pixel vs tile steps.'}
+        </div>
+      ) : activeTool === 'stamp' ? (
+        <>
+          <div className="panel__row panel__row--dual">
+            <div className="panel__group">
+              <span className="panel__label">Mode</span>
+              <div className="panel__toggle-group">
+                <label className="panel__toggle" data-active={stampMode === 'soft'}>
+                  <input
+                    type="radio"
+                    name="stamp-mode"
+                    value="soft"
+                    checked={stampMode === 'soft'}
+                    onChange={() => setStampMode('soft')}
+                  />
+                  Soft
+                </label>
+                <label className="panel__toggle" data-active={stampMode === 'hard'}>
+                  <input
+                    type="radio"
+                    name="stamp-mode"
+                    value="hard"
+                    checked={stampMode === 'hard'}
+                    onChange={() => setStampMode('hard')}
+                  />
+                  Hard
+                </label>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Drag</span>
+              <div className="panel__toggle-group">
+                <label className="panel__toggle" data-active={!stampDrag}>
+                  <input
+                    type="radio"
+                    name="stamp-drag"
+                    value="off"
+                    checked={!stampDrag}
+                    onChange={() => setStampDrag(false)}
+                  />
+                  Off
+                </label>
+                <label className="panel__toggle" data-active={stampDrag}>
+                  <input
+                    type="radio"
+                    name="stamp-drag"
+                    value="on"
+                    checked={stampDrag}
+                    onChange={() => setStampDrag(true)}
+                  />
+                  On
+                </label>
+              </div>
+            </div>
+          </div>
+          <div className="panel__row panel__row--dual">
+            <div className="panel__group">
+              <span className="panel__label">Snap</span>
+              <div className="panel__toggle-group">
+                <label className="panel__toggle" data-active={stampSnap === 'pixel'}>
+                  <input
+                    type="radio"
+                    name="stamp-snap"
+                    value="pixel"
+                    checked={stampSnap === 'pixel'}
+                    onChange={() => setStampSnap('pixel')}
+                  />
+                  Pixel
+                </label>
+                <label className="panel__toggle" data-active={stampSnap === 'tile'}>
+                  <input
+                    type="radio"
+                    name="stamp-snap"
+                    value="tile"
+                    checked={stampSnap === 'tile'}
+                    onChange={() => setStampSnap('tile')}
+                  />
+                  Tile
+                </label>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Flip</span>
+              <div className="panel__toggle-group">
+                <button
+                  type="button"
+                  className="panel__toggle"
+                  data-active={stampFlipX}
+                  onClick={() => setStampFlipX(!stampFlipX)}
+                >
+                  Flip X
+                </button>
+                <button
+                  type="button"
+                  className="panel__toggle"
+                  data-active={stampFlipY}
+                  onClick={() => setStampFlipY(!stampFlipY)}
+                >
+                  Flip Y
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="panel__row panel__row--dual">
+            <div className="panel__group">
+              <span className="panel__label">Scale</span>
+              <DropdownSelect
+                ariaLabel="Scale"
+                value={String(stampScale) as '1' | '2' | '4' | '8'}
+                onChange={(next) => setStampScale(Number(next) as 1 | 2 | 4 | 8)}
+                options={[
+                  { value: '1', label: '1x' },
+                  { value: '2', label: '2x' },
+                  { value: '4', label: '4x' },
+                  { value: '8', label: '8x' },
+                ]}
+              />
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Rotate</span>
+              <DropdownSelect
+                ariaLabel="Rotate"
+                value={String(stampRotation) as '0' | '90' | '180' | '270'}
+                onChange={(next) => setStampRotation(Number(next) as 0 | 90 | 180 | 270)}
+                options={[
+                  { value: '0', label: '0deg' },
+                  { value: '90', label: '90deg' },
+                  { value: '180', label: '180deg' },
+                  { value: '270', label: '270deg' },
+                ]}
+              />
+            </div>
+          </div>
+          <div className="panel__row">
+            <div className="panel__group">
+              <span className="panel__label">Paste</span>
+              <div className="panel__toggle-group">
+                <label className="panel__toggle" data-active={stampPasteDuplicateColors}>
+                  <input
+                    type="checkbox"
+                    checked={stampPasteDuplicateColors}
+                    onChange={() => setStampPasteDuplicateColors(!stampPasteDuplicateColors)}
+                  />
+                  Duplicate Colors
+                </label>
+              </div>
+            </div>
+          </div>
+        </>
+      ) : activeTool === 'reference-handle' ? (
+        <div className="panel__group">
+          <div className="panel__row panel__row--cards">
+            <div className="panel__group">
+              <span className="panel__label">Rotation</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="range"
+                  className="panel__range"
+                  aria-label="Rotation"
+                  min={REFERENCE_ROTATION_MIN}
+                  max={REFERENCE_ROTATION_MAX}
+                  step={1}
+                  value={referenceRotation}
+                  disabled={referenceDisabled}
+                  onChange={(event) => handleReferenceRotation(event.currentTarget.valueAsNumber)}
+                />
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Rotation"
+                  min={REFERENCE_ROTATION_MIN}
+                  max={REFERENCE_ROTATION_MAX}
+                  step={1}
+                  value={referenceRotation}
+                  disabled={referenceDisabled}
+                  onChange={(event) => handleReferenceRotation(event.currentTarget.valueAsNumber)}
+                />
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Scale</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="range"
+                  className="panel__range"
+                  aria-label="Scale"
+                  min={REFERENCE_SCALE_SLIDER_MIN}
+                  max={REFERENCE_SCALE_SLIDER_MAX}
+                  step={1}
+                  value={referenceScaleSlider}
+                  disabled={referenceDisabled}
+                  onChange={(event) =>
+                    handleReferenceScale(sliderToScale(event.currentTarget.valueAsNumber))
+                  }
+                />
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Scale"
+                  min={REFERENCE_SCALE_MIN}
+                  max={REFERENCE_SCALE_MAX}
+                  step={0.01}
+                  value={referenceScale}
+                  disabled={referenceDisabled}
+                  onChange={(event) => handleReferenceScale(event.currentTarget.valueAsNumber)}
+                />
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Opacity</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="range"
+                  className="panel__range"
+                  aria-label="Opacity"
+                  min={REFERENCE_OPACITY_MIN}
+                  max={REFERENCE_OPACITY_MAX}
+                  step={0.05}
+                  value={referenceOpacity}
+                  disabled={referenceDisabled}
+                  onChange={(event) => handleReferenceOpacity(event.currentTarget.valueAsNumber)}
+                />
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Opacity"
+                  min={REFERENCE_OPACITY_MIN}
+                  max={REFERENCE_OPACITY_MAX}
+                  step={0.05}
+                  value={referenceOpacity}
+                  disabled={referenceDisabled}
+                  onChange={(event) => handleReferenceOpacity(event.currentTarget.valueAsNumber)}
+                />
+              </div>
+            </div>
+          
+            <div className="panel__group">
+              <span className="panel__label">Flip</span>
+              <div className="panel__toggle-group">
+                <button
+                  type="button"
+                  className="panel__toggle"
+                  data-active={referenceFlipX}
+                  disabled={referenceDisabled}
+                  onClick={() => updateSelectedReference({ flipX: !referenceFlipX })}
+                >
+                  Flip X
+                </button>
+                <button
+                  type="button"
+                  className="panel__toggle"
+                  data-active={referenceFlipY}
+                  disabled={referenceDisabled}
+                  onClick={() => updateSelectedReference({ flipY: !referenceFlipY })}
+                >
+                  Flip Y
+                </button>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Snap</span>
+              <div className="panel__toggle-group">
+                <label className="panel__toggle" data-active={referenceSnap === 'pixel'}>
+                  <input
+                    type="radio"
+                    name="reference-snap"
+                    value="pixel"
+                    checked={referenceSnap === 'pixel'}
+                    onChange={() => setReferenceSnap('pixel')}
+                  />
+                  Pixel
+                </label>
+                <label className="panel__toggle" data-active={referenceSnap === 'tile'}>
+                  <input
+                    type="radio"
+                    name="reference-snap"
+                    value="tile"
+                    checked={referenceSnap === 'tile'}
+                    onChange={() => setReferenceSnap('tile')}
+                  />
+                  Tile
+                </label>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Reference</span>
+              <div className="panel__stack">
+                {referenceDisabled && (
+                  <div className="panel__note">Select a reference</div>
+                )}
+                <button
+                  type="button"
+                  className="panel__item"
+                  disabled={referenceDisabled}
+                  onClick={() => {
+                    if (selectedReference) {
+                      removeReference(selectedReference.id);
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Trace Palette</span>
+              <div className="panel__stack">
+                <div className="panel__note">{paletteSelectionLabel}</div>
+                <button
+                  type="button"
+                  className="panel__item"
+                  disabled={referenceDisabled || paletteSelectionSorted.length === 0}
+                  onClick={handleTracePaletteRange}
+                >
+                  Trace Selected
+                </button>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Trace Max Colors</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Trace max colors"
+                  min={TRACE_MAX_COLORS_MIN}
+                  max={TRACE_MAX_COLORS_MAX}
+                  step={1}
+                  value={traceMaxColors}
+                  disabled={referenceDisabled}
+                  onChange={(event) => {
+                    const next = event.currentTarget.valueAsNumber;
+                    if (Number.isFinite(next)) {
+                      setTraceMaxColors(Math.round(next));
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  className="panel__item"
+                  disabled={referenceDisabled}
+                  onClick={handleTraceMaxColors}
+                >
+                  Trace
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeTool === 'selection-rect' || activeTool === 'selection-oval' ? (
+        <div className="panel__group">
+          <span className="panel__label">Snap</span>
+          <div className="panel__row">
+            <label className="panel__radio">
+              <input
+                type="radio"
+                name="selection-snap"
+                value="pixel"
+                checked={selectionSnap === 'pixel'}
+                onChange={() => setSelectionSnap('pixel')}
+              />
+              Pixel
+            </label>
+            <label className="panel__radio">
+              <input
+                type="radio"
+                name="selection-snap"
+                value="tile"
+                checked={selectionSnap === 'tile'}
+                onChange={() => setSelectionSnap('tile')}
+              />
+              Tile
+            </label>
+          </div>
+        </div>
+      ) : activeTool === 'tile-sampler' ||
+        activeTool === 'tile-pen' ||
+        activeTool === 'tile-rectangle' ||
+        activeTool === 'tile-9slice' ||
+        activeTool === 'tile-export' ? (
+        <div className="panel__group">
+          <span className="panel__label">Tile Context</span>
+          <div className="panel__note">
+            {activeTool === 'tile-sampler'
+              ? 'Drag to capture tiles on the tile grid.'
+              : activeTool === 'tile-rectangle'
+                ? 'Fill a tile rectangle using the selected tiles.'
+                : activeTool === 'tile-9slice'
+                  ? 'Drag to set 3x3 source, then drag to fill.'
+                  : activeTool === 'tile-export'
+                    ? 'Drag to export a tile map region as tiles.png + tiles.tmx.'
+                    : 'Paint tiles from the active tile set.'}
+          </div>
+          <div className="panel__stack">
+            <div className="panel__note">
+              Tile Set:{' '}
+              {activeTileSet
+                ? `${activeTileSet.name} (${activeTileSet.tiles.length} tiles)`
+                : 'None'}
+            </div>
+            <div className="panel__note">
+              Tile Map: {activeTileMap ? activeTileMap.name : 'None'}
+            </div>
+            <div className="panel__note">
+              Selected Tile: {activeTileSet ? selectedTileIndex + 1 : '—'}
+            </div>
+            {activeTool === 'tile-9slice' && (
+              <>
+                <div className="panel__note">9-Slice: {nineSlice ? 'set' : 'unset'}</div>
+                <div className="panel__note">
+                  Selection: {tileSelectionCols}x{tileSelectionRows}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="panel__item" aria-disabled="true">
+          No options
+        </div>
+      )}
+    </div>
+  );
+
   return (
-    <div className={`app${compactTools ? ' app--compact-tools' : ''}`}>
+    <div className="app app--compact-tools">
       <div className="app__canvas-layer">
         <ViewportCanvas />
       </div>
       <div className="app__ui-layer">
-        {compactTools && (
-          <Topbar
-            activeTool={activeTool}
-            selectionCount={selectionCount}
-            activateTool={activateTool}
-            onExitCompact={disableCompactTools}
-          />
-        )}
-	        {showSplash && (
-	          <div className="app__splash" aria-hidden="true">
-	            <img src={pssLogoUrl} alt="" />
-	          </div>
-	        )}
-	        <div
-	          className={`app__toolbar panel${toolbarCollapsed ? ' app__toolbar--collapsed panel--collapsed' : ''}`}
-	        >
-          <div className="panel__header">
-            <h2>{toolbarTitle}</h2>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <button
-                type="button"
-                className="panel__toggle"
-                onClick={() => setToolbarCollapsed((prev) => !prev)}
-              >
-                {toolbarCollapsed ? 'Expand' : 'Collapse'}
-              </button>
-            </div>
+        <Topbar
+          activeTool={activeTool}
+          selectionCount={selectionCount}
+          activateTool={activateTool}
+          showAdvancedTools={advancedMode}
+          toolOptions={renderToolOptions()}
+        />
+        {showSplash && (
+          <div className="app__splash" aria-hidden="true">
+            <img src={pssLogoUrl} alt="" />
           </div>
-          {!toolbarCollapsed && (
-            <>
-              {!compactTools && (
-                <ToolGroups
-                  activeTool={activeTool}
-                  selectionCount={selectionCount}
-                  activateTool={activateTool}
-                />
-              )}
-              <div className="toolbar__body">
-                <div className="panel__section">
-                  {activeTool === 'pen' || activeTool === 'selection-lasso' ? (
-                    <>
-                      <div className="panel__group">
-                        <span className="panel__label">Size</span>
-                        <div className="panel__row">
-                          {[1, 4, 8].map((size) => (
-                            <button
-                              key={size}
-                              type="button"
-                              className="panel__item"
-                              data-active={brushSize === size}
-                              disabled={brushShape === 'point'}
-                              onClick={() => setBrushSize(size)}
-                            >
-                              {size}px
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="panel__group">
-                        <span className="panel__label">Brush</span>
-                        <div className="panel__row">
-                          {([
-                            { id: 'point', label: 'fine-point' },
-                            { id: 'square', label: 'rectangle' },
-                            { id: 'round', label: 'circle' },
-                          ] as const).map((shape) => (
-                            <button
-                              key={shape.id}
-                              type="button"
-                              className="panel__item"
-                              data-active={brushShape === shape.id}
-                              onClick={() => setBrushShape(shape.id)}
-                            >
-                              <span className="tool-label" aria-label={shape.label}>
-                                {shape.label}
-                              </span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  ) : activeTool === 'spray' ? (
-                    <>
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Radius</span>
-                          <div className="panel__stack">
-                            <input
-                              type="range"
-                              className="panel__range"
-                              aria-label="Radius"
-                              min={1}
-                              max={64}
-                              step={1}
-                              value={sprayRadius}
-                              onChange={(event) =>
-                                setSprayRadius(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Radius"
-                              min={1}
-                              max={64}
-                              step={1}
-                              value={sprayRadius}
-                              onChange={(event) =>
-                                setSprayRadius(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Density</span>
-                          <div className="panel__stack">
-                            <input
-                              type="range"
-                              className="panel__range"
-                              aria-label="Density"
-                              min={10}
-                              max={2000}
-                              step={10}
-                              value={Math.min(2000, sprayDensity)}
-                              onChange={(event) =>
-                                setSprayDensity(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Density"
-                              min={1}
-                              max={20000}
-                              step={10}
-                              value={sprayDensity}
-                              onChange={(event) =>
-                                setSprayDensity(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="panel__row">
-                        <div className="panel__group">
-                          <span className="panel__label">Falloff</span>
-                          <div className="panel__stack">
-                            <input
-                              type="range"
-                              className="panel__range"
-                              aria-label="Falloff"
-                              min={0}
-                              max={1}
-                              step={0.05}
-                              value={sprayFalloff}
-                              onChange={(event) =>
-                                setSprayFalloff(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Falloff"
-                              min={0}
-                              max={1}
-                              step={0.05}
-                              value={sprayFalloff}
-                              onChange={(event) =>
-                                setSprayFalloff(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : activeTool === 'line' ? (
-                    paletteSelectionCount >= 2 ? (
-                      <>
-                        <div className="panel__group">
-                          <span className="panel__label">Direction</span>
-                          <DropdownSelect
-                            ariaLabel="Gradient direction"
-                            value={fillGradientDirection}
-                            onChange={setFillGradientDirection}
-                            options={[
-                              { value: 'top-bottom', label: 'Top → Bottom' },
-                              { value: 'bottom-top', label: 'Bottom → Top' },
-                              { value: 'left-right', label: 'Left → Right' },
-                              { value: 'right-left', label: 'Right → Left' },
-                            ]}
-                          />
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Dither</span>
-                          <DropdownSelect
-                            ariaLabel="Gradient dither"
-                            value={fillGradientDither}
-                            onChange={setFillGradientDither}
-                            options={[
-                              { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
-                              { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
-                              { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
-                              { value: 'none', label: 'None' },
-                              { value: 'random', label: 'Random (stable)' },
-                              { value: 'blue-noise', label: 'Blue noise (interleaved)' },
-                              { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
-                              { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
-                              { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
-                              { value: 'stucki', label: 'Error diffusion (Stucki)' },
-                            ]}
-                          />
-                        </div>
-                        <div className="panel__note">
-                          Select 2+ palette swatches (Shift-click) for gradient ramp.
-                        </div>
-                      </>
-                    ) : (
-                      <div className="panel__note">
-                        Select 2+ palette swatches (Shift-click) for gradient ramp.
-                      </div>
-                    )
-                  ) : activeTool === 'rectangle' ? (
-                    <>
-                      <div className="panel__group">
-                        <span className="panel__label">Mode</span>
-                        <div className="panel__row">
-                          <label className="panel__radio">
-                            <input
-                              type="radio"
-                              name="rectangle-mode"
-                              value="filled"
-                              checked={rectangleMode === 'filled'}
-                              onChange={() => setRectangleMode('filled')}
-                            />
-                            Filled
-                          </label>
-                          <label className="panel__radio">
-                            <input
-                              type="radio"
-                              name="rectangle-mode"
-                              value="outlined"
-                              checked={rectangleMode === 'outlined'}
-                              onChange={() => setRectangleMode('outlined')}
-                            />
-                            Outlined
-                          </label>
-                        </div>
-                      </div>
-                      {paletteSelectionCount >= 2 && (
-                        <>
-                          <div className="panel__group">
-                            <span className="panel__label">Direction</span>
-                            <DropdownSelect
-                              ariaLabel="Gradient direction"
-                              value={fillGradientDirection}
-                              onChange={setFillGradientDirection}
-                              options={[
-                                { value: 'top-bottom', label: 'Top → Bottom' },
-                                { value: 'bottom-top', label: 'Bottom → Top' },
-                                { value: 'left-right', label: 'Left → Right' },
-                                { value: 'right-left', label: 'Right → Left' },
-                              ]}
-                            />
-                          </div>
-                          <div className="panel__group">
-                            <span className="panel__label">Dither</span>
-                            <DropdownSelect
-                              ariaLabel="Gradient dither"
-                              value={fillGradientDither}
-                              onChange={setFillGradientDither}
-                              options={[
-                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
-                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
-                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
-                                { value: 'none', label: 'None' },
-                                { value: 'random', label: 'Random (stable)' },
-                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
-                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
-                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
-                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
-                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
-                              ]}
-                            />
-                          </div>
-                          <div className="panel__note">
-                            Select 2+ palette swatches (Shift-click) for gradient ramp.
-                          </div>
-                        </>
-                      )}
-                    </>
-                  ) : activeTool === 'oval' ? (
-                    <>
-                      <div className="panel__group">
-                        <span className="panel__label">Mode</span>
-                        <div className="panel__row">
-                          <label className="panel__radio">
-                            <input
-                              type="radio"
-                              name="oval-mode"
-                              value="filled"
-                              checked={ovalMode === 'filled'}
-                              onChange={() => setOvalMode('filled')}
-                            />
-                            Filled
-                          </label>
-                          <label className="panel__radio">
-                            <input
-                              type="radio"
-                              name="oval-mode"
-                              value="outlined"
-                              checked={ovalMode === 'outlined'}
-                              onChange={() => setOvalMode('outlined')}
-                            />
-                            Outlined
-                          </label>
-                        </div>
-                      </div>
-                      {paletteSelectionCount >= 2 && (
-                        <>
-                          <div className="panel__group">
-                            <span className="panel__label">Direction</span>
-                            <DropdownSelect
-                              ariaLabel="Gradient direction"
-                              value={fillGradientDirection}
-                              onChange={setFillGradientDirection}
-                              options={[
-                                { value: 'top-bottom', label: 'Top → Bottom' },
-                                { value: 'bottom-top', label: 'Bottom → Top' },
-                                { value: 'left-right', label: 'Left → Right' },
-                                { value: 'right-left', label: 'Right → Left' },
-                              ]}
-                            />
-                          </div>
-                          <div className="panel__group">
-                            <span className="panel__label">Dither</span>
-                            <DropdownSelect
-                              ariaLabel="Gradient dither"
-                              value={fillGradientDither}
-                              onChange={setFillGradientDither}
-                              options={[
-                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
-                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
-                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
-                                { value: 'none', label: 'None' },
-                                { value: 'random', label: 'Random (stable)' },
-                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
-                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
-                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
-                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
-                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
-                              ]}
-                            />
-                          </div>
-                          <div className="panel__note">
-                            Select 2+ palette swatches (Shift-click) for gradient ramp.
-                          </div>
-                        </>
-                      )}
-                    </>
-                  ) : activeTool === 'fill-bucket' ? (
-                    <>
-                      <div className="panel__group">
-                        <span className="panel__label">Mode</span>
-                        <div className="panel__row">
-                          <label className="panel__radio">
-                            <input
-                              type="radio"
-                              name="fill-mode"
-                              value="color"
-                              checked={fillMode === 'color'}
-                              onChange={() => setFillMode('color')}
-                            />
-                            Color
-                          </label>
-                          <label className="panel__radio">
-                            <input
-                              type="radio"
-                              name="fill-mode"
-                              value="selection"
-                              checked={fillMode === 'selection'}
-                              onChange={() => setFillMode('selection')}
-                            />
-                            Selection
-                          </label>
-                        </div>
-                        <div className="panel__note">
-                          Select 2+ palette swatches (Shift-click) for gradient ramp.
-                        </div>
-                      </div>
-                      {paletteSelectionCount >= 2 && (
-                        <>
-                          <div className="panel__group">
-                            <span className="panel__label">Direction</span>
-                            <DropdownSelect
-                              ariaLabel="Gradient direction"
-                              value={fillGradientDirection}
-                              onChange={setFillGradientDirection}
-                              options={[
-                                { value: 'top-bottom', label: 'Top → Bottom' },
-                                { value: 'bottom-top', label: 'Bottom → Top' },
-                                { value: 'left-right', label: 'Left → Right' },
-                                { value: 'right-left', label: 'Right → Left' },
-                              ]}
-                            />
-                          </div>
-                          <div className="panel__group">
-                            <span className="panel__label">Dither</span>
-                            <DropdownSelect
-                              ariaLabel="Gradient dither"
-                              value={fillGradientDither}
-                              onChange={setFillGradientDither}
-                              options={[
-                                { value: 'bayer2', label: 'Ordered (Bayer 2×2)' },
-                                { value: 'bayer4', label: 'Ordered (Bayer 4×4)' },
-                                { value: 'bayer8', label: 'Ordered (Bayer 8×8)' },
-                                { value: 'none', label: 'None' },
-                                { value: 'random', label: 'Random (stable)' },
-                                { value: 'blue-noise', label: 'Blue noise (interleaved)' },
-                                { value: 'floyd-steinberg', label: 'Error diffusion (Floyd–Steinberg)' },
-                                { value: 'atkinson', label: 'Error diffusion (Atkinson)' },
-                                { value: 'jarvis-judice-ninke', label: 'Error diffusion (Jarvis–Judice–Ninke)' },
-                                { value: 'stucki', label: 'Error diffusion (Stucki)' },
-                              ]}
-                            />
-                          </div>
-                        </>
-                      )}
-                    </>
-                  ) : activeTool === 'texture-roll' ? (
-                    <div className="panel__note">
-                      {selectionCount === 0
-                        ? 'Make a selection first.'
-                        : 'Click and drag inside the selection to scroll it (wraps at selection bounds). Selection snap controls pixel vs tile steps.'}
-                    </div>
-                  ) : activeTool === 'stamp' ? (
-                    <>
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Mode</span>
-                          <div className="panel__toggle-group">
-                            <label className="panel__toggle" data-active={stampMode === 'soft'}>
-                              <input
-                                type="radio"
-                                name="stamp-mode"
-                                value="soft"
-                                checked={stampMode === 'soft'}
-                                onChange={() => setStampMode('soft')}
-                              />
-                              Soft
-                            </label>
-                            <label className="panel__toggle" data-active={stampMode === 'hard'}>
-                              <input
-                                type="radio"
-                                name="stamp-mode"
-                                value="hard"
-                                checked={stampMode === 'hard'}
-                                onChange={() => setStampMode('hard')}
-                              />
-                              Hard
-                            </label>
-                          </div>
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Drag</span>
-                          <div className="panel__toggle-group">
-                            <label className="panel__toggle" data-active={!stampDrag}>
-                              <input
-                                type="radio"
-                                name="stamp-drag"
-                                value="off"
-                                checked={!stampDrag}
-                                onChange={() => setStampDrag(false)}
-                              />
-                              Off
-                            </label>
-                            <label className="panel__toggle" data-active={stampDrag}>
-                              <input
-                                type="radio"
-                                name="stamp-drag"
-                                value="on"
-                                checked={stampDrag}
-                                onChange={() => setStampDrag(true)}
-                              />
-                              On
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Snap</span>
-                          <div className="panel__toggle-group">
-                            <label className="panel__toggle" data-active={stampSnap === 'pixel'}>
-                              <input
-                                type="radio"
-                                name="stamp-snap"
-                                value="pixel"
-                                checked={stampSnap === 'pixel'}
-                                onChange={() => setStampSnap('pixel')}
-                              />
-                              Pixel
-                            </label>
-                            <label className="panel__toggle" data-active={stampSnap === 'tile'}>
-                              <input
-                                type="radio"
-                                name="stamp-snap"
-                                value="tile"
-                                checked={stampSnap === 'tile'}
-                                onChange={() => setStampSnap('tile')}
-                              />
-                              Tile
-                            </label>
-                          </div>
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Flip</span>
-                          <div className="panel__toggle-group">
-                            <button
-                              type="button"
-                              className="panel__toggle"
-                              data-active={stampFlipX}
-                              onClick={() => setStampFlipX(!stampFlipX)}
-                            >
-                              Flip X
-                            </button>
-                            <button
-                              type="button"
-                              className="panel__toggle"
-                              data-active={stampFlipY}
-                              onClick={() => setStampFlipY(!stampFlipY)}
-                            >
-                              Flip Y
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Scale</span>
-                          <DropdownSelect
-                            ariaLabel="Scale"
-                            value={String(stampScale) as '1' | '2' | '4' | '8'}
-                            onChange={(next) => setStampScale(Number(next) as 1 | 2 | 4 | 8)}
-                            options={[
-                              { value: '1', label: '1x' },
-                              { value: '2', label: '2x' },
-                              { value: '4', label: '4x' },
-                              { value: '8', label: '8x' },
-                            ]}
-                          />
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Rotate</span>
-                          <DropdownSelect
-                            ariaLabel="Rotate"
-                            value={
-                              String(stampRotation) as '0' | '90' | '180' | '270'
-                            }
-                            onChange={(next) =>
-                              setStampRotation(Number(next) as 0 | 90 | 180 | 270)
-                            }
-                            options={[
-                              { value: '0', label: '0deg' },
-                              { value: '90', label: '90deg' },
-                              { value: '180', label: '180deg' },
-                              { value: '270', label: '270deg' },
-                            ]}
-                          />
-                        </div>
-                      </div>
-                      <div className="panel__row">
-                        <div className="panel__group">
-                          <span className="panel__label">Paste</span>
-                          <div className="panel__toggle-group">
-                            <label
-                              className="panel__toggle"
-                              data-active={stampPasteDuplicateColors}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={stampPasteDuplicateColors}
-                                onChange={() =>
-                                  setStampPasteDuplicateColors(!stampPasteDuplicateColors)
-                                }
-                              />
-                              Duplicate Colors
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    </>
-                  ) : activeTool === 'reference-handle' ? (
-                    <div className="panel__group">
-                      {referenceDisabled && (
-                        <div className="panel__item" aria-disabled="true">
-                          Select a reference
-                        </div>
-                      )}
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Rotation</span>
-                          <div className="panel__stack">
-                            <input
-                              type="range"
-                              className="panel__range"
-                              aria-label="Rotation"
-                              min={REFERENCE_ROTATION_MIN}
-                              max={REFERENCE_ROTATION_MAX}
-                              step={1}
-                              value={referenceRotation}
-                              disabled={referenceDisabled}
-                              onChange={(event) =>
-                                handleReferenceRotation(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Rotation"
-                              min={REFERENCE_ROTATION_MIN}
-                              max={REFERENCE_ROTATION_MAX}
-                              step={1}
-                              value={referenceRotation}
-                              disabled={referenceDisabled}
-                              onChange={(event) =>
-                                handleReferenceRotation(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                          </div>
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Scale</span>
-                          <div className="panel__stack">
-                            <input
-                              type="range"
-                              className="panel__range"
-                              aria-label="Scale"
-                              min={REFERENCE_SCALE_SLIDER_MIN}
-                              max={REFERENCE_SCALE_SLIDER_MAX}
-                              step={1}
-                              value={referenceScaleSlider}
-                              disabled={referenceDisabled}
-                              onChange={(event) =>
-                                handleReferenceScale(
-                                  sliderToScale(event.currentTarget.valueAsNumber)
-                                )
-                              }
-                            />
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Scale"
-                              min={REFERENCE_SCALE_MIN}
-                              max={REFERENCE_SCALE_MAX}
-                              step={0.01}
-                              value={referenceScale}
-                              disabled={referenceDisabled}
-                              onChange={(event) =>
-                                handleReferenceScale(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="panel__row">
-                        <div className="panel__group">
-                          <span className="panel__label">Opacity</span>
-                          <div className="panel__stack">
-                            <input
-                              type="range"
-                              className="panel__range"
-                              aria-label="Opacity"
-                              min={REFERENCE_OPACITY_MIN}
-                              max={REFERENCE_OPACITY_MAX}
-                              step={0.05}
-                              value={referenceOpacity}
-                              disabled={referenceDisabled}
-                              onChange={(event) =>
-                                handleReferenceOpacity(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Opacity"
-                              min={REFERENCE_OPACITY_MIN}
-                              max={REFERENCE_OPACITY_MAX}
-                              step={0.05}
-                              value={referenceOpacity}
-                              disabled={referenceDisabled}
-                              onChange={(event) =>
-                                handleReferenceOpacity(event.currentTarget.valueAsNumber)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Flip</span>
-                          <div className="panel__toggle-group">
-                            <button
-                              type="button"
-                              className="panel__toggle"
-                              data-active={referenceFlipX}
-                              disabled={referenceDisabled}
-                              onClick={() =>
-                                updateSelectedReference({ flipX: !referenceFlipX })
-                              }
-                            >
-                              Flip X
-                            </button>
-                            <button
-                              type="button"
-                              className="panel__toggle"
-                              data-active={referenceFlipY}
-                              disabled={referenceDisabled}
-                              onClick={() =>
-                                updateSelectedReference({ flipY: !referenceFlipY })
-                              }
-                            >
-                              Flip Y
-                            </button>
-                          </div>
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Snap</span>
-                          <div className="panel__toggle-group">
-                            <label
-                              className="panel__toggle"
-                              data-active={referenceSnap === 'pixel'}
-                            >
-                              <input
-                                type="radio"
-                                name="reference-snap"
-                                value="pixel"
-                                checked={referenceSnap === 'pixel'}
-                                onChange={() => setReferenceSnap('pixel')}
-                              />
-                              Pixel
-                            </label>
-                            <label
-                              className="panel__toggle"
-                              data-active={referenceSnap === 'tile'}
-                            >
-                              <input
-                                type="radio"
-                                name="reference-snap"
-                                value="tile"
-                                checked={referenceSnap === 'tile'}
-                                onChange={() => setReferenceSnap('tile')}
-                              />
-                              Tile
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="panel__row">
-                        <button
-                          type="button"
-                          className="panel__item"
-                          disabled={referenceDisabled}
-                          onClick={() => {
-                            if (selectedReference) {
-                              removeReference(selectedReference.id);
-                            }
-                          }}
-                        >
-                          Delete Reference
-                        </button>
-                      </div>
-                      <div className="panel__row panel__row--dual">
-                        <div className="panel__group">
-                          <span className="panel__label">Auto Trace (Palette)</span>
-                          <div className="panel__row">
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Trace palette start index"
-                              min={0}
-                              max={paletteMaxIndex}
-                              step={1}
-                              value={tracePaletteStart}
-                              disabled={referenceDisabled}
-                              onChange={(event) => {
-                                const next = event.currentTarget.valueAsNumber;
-                                if (Number.isFinite(next)) {
-                                  setTracePaletteStart(Math.round(next));
-                                }
-                              }}
-                            />
-                            <input
-                              type="number"
-                              className="panel__number"
-                              aria-label="Trace palette end index"
-                              min={0}
-                              max={paletteMaxIndex}
-                              step={1}
-                              value={tracePaletteEnd}
-                              disabled={referenceDisabled}
-                              onChange={(event) => {
-                                const next = event.currentTarget.valueAsNumber;
-                                if (Number.isFinite(next)) {
-                                  setTracePaletteEnd(Math.round(next));
-                                }
-                              }}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            className="panel__item"
-                            disabled={referenceDisabled || paletteColors.length === 0}
-                            onClick={handleTracePaletteRange}
-                          >
-                            Trace Range
-                          </button>
-                        </div>
-                        <div className="panel__group">
-                          <span className="panel__label">Auto Trace (Max Colors)</span>
-                          <input
-                            type="number"
-                            className="panel__number"
-                            aria-label="Trace max colors"
-                            min={TRACE_MAX_COLORS_MIN}
-                            max={TRACE_MAX_COLORS_MAX}
-                            step={1}
-                            value={traceMaxColors}
-                            disabled={referenceDisabled}
-                            onChange={(event) => {
-                              const next = event.currentTarget.valueAsNumber;
-                              if (Number.isFinite(next)) {
-                                setTraceMaxColors(Math.round(next));
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            className="panel__item"
-                            disabled={referenceDisabled}
-                            onClick={handleTraceMaxColors}
-                          >
-                            Trace Max Colors
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ) : activeTool === 'selection-rect' || activeTool === 'selection-oval' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Snap</span>
-                      <div className="panel__row">
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="selection-snap"
-                            value="pixel"
-                            checked={selectionSnap === 'pixel'}
-                            onChange={() => setSelectionSnap('pixel')}
-                          />
-                          Pixel
-                        </label>
-                        <label className="panel__radio">
-                          <input
-                            type="radio"
-                            name="selection-snap"
-                            value="tile"
-                            checked={selectionSnap === 'tile'}
-                            onChange={() => setSelectionSnap('tile')}
-                          />
-                          Tile
-                        </label>
-                      </div>
-                    </div>
-                  ) :
-                  activeTool === 'tile-sampler' ||
-                  activeTool === 'tile-pen' ||
-                  activeTool === 'tile-rectangle' ||
-                  activeTool === 'tile-9slice' ||
-                  activeTool === 'tile-export' ? (
-                    <div className="panel__group">
-                      <span className="panel__label">Tile Context</span>
-                      <div className="panel__note">
-                        {activeTool === 'tile-sampler'
-                          ? 'Drag to capture tiles on the tile grid.'
-                          : activeTool === 'tile-rectangle'
-                            ? 'Fill a tile rectangle using the selected tiles.'
-                            : activeTool === 'tile-9slice'
-                              ? 'Drag to set 3x3 source, then drag to fill.'
-                              : activeTool === 'tile-export'
-                                ? 'Drag to export a tile map region as tiles.png + tiles.tmx.'
-                              : 'Paint tiles from the active tile set.'}
-                      </div>
-                      <div className="panel__stack">
-                        <div className="panel__note">
-                          Tile Set:{' '}
-                          {activeTileSet
-                            ? `${activeTileSet.name} (${activeTileSet.tiles.length} tiles)`
-                            : 'None'}
-                        </div>
-                        <div className="panel__note">
-                          Tile Map: {activeTileMap ? activeTileMap.name : 'None'}
-                        </div>
-                        <div className="panel__note">
-                          Selected Tile: {activeTileSet ? selectedTileIndex + 1 : '—'}
-                        </div>
-                        {activeTool === 'tile-9slice' && (
-                          <>
-                            <div className="panel__note">
-                              9-Slice: {nineSlice ? 'set' : 'unset'}
-                            </div>
-                            <div className="panel__note">
-                              Selection: {tileSelectionCols}x{tileSelectionRows}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="panel__item" aria-disabled="true">
-                      No options
-                    </div>
-                  )}
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        )}
         <div
           className={`app__palette panel${isTilingTool ? ' app__palette--tile' : ''}`}
           style={
@@ -2312,9 +2217,6 @@ const App = () => {
             onPointerDown={startPaletteResize}
           />
           <div className={`bottom-bar${isTilingTool ? ' bottom-bar--tile' : ''}`}>
-            <div className="bottom-bar__left">
-              <BottomDockControls />
-            </div>
             <div className="bottom-bar__center">{isTilingTool ? <TileBar /> : <PaletteBar />}</div>
           </div>
         </div>
@@ -2799,6 +2701,7 @@ SOFTWARE.
           onClose={() => {
             setShowOptions(false);
           }}
+          onAdvancedModeChange={setAdvancedMode}
         />
       )}
       {textModalOpen && activeTool === 'text' && (

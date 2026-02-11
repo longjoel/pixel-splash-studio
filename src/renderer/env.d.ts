@@ -138,7 +138,6 @@ interface Window {
       showPixelGrid?: boolean;
       showTileGrid?: boolean;
       showAxes?: boolean;
-      toolbarCollapsed?: boolean;
       minimapCollapsed?: boolean;
     }) => void;
   };
@@ -167,6 +166,19 @@ interface Window {
     setOpenAiApiKey: (apiKey: string | null) => Promise<void>;
     getOpenAiImageModel: () => Promise<'gpt-image-1' | 'gpt-image-1-mini'>;
     setOpenAiImageModel: (model: 'gpt-image-1' | 'gpt-image-1-mini') => Promise<void>;
+    getAiImageProvider: () => Promise<'openai' | 'localai'>;
+    setAiImageProvider: (provider: 'openai' | 'localai') => Promise<void>;
+    getLocalAiConfig: () => Promise<{ baseUrl: string; model: string }>;
+    setLocalAiBaseUrl: (baseUrl: string) => Promise<void>;
+    setLocalAiImageModel: (model: string) => Promise<void>;
+    getLocalAiKeyInfo: () => Promise<{
+      hasKey: boolean;
+      encryptionAvailable: boolean;
+      storedEncrypted: boolean;
+    }>;
+    setLocalAiApiKey: (apiKey: string | null) => Promise<void>;
+    getAdvancedMode: () => Promise<boolean>;
+    setAdvancedMode: (enabled: boolean) => Promise<void>;
   };
   aiApi: {
     generateSprite: (payload: {
