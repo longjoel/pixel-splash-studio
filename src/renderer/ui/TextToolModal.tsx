@@ -3,7 +3,6 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { ensureContrast, getComplement, hexToRgb, mix, toRgb, toRgba } from '@/core/colorUtils';
 import type { TextFontFamily } from '@/services/textClipboard';
 import { applyGradientToRasterizedText, quantizeFontSize, rasterizeText } from '@/services/textClipboard';
-import { getPaletteSelectionRamp } from '@/services/paletteRamp';
 import { useFillBucketStore } from '@/state/fillBucketStore';
 
 type TextToolModalProps = {
@@ -72,7 +71,15 @@ export const TextToolModal = ({
       if (!base) {
         return null;
       }
-      const ramp = getPaletteSelectionRamp();
+      const seen = new Set<number>();
+      const ramp: number[] = [];
+      for (const index of selectedIndices) {
+        if (index < 0 || index >= paletteColors.length || seen.has(index)) {
+          continue;
+        }
+        seen.add(index);
+        ramp.push(index);
+      }
       if (ramp.length <= 1) {
         return base;
       }
@@ -80,7 +87,16 @@ export const TextToolModal = ({
     } catch {
       return null;
     }
-  }, [activeIndex, fontFamily, fontSize, gradientDirection, gradientDither, selectedIndices, text]);
+  }, [
+    activeIndex,
+    fontFamily,
+    fontSize,
+    gradientDirection,
+    gradientDither,
+    paletteColors.length,
+    selectedIndices,
+    text,
+  ]);
 
   useEffect(() => {
     const wrapper = previewWrapperRef.current;

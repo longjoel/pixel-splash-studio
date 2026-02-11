@@ -27,7 +27,6 @@ import {
   cutSelectionToClipboard,
 } from './services/selectionClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
-import { openImageFilePicker } from './services/filePickers';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
 import { exportSelectionAsChr } from './services/selectionExportChr';
 import {
@@ -1055,14 +1054,6 @@ const App = () => {
       setTextModalOpen(false);
     }
   }, [activeTool, textModalOpen]);
-
-  const handleAddReference = async () => {
-    const file = await openImageFilePicker();
-    if (!file) {
-      return;
-    }
-    void addReferenceFromFile(file);
-  };
 
   const updateSelectedReference = (patch: Parameters<typeof updateReference>[1]) => {
     if (!selectedReference) {

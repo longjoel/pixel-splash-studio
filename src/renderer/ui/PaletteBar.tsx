@@ -359,7 +359,7 @@ const PaletteBar = () => {
   const colorPickerHsl = React.useMemo(() => rgbToHsl(colorPickerRgb), [colorPickerRgb]);
 
   const closeMenu = () => {
-    setMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
+    setMenu((prev) => (prev.open ? { ...prev, open: false, index: null } : prev));
   };
 
   const openMenu = (event: React.MouseEvent, index: number | null) => {
@@ -430,10 +430,16 @@ const PaletteBar = () => {
   const selectedColor =
     canSetColor && singleSelectedIndex !== null ? colors[singleSelectedIndex] : '#ffffff';
   const baseSwatchColor =
-    menu.index !== null && menu.index >= 0 && menu.index < colors.length
+    menu.open &&
+    menu.index !== null &&
+    menu.index >= 0 &&
+    menu.index < colors.length
       ? colors[menu.index]
       : colors[selectedIndices[selectedIndices.length - 1] ?? 0] ?? '#ffffff';
-  const swatchPresets = buildSwatchPresets(baseSwatchColor);
+  const swatchPresets = React.useMemo(
+    () => buildSwatchPresets(baseSwatchColor),
+    [baseSwatchColor]
+  );
 
   const applyPickerRgb = useCallback((next: Rgb) => {
     const clamped: Rgb = {
@@ -519,18 +525,6 @@ const PaletteBar = () => {
     if (nextColors.length === 0) {
       return;
     }
-    const adjustIndex = (value: number) => {
-      let next = value;
-      for (const index of orderedSelection) {
-        if (index < value) {
-          next -= 1;
-        }
-      }
-      if (toDelete.has(value)) {
-        next = Math.min(next, nextColors.length - 1);
-      }
-      return Math.max(0, Math.min(next, nextColors.length - 1));
-    };
     setPalette(nextColors);
     closeMenu();
   };
