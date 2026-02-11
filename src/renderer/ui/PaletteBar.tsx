@@ -1,9 +1,8 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePaletteStore } from '@/state/paletteStore';
 import { useProjectStore } from '@/state/projectStore';
 import { hexToRgb, mix, type Rgb } from '@/core/colorUtils';
-import { consolidatePalette } from '@/services/paletteConsolidate';
 import DropdownSelect from './DropdownSelect';
 
 type MenuState = {
@@ -14,10 +13,24 @@ type MenuState = {
 };
 
 type Hsl = { h: number; s: number; l: number };
+type Hsv = { h: number; s: number; v: number };
+
+type ColorPickerContext =
+  | { mode: 'set'; index: number }
+  | { mode: 'add' };
 
 const isValidHex = (value: string) => /^#[0-9a-f]{6}$/i.test(value);
+const normalizeHexInput = (value: string) => {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed) {
+    return '';
+  }
+  return trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+};
 
 const clamp01 = (value: number) => Math.min(1, Math.max(0, value));
+const clampInt = (value: number, min: number, max: number) =>
+  Math.round(Math.min(max, Math.max(min, value)));
 
 const wrapHue = (value: number) => ((value % 360) + 360) % 360;
 
@@ -51,6 +64,31 @@ const rgbToHsl = (rgb: Rgb): Hsl => {
   return { h, s, l };
 };
 
+const rgbToHsv = (rgb: Rgb): Hsv => {
+  const r = rgb.r / 255;
+  const g = rgb.g / 255;
+  const b = rgb.b / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  let h = 0;
+  if (delta !== 0) {
+    if (max === r) {
+      h = ((g - b) / delta) % 6;
+    } else if (max === g) {
+      h = (b - r) / delta + 2;
+    } else {
+      h = (r - g) / delta + 4;
+    }
+    h *= 60;
+  }
+  if (h < 0) {
+    h += 360;
+  }
+  const s = max === 0 ? 0 : delta / max;
+  return { h, s, v: max };
+};
+
 const hslToRgb = (hsl: Hsl): Rgb => {
   const h = wrapHue(hsl.h);
   const s = clamp01(hsl.s);
@@ -58,6 +96,42 @@ const hslToRgb = (hsl: Hsl): Rgb => {
   const c = (1 - Math.abs(2 * l - 1)) * s;
   const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
   const m = l - c / 2;
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  if (h < 60) {
+    r = c;
+    g = x;
+  } else if (h < 120) {
+    r = x;
+    g = c;
+  } else if (h < 180) {
+    g = c;
+    b = x;
+  } else if (h < 240) {
+    g = x;
+    b = c;
+  } else if (h < 300) {
+    r = x;
+    b = c;
+  } else {
+    r = c;
+    b = x;
+  }
+  return {
+    r: Math.round((r + m) * 255),
+    g: Math.round((g + m) * 255),
+    b: Math.round((b + m) * 255),
+  };
+};
+
+const hsvToRgb = (hsv: Hsv): Rgb => {
+  const h = wrapHue(hsv.h);
+  const s = clamp01(hsv.s);
+  const v = clamp01(hsv.v);
+  const c = v * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = v - c;
   let r = 0;
   let g = 0;
   let b = 0;
@@ -224,36 +298,6 @@ const buildSwatchPresets = (baseHex: string) => {
   ];
 };
 
-const openColorPicker = (initial: string, onPick: (value: string) => void) => {
-  const input = document.createElement('input');
-  input.type = 'color';
-  input.value = isValidHex(initial) ? initial : '#ffffff';
-  input.style.position = 'fixed';
-  input.style.left = '-1000px';
-  input.style.opacity = '0';
-  input.setAttribute('aria-hidden', 'true');
-  let lastValue = input.value;
-  const removePicker = () => {
-    if (input.isConnected) {
-      input.remove();
-    }
-    window.removeEventListener('focus', removePicker);
-  };
-  input.addEventListener('input', () => {
-    lastValue = input.value;
-    onPick(input.value);
-  });
-  input.addEventListener('change', () => {
-    if (input.value !== lastValue) {
-      onPick(input.value);
-    }
-    removePicker();
-  });
-  window.addEventListener('focus', removePicker);
-  document.body.appendChild(input);
-  input.click();
-};
-
 const PaletteBar = () => {
   const colors = usePaletteStore((state) => state.colors);
   const selectedIndices = usePaletteStore((state) => state.selectedIndices);
@@ -262,7 +306,6 @@ const PaletteBar = () => {
   const setSelectedIndices = usePaletteStore((state) => state.setSelectedIndices);
   const activeIndex = usePaletteStore((state) => state.getActiveIndex());
   const addColor = usePaletteStore((state) => state.addColor);
-  const removeColor = usePaletteStore((state) => state.removeColor);
 
   const ensureActiveLast = (indices: number[], active: number) => {
     const next = indices.filter((idx) => idx !== active);
@@ -277,11 +320,19 @@ const PaletteBar = () => {
     index: null,
   });
   const [swatchPresetChoice, setSwatchPresetChoice] = useState('none');
-  const [menuActionChoice, setMenuActionChoice] = useState('none');
+  const [addSwatchOpen, setAddSwatchOpen] = useState(false);
   const [lospecOpen, setLospecOpen] = useState(false);
   const [lospecUrl, setLospecUrl] = useState('');
   const [lospecBusy, setLospecBusy] = useState(false);
   const [lospecError, setLospecError] = useState<string | null>(null);
+  const [colorPickerContext, setColorPickerContext] = useState<ColorPickerContext | null>(null);
+  const [colorPickerRgb, setColorPickerRgb] = useState<Rgb>({ r: 255, g: 255, b: 255 });
+  const [colorPickerInitialRgb, setColorPickerInitialRgb] = useState<Rgb>({
+    r: 255,
+    g: 255,
+    b: 255,
+  });
+  const [colorPickerHexInput, setColorPickerHexInput] = useState('#ffffff');
   const [maxRows, setMaxRows] = useState<number>(() => {
     try {
       const stored = window.localStorage.getItem('pss.paletteRows');
@@ -304,6 +355,8 @@ const PaletteBar = () => {
     () => typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac'),
     []
   );
+  const colorPickerHsv = React.useMemo(() => rgbToHsv(colorPickerRgb), [colorPickerRgb]);
+  const colorPickerHsl = React.useMemo(() => rgbToHsl(colorPickerRgb), [colorPickerRgb]);
 
   const closeMenu = () => {
     setMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
@@ -368,48 +421,70 @@ const PaletteBar = () => {
     }
   }, [menu.open, menu.x, menu.y]);
 
+  const singleSelectedIndex =
+    selectedIndices.length === 1 ? selectedIndices[0] ?? null : null;
   const canSetColor =
-    menu.index !== null && menu.index >= 0 && menu.index < colors.length;
-  const canRemoveColor = canSetColor && colors.length > 1;
-  const selectedColor = canSetColor ? colors[menu.index] : '#ffffff';
+    singleSelectedIndex !== null &&
+    singleSelectedIndex >= 0 &&
+    singleSelectedIndex < colors.length;
+  const selectedColor =
+    canSetColor && singleSelectedIndex !== null ? colors[singleSelectedIndex] : '#ffffff';
   const baseSwatchColor =
     menu.index !== null && menu.index >= 0 && menu.index < colors.length
       ? colors[menu.index]
       : colors[selectedIndices[selectedIndices.length - 1] ?? 0] ?? '#ffffff';
   const swatchPresets = buildSwatchPresets(baseSwatchColor);
-  const hasDuplicates =
-    new Set(colors.map((color) => color.trim().toLowerCase())).size !== colors.length;
+
+  const applyPickerRgb = useCallback((next: Rgb) => {
+    const clamped: Rgb = {
+      r: clampInt(next.r, 0, 255),
+      g: clampInt(next.g, 0, 255),
+      b: clampInt(next.b, 0, 255),
+    };
+    setColorPickerRgb(clamped);
+    setColorPickerHexInput(rgbToHex(clamped));
+  }, []);
+
+  const openCustomColorPicker = useCallback((context: ColorPickerContext, initialHex: string) => {
+    const initialRgb = hexToRgb(initialHex) ?? { r: 255, g: 255, b: 255 };
+    setColorPickerContext(context);
+    setColorPickerInitialRgb(initialRgb);
+    setColorPickerRgb(initialRgb);
+    setColorPickerHexInput(rgbToHex(initialRgb));
+  }, []);
+
+  const closeCustomColorPicker = useCallback(() => {
+    setColorPickerContext(null);
+  }, []);
+
+  const applyCustomColorPicker = useCallback(() => {
+    if (!colorPickerContext) {
+      return;
+    }
+    const nextHex = rgbToHex(colorPickerRgb);
+    if (colorPickerContext.mode === 'set') {
+      setColor(colorPickerContext.index, nextHex);
+      setColorPickerContext(null);
+      return;
+    }
+    addColor(nextHex);
+    setColorPickerContext(null);
+  }, [addColor, colorPickerContext, colorPickerRgb, setColor]);
+
+  const colorPickerTitle =
+    colorPickerContext?.mode === 'set' ? 'Set Color' : 'Add Color';
 
   const handleSetColor = () => {
-    if (!canSetColor || menu.index === null) {
+    if (!canSetColor || singleSelectedIndex === null) {
       return;
     }
     closeMenu();
-    openColorPicker(selectedColor, (value) => {
-      setColor(menu.index ?? 0, value);
-    });
-  };
-
-  const handleRemoveColor = () => {
-    if (!canRemoveColor || menu.index === null) {
-      return;
-    }
-    removeColor(menu.index);
-    closeMenu();
+    openCustomColorPicker({ mode: 'set', index: singleSelectedIndex }, selectedColor);
   };
 
   const handleAddColor = () => {
     closeMenu();
-    const newIndex = colors.length;
-    let added = false;
-    openColorPicker('#ffffff', (value) => {
-      if (!added) {
-        added = true;
-        addColor(value);
-        return;
-      }
-      setColor(newIndex, value);
-    });
+    openCustomColorPicker({ mode: 'add' }, '#ffffff');
   };
 
   const selectionSet = new Set(selectedIndices);
@@ -434,35 +509,6 @@ const PaletteBar = () => {
   };
 
   useEffect(clampSelectionToPalette, [colors.length, selectedIndices, setSelectedIndices]);
-
-  const handleClearSelected = () => {
-    if (!canEditSelection) {
-      return;
-    }
-    const nextColors = [...colors];
-    const clearColor = colors[0] ?? '#000000';
-    for (const index of orderedSelection) {
-      nextColors[index] = clearColor;
-    }
-    setPalette(nextColors);
-    closeMenu();
-  };
-
-  const handleEditSelected = () => {
-    if (!canEditSelection) {
-      return;
-    }
-    const startIndex = orderedSelection[0] ?? 0;
-    const initial = colors[startIndex] ?? '#ffffff';
-    closeMenu();
-    openColorPicker(initial, (value) => {
-      const nextColors = [...colors];
-      for (const index of orderedSelection) {
-        nextColors[index] = value;
-      }
-      setPalette(nextColors);
-    });
-  };
 
   const handleDeleteSelected = () => {
     if (!canEditSelection || !canDeleteSelection) {
@@ -523,7 +569,17 @@ const PaletteBar = () => {
       .filter((color) => !existing.has(color.toLowerCase()))
       .forEach((color) => addColor(color));
     closeMenu();
+    setAddSwatchOpen(false);
+    setSwatchPresetChoice('none');
   };
+
+  const openLospec = useCallback((prefill?: string) => {
+    setLospecError(null);
+    setLospecOpen(true);
+    if (prefill) {
+      setLospecUrl(prefill);
+    }
+  }, []);
 
   const closeLospec = () => {
     setLospecOpen(false);
@@ -531,6 +587,36 @@ const PaletteBar = () => {
     setLospecError(null);
     setLospecUrl('');
   };
+
+  useEffect(() => {
+    const handleOpen = () => {
+      openLospec('https://lospec.com/palette-list/');
+    };
+    window.addEventListener('palette:open-lospec', handleOpen);
+    return () => window.removeEventListener('palette:open-lospec', handleOpen);
+  }, [openLospec]);
+
+  useEffect(() => {
+    const handleOpen = () => {
+      setAddSwatchOpen(true);
+      setSwatchPresetChoice('none');
+    };
+    window.addEventListener('palette:open-add-swatch', handleOpen);
+    return () => window.removeEventListener('palette:open-add-swatch', handleOpen);
+  }, []);
+
+  useEffect(() => {
+    const handleSetRows = (event: Event) => {
+      const customEvent = event as CustomEvent<number>;
+      const next = Number(customEvent.detail);
+      if (!Number.isFinite(next)) {
+        return;
+      }
+      setMaxRows(Math.min(4, Math.max(2, Math.floor(next))));
+    };
+    window.addEventListener('palette:set-rows', handleSetRows);
+    return () => window.removeEventListener('palette:set-rows', handleSetRows);
+  }, []);
 
   const submitLospec = async () => {
     if (!window.paletteApi?.importLospec) {
@@ -540,6 +626,13 @@ const PaletteBar = () => {
     const input = lospecUrl.trim();
     if (!input) {
       setLospecError('Paste a LoSpec palette URL or slug.');
+      return;
+    }
+    if (
+      !window.confirm(
+        'Importing a LoSpec palette will replace your current palette. Continue?'
+      )
+    ) {
       return;
     }
     setLospecBusy(true);
@@ -738,116 +831,450 @@ const PaletteBar = () => {
           style={{ top: menu.y, left: menu.x }}
         >
           <div className="palette-bar__menu-label">Actions</div>
-          <DropdownSelect
-            ariaLabel="Palette actions"
-            className="palette-bar__menu-item palette-bar__menu-select"
-            value={menuActionChoice}
-            onChange={(value) => {
-              setMenuActionChoice(value);
-              if (value === 'none') {
-                return;
-              }
-              if (value === 'importLospec') {
-                closeMenu();
-                setLospecOpen(true);
-                setLospecUrl('https://lospec.com/palette-list/');
-                setLospecError(null);
-                setMenuActionChoice('none');
-                return;
-              }
-              if (value === 'setColor') {
-                handleSetColor();
-              } else if (value === 'editSelected') {
-                handleEditSelected();
-              } else if (value === 'clearSelected') {
-                handleClearSelected();
-              } else if (value === 'removeColor') {
-                handleRemoveColor();
-              } else if (value === 'deleteSelected') {
-                handleDeleteSelected();
-              } else if (value === 'cycleSelected') {
-                handleCycleSelected();
-              } else if (value === 'addColor') {
-                handleAddColor();
-              } else if (value === 'consolidate') {
-                consolidatePalette();
-                closeMenu();
-              }
-              setMenuActionChoice('none');
-            }}
-            options={[
-              { value: 'none', label: 'Choose action…' },
-              { value: 'importLospec', label: 'Import LoSpec Palette URL…' },
-              { value: 'setColor', label: 'Set Color', disabled: !canSetColor },
-              { value: 'editSelected', label: 'Edit Selected', disabled: !canEditSelection },
-              { value: 'clearSelected', label: 'Clear Selected', disabled: !canEditSelection },
-              { value: 'removeColor', label: 'Remove Color', disabled: !canRemoveColor },
-              {
-                value: 'deleteSelected',
-                label: 'Delete Selected',
-                disabled: !canEditSelection || !canDeleteSelection,
-              },
-              { value: 'cycleSelected', label: 'Cycle Selected', disabled: !canCycleSelection },
-              { value: 'addColor', label: 'Add Color' },
-              { value: 'consolidate', label: 'Consolidate Duplicates', disabled: !hasDuplicates },
-            ]}
-          />
-          <div className="palette-bar__menu-label">Add Swatch</div>
-          <DropdownSelect
-            ariaLabel="Swatch presets"
-            className="palette-bar__menu-item palette-bar__menu-select"
-            value={swatchPresetChoice}
-            onChange={(value) => {
-              setSwatchPresetChoice(value);
-              if (value === 'none') {
-                return;
-              }
-              const preset = swatchPresets.find((entry) => entry.id === value);
-              if (preset) {
-                handleAddSwatch(preset.colors);
-              }
-              setSwatchPresetChoice('none');
-            }}
-            options={[
-              { value: 'none', label: 'Choose preset…' },
-              ...swatchPresets.map((preset) => ({
-                value: preset.id,
-                label: preset.label,
-                render: (
-                  <span className="palette-bar__preset-option">
-                    <span className="palette-bar__preset-option-label">{preset.label}</span>
-                    <span className="palette-bar__menu-preview" aria-hidden="true">
-                      {preset.colors.map((swatch, index) => (
-                        <span
-                          key={`${preset.id}-${swatch}-${index}`}
-                          className="palette-bar__menu-chip"
-                          style={{ background: swatch }}
-                        />
-                      ))}
-                    </span>
-                  </span>
-                ),
-              })),
-            ]}
-          />
-          <div className="palette-bar__menu-label">Palette Rows</div>
-          <DropdownSelect
-            ariaLabel="Palette rows"
-            className="palette-bar__menu-item palette-bar__menu-select"
-            value={String(maxRows)}
-            onChange={(value) => {
-              const next = Math.min(4, Math.max(1, Number(value)));
-              setMaxRows(Number.isFinite(next) ? next : 3);
-              closeMenu();
-            }}
-            options={[
-              { value: '2', label: '2 rows' },
-              { value: '3', label: '3 rows' },
-              { value: '4', label: '4 rows' },
-            ]}
-          />
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            onClick={handleSetColor}
+            disabled={!canSetColor}
+          >
+            Set Color
+          </button>
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            onClick={handleDeleteSelected}
+            disabled={!canEditSelection || !canDeleteSelection}
+          >
+            Delete Selected
+          </button>
+          <button
+            type="button"
+            className="palette-bar__menu-item"
+            onClick={handleCycleSelected}
+            disabled={!canCycleSelection}
+          >
+            Cycle Selected
+          </button>
         </div>
       )}
+      {colorPickerContext &&
+        createPortal(
+          <div
+            className="modal"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                closeCustomColorPicker();
+                return;
+              }
+              if (event.key === 'Enter') {
+                const target = event.target as HTMLElement | null;
+                if (target?.tagName === 'TEXTAREA') {
+                  return;
+                }
+                event.preventDefault();
+                applyCustomColorPicker();
+              }
+            }}
+          >
+            <div className="modal__backdrop" onClick={closeCustomColorPicker} />
+            <div className="modal__content modal__content--palette-color" role="dialog" aria-modal="true">
+              <div className="modal__header">
+                <h2>{colorPickerTitle}</h2>
+                <button type="button" onClick={closeCustomColorPicker}>
+                  Close
+                </button>
+              </div>
+              <div className="modal__body">
+                <div className="palette-color-picker__preview-row">
+                  <div className="palette-color-picker__preview-block">
+                    <span className="panel__label">Before</span>
+                    <div
+                      className="palette-color-picker__preview-swatch"
+                      style={{ background: rgbToHex(colorPickerInitialRgb) }}
+                    />
+                  </div>
+                  <div className="palette-color-picker__preview-block">
+                    <span className="panel__label">Current</span>
+                    <div
+                      className="palette-color-picker__preview-swatch"
+                      style={{ background: rgbToHex(colorPickerRgb) }}
+                    />
+                  </div>
+                </div>
+
+                <div className="palette-color-picker__hex-row">
+                  <label className="panel__label" htmlFor="palette-color-hex">
+                    HEX
+                  </label>
+                  <input
+                    id="palette-color-hex"
+                    type="text"
+                    className="panel__number"
+                    value={colorPickerHexInput}
+                    onChange={(event) => {
+                      const raw = event.currentTarget.value;
+                      setColorPickerHexInput(raw);
+                      const normalized = normalizeHexInput(raw);
+                      if (!isValidHex(normalized)) {
+                        return;
+                      }
+                      const rgb = hexToRgb(normalized);
+                      if (rgb) {
+                        setColorPickerRgb(rgb);
+                      }
+                    }}
+                    onBlur={() => {
+                      const normalized = normalizeHexInput(colorPickerHexInput);
+                      if (!isValidHex(normalized)) {
+                        setColorPickerHexInput(rgbToHex(colorPickerRgb));
+                        return;
+                      }
+                      const rgb = hexToRgb(normalized);
+                      if (rgb) {
+                        applyPickerRgb(rgb);
+                      }
+                    }}
+                  />
+                </div>
+
+                <div className="palette-color-picker__section">
+                  <div className="palette-color-picker__section-label">RGB</div>
+                  <div className="palette-color-picker__channel">
+                    <span className="palette-color-picker__channel-name">R</span>
+                    <input
+                      type="range"
+                      className="panel__range"
+                      min={0}
+                      max={255}
+                      value={colorPickerRgb.r}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb({ ...colorPickerRgb, r: next });
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="panel__number"
+                      min={0}
+                      max={255}
+                      step={1}
+                      value={colorPickerRgb.r}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb({ ...colorPickerRgb, r: next });
+                      }}
+                    />
+                  </div>
+                  <div className="palette-color-picker__channel">
+                    <span className="palette-color-picker__channel-name">G</span>
+                    <input
+                      type="range"
+                      className="panel__range"
+                      min={0}
+                      max={255}
+                      value={colorPickerRgb.g}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb({ ...colorPickerRgb, g: next });
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="panel__number"
+                      min={0}
+                      max={255}
+                      step={1}
+                      value={colorPickerRgb.g}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb({ ...colorPickerRgb, g: next });
+                      }}
+                    />
+                  </div>
+                  <div className="palette-color-picker__channel">
+                    <span className="palette-color-picker__channel-name">B</span>
+                    <input
+                      type="range"
+                      className="panel__range"
+                      min={0}
+                      max={255}
+                      value={colorPickerRgb.b}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb({ ...colorPickerRgb, b: next });
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="panel__number"
+                      min={0}
+                      max={255}
+                      step={1}
+                      value={colorPickerRgb.b}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb({ ...colorPickerRgb, b: next });
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="palette-color-picker__section">
+                  <div className="palette-color-picker__section-label">HSVL</div>
+                  <div className="palette-color-picker__channel">
+                    <span className="palette-color-picker__channel-name">H</span>
+                    <input
+                      type="range"
+                      className="panel__range"
+                      min={0}
+                      max={360}
+                      value={Math.round(colorPickerHsv.h)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hsvToRgb({ ...colorPickerHsv, h: clampInt(next, 0, 360) })
+                        );
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="panel__number"
+                      min={0}
+                      max={360}
+                      step={1}
+                      value={Math.round(colorPickerHsv.h)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hsvToRgb({ ...colorPickerHsv, h: clampInt(next, 0, 360) })
+                        );
+                      }}
+                    />
+                  </div>
+                  <div className="palette-color-picker__channel">
+                    <span className="palette-color-picker__channel-name">S</span>
+                    <input
+                      type="range"
+                      className="panel__range"
+                      min={0}
+                      max={100}
+                      value={Math.round(colorPickerHsv.s * 100)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hsvToRgb({ ...colorPickerHsv, s: clampInt(next, 0, 100) / 100 })
+                        );
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="panel__number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round(colorPickerHsv.s * 100)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hsvToRgb({ ...colorPickerHsv, s: clampInt(next, 0, 100) / 100 })
+                        );
+                      }}
+                    />
+                  </div>
+                  <div className="palette-color-picker__channel">
+                    <span className="palette-color-picker__channel-name">V</span>
+                    <input
+                      type="range"
+                      className="panel__range"
+                      min={0}
+                      max={100}
+                      value={Math.round(colorPickerHsv.v * 100)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hsvToRgb({ ...colorPickerHsv, v: clampInt(next, 0, 100) / 100 })
+                        );
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="panel__number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round(colorPickerHsv.v * 100)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hsvToRgb({ ...colorPickerHsv, v: clampInt(next, 0, 100) / 100 })
+                        );
+                      }}
+                    />
+                  </div>
+                  <div className="palette-color-picker__channel">
+                    <span className="palette-color-picker__channel-name">L</span>
+                    <input
+                      type="range"
+                      className="panel__range"
+                      min={0}
+                      max={100}
+                      value={Math.round(colorPickerHsl.l * 100)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hslToRgb({ ...colorPickerHsl, l: clampInt(next, 0, 100) / 100 })
+                        );
+                      }}
+                    />
+                    <input
+                      type="number"
+                      className="panel__number"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={Math.round(colorPickerHsl.l * 100)}
+                      onChange={(event) => {
+                        const next = Number(event.currentTarget.value);
+                        if (!Number.isFinite(next)) {
+                          return;
+                        }
+                        applyPickerRgb(
+                          hslToRgb({ ...colorPickerHsl, l: clampInt(next, 0, 100) / 100 })
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="modal__row" style={{ justifyContent: 'flex-end', gap: 8 }}>
+                  <button type="button" className="panel__item" onClick={closeCustomColorPicker}>
+                    Cancel
+                  </button>
+                  <button type="button" className="panel__item" onClick={applyCustomColorPicker}>
+                    {colorPickerContext.mode === 'add' ? 'Add Color' : 'Apply'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+      {addSwatchOpen &&
+        createPortal(
+          <div
+            className="modal"
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                setAddSwatchOpen(false);
+                setSwatchPresetChoice('none');
+              }
+            }}
+          >
+            <div
+              className="modal__backdrop"
+              onClick={() => {
+                setAddSwatchOpen(false);
+                setSwatchPresetChoice('none');
+              }}
+            />
+            <div className="modal__content" role="dialog" aria-modal="true">
+              <div className="modal__header">
+                <h2>Add Swatch Preset</h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAddSwatchOpen(false);
+                    setSwatchPresetChoice('none');
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+              <div className="modal__body">
+                <span className="panel__label">Preset</span>
+                <DropdownSelect
+                  ariaLabel="Swatch presets"
+                  className="panel__select"
+                  value={swatchPresetChoice}
+                  onChange={(value) => {
+                    setSwatchPresetChoice(value);
+                    if (value === 'none') {
+                      return;
+                    }
+                    const preset = swatchPresets.find((entry) => entry.id === value);
+                    if (preset) {
+                      handleAddSwatch(preset.colors);
+                    }
+                  }}
+                  options={[
+                    { value: 'none', label: 'Choose preset…' },
+                    ...swatchPresets.map((preset) => ({
+                      value: preset.id,
+                      label: preset.label,
+                      render: (
+                        <span className="palette-bar__preset-option">
+                          <span className="palette-bar__preset-option-label">{preset.label}</span>
+                          <span className="palette-bar__menu-preview" aria-hidden="true">
+                            {preset.colors.map((swatch, index) => (
+                              <span
+                                key={`${preset.id}-${swatch}-${index}`}
+                                className="palette-bar__menu-chip"
+                                style={{ background: swatch }}
+                              />
+                            ))}
+                          </span>
+                        </span>
+                      ),
+                    })),
+                  ]}
+                />
+                <div className="panel__note">Adds only colors not already in the palette.</div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
       {lospecOpen &&
         createPortal(
           <div
@@ -886,6 +1313,9 @@ const PaletteBar = () => {
                   }}
                   autoFocus
                 />
+                <div className="panel__note" style={{ color: 'rgba(255, 170, 120, 0.9)' }}>
+                  Importing will replace your current palette.
+                </div>
                 {lospecError && (
                   <div className="panel__note" style={{ color: 'rgba(255, 120, 120, 0.9)' }}>
                     {lospecError}

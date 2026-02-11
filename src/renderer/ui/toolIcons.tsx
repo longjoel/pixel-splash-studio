@@ -234,4 +234,12 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
       <path d="M16 16h0" />
     </svg>
   ),
+  swatch: (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <rect x="4.5" y="6.5" width="15" height="11" rx="2" />
+      <path d="M8 6.5v11" />
+      <path d="M12 6.5v11" />
+      <path d="M16 6.5v11" />
+    </svg>
+  ),
 };

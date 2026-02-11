@@ -4,6 +4,7 @@
   background: #0f1115;
   color: #f5f5f5;
   --ui-scale: 1;
+  --topbar-base-height: 42px;
   --topbar-height: 42px;
 }
 
@@ -35,7 +36,7 @@ body {
 }
 
 .app--compact-tools .app__canvas-layer {
-  top: calc(var(--topbar-height) * var(--ui-scale));
+  top: calc(var(--topbar-base-height) * var(--ui-scale));
 }
 
 .app__canvas-layer {
@@ -314,6 +315,11 @@ body {
   max-height: min(85vh, 1080px);
 }
 
+.modal__content--palette-color {
+  width: min(760px, 94vw);
+  max-height: min(88vh, 960px);
+}
+
 .modal__header {
   display: flex;
   justify-content: space-between;
@@ -553,7 +559,7 @@ body {
 }
 
 .app--compact-tools .app__toolbar {
-  top: calc(16px + var(--topbar-height));
+  top: calc(16px + var(--topbar-base-height));
 }
 
 .app__toolbar--collapsed {
@@ -1620,6 +1626,65 @@ body {
 .palette-bar__menu-item[disabled] {
   opacity: 0.4;
   cursor: default;
+}
+
+.palette-color-picker__preview-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.palette-color-picker__preview-block {
+  display: grid;
+  gap: 6px;
+}
+
+.palette-color-picker__preview-swatch {
+  width: 100%;
+  height: 56px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background-image:
+    linear-gradient(45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255, 255, 255, 0.06) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.06) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.06) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+
+.palette-color-picker__hex-row {
+  display: grid;
+  gap: 6px;
+}
+
+.palette-color-picker__section {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.palette-color-picker__section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.palette-color-picker__channel {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) 84px;
+  align-items: center;
+  gap: 8px;
+}
+
+.palette-color-picker__channel-name {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.72);
+  text-transform: uppercase;
 }
 
 .tool-context-menu {

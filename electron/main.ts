@@ -630,6 +630,39 @@ app.whenReady().then(async () => {
           },
         },
         {
+          label: 'Import LoSpec Palette URL...',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'palette:import-lospec');
+          },
+        },
+        {
+          label: 'Palette Rows',
+          submenu: [
+            {
+              label: '2 Rows',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'palette:rows:2');
+              },
+            },
+            {
+              label: '3 Rows',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'palette:rows:3');
+              },
+            },
+            {
+              label: '4 Rows',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'palette:rows:4');
+              },
+            },
+          ],
+        },
+        {
           label: 'Register LoSpec URL Handler (Linux)…',
           enabled: process.platform === 'linux',
           click: async () => {

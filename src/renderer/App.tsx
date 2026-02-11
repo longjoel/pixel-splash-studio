@@ -1239,6 +1239,17 @@ const App = () => {
         setAdvancedMode(rawValue === 'true');
         return;
       }
+      if (action.startsWith('palette:rows:')) {
+        const nextRows = Number(action.split(':')[2]);
+        if (Number.isFinite(nextRows)) {
+          window.dispatchEvent(
+            new CustomEvent('palette:set-rows', {
+              detail: Math.min(4, Math.max(2, Math.floor(nextRows))),
+            })
+          );
+        }
+        return;
+      }
       switch (action) {
         case 'new':
           handleNew();
@@ -1305,6 +1316,9 @@ const App = () => {
           break;
         case 'palette:consolidate':
           consolidatePalette();
+          break;
+        case 'palette:import-lospec':
+          window.dispatchEvent(new Event('palette:open-lospec'));
           break;
         case 'license':
           setShowLicense(true);

@@ -531,6 +531,15 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.overlays}</span>
         </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => window.dispatchEvent(new Event('palette:open-add-swatch'))}
+          title="Add Swatch Preset"
+          aria-label="Add Swatch Preset"
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.swatch}</span>
+        </button>
         {toolOptions && <div className="topbar__options">{toolOptions}</div>}
       </div>
       {menu.open && (
