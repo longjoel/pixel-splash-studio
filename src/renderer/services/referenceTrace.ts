@@ -141,6 +141,22 @@ const buildPaletteEntriesFromRange = (
   return entries;
 };
 
+const buildPaletteEntriesFromIndices = (colors: string[], indices: number[]) => {
+  const entries: PaletteEntry[] = [];
+  for (const index of indices) {
+    const color = colors[index];
+    if (!color) {
+      continue;
+    }
+    const rgb = hexToRgb(color);
+    if (!rgb) {
+      continue;
+    }
+    entries.push({ paletteIndex: index, rgb });
+  }
+  return entries;
+};
+
 const buildQuantizedPalette = (
   data: Uint8ClampedArray,
   maxColors: number
@@ -264,6 +280,34 @@ export const traceReferenceWithPaletteRange = (
   const start = Math.min(safeMin, safeMax);
   const end = Math.max(safeMin, safeMax);
   const paletteEntries = buildPaletteEntriesFromRange(paletteColors, start, end);
+  if (paletteEntries.length === 0) {
+    return;
+  }
+  const traceCanvas = buildTraceCanvas(reference);
+  if (!traceCanvas) {
+    return;
+  }
+  applyTraceCanvas(traceCanvas, paletteEntries);
+};
+
+export const traceReferenceWithPaletteSelection = (
+  reference: ReferenceImage,
+  indices: number[]
+) => {
+  const paletteColors = usePaletteStore.getState().colors;
+  if (paletteColors.length === 0) {
+    return;
+  }
+  const unique = Array.from(new Set(indices))
+    .map((index) => Math.round(index))
+    .filter((index) => Number.isFinite(index));
+  const clamped = unique
+    .filter((index) => index >= 0 && index < paletteColors.length)
+    .sort((a, b) => a - b);
+  if (clamped.length === 0) {
+    return;
+  }
+  const paletteEntries = buildPaletteEntriesFromIndices(paletteColors, clamped);
   if (paletteEntries.length === 0) {
     return;
   }

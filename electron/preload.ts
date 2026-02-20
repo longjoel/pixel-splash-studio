@@ -66,6 +66,38 @@ contextBridge.exposeInMainWorld('paletteApi', {
   },
 });
 
+contextBridge.exposeInMainWorld('optionsApi', {
+  getOpenAiKeyInfo: () => ipcRenderer.invoke('options:openai:get-key-info'),
+  setOpenAiApiKey: (apiKey: string | null) => ipcRenderer.invoke('options:openai:set-key', apiKey),
+  getOpenAiImageModel: () => ipcRenderer.invoke('options:openai:get-image-model'),
+  setOpenAiImageModel: (model: 'gpt-image-1' | 'gpt-image-1-mini') =>
+    ipcRenderer.invoke('options:openai:set-image-model', model),
+  getAiImageProvider: () => ipcRenderer.invoke('options:ai:get-image-provider'),
+  setAiImageProvider: (provider: 'openai' | 'localai') =>
+    ipcRenderer.invoke('options:ai:set-image-provider', provider),
+  getLocalAiConfig: () => ipcRenderer.invoke('options:localai:get-config'),
+  setLocalAiBaseUrl: (baseUrl: string) => ipcRenderer.invoke('options:localai:set-base-url', baseUrl),
+  setLocalAiImageModel: (model: string) =>
+    ipcRenderer.invoke('options:localai:set-image-model', model),
+  getLocalAiKeyInfo: () => ipcRenderer.invoke('options:localai:get-key-info'),
+  setLocalAiApiKey: (apiKey: string | null) =>
+    ipcRenderer.invoke('options:localai:set-key', apiKey),
+  getAdvancedMode: () => ipcRenderer.invoke('options:ui:get-advanced-mode'),
+  setAdvancedMode: (enabled: boolean) => ipcRenderer.invoke('options:ui:set-advanced-mode', enabled),
+});
+
+contextBridge.exposeInMainWorld('aiApi', {
+  generateSprite: (payload: {
+    prompt: string;
+    palette: string[];
+    cellWidth: number;
+    cellHeight: number;
+    columns: number;
+    rows: number;
+    referencePngBase64: string | null;
+  }) => ipcRenderer.invoke('ai:generate-sprite', payload),
+});
+
 const zoomListeners = new Set<(scale: number) => void>();
 let suppressZoom = false;
 let uiScale = 1;

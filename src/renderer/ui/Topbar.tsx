@@ -2,16 +2,79 @@ import React from 'react';
 import type { ToolId } from '@/state/toolStore';
 import { TOOL_ICONS } from '@/ui/toolIcons';
 import { useHistoryStore } from '@/state/historyStore';
+import { useClipboardStore } from '@/state/clipboardStore';
+import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
+import { copySelectionToClipboard, cutSelectionToClipboard } from '@/services/selectionClipboard';
+import { exportSelectionAsPng } from '@/services/selectionExport';
+import { useSelectionStore } from '@/state/selectionStore';
 
 type TopbarProps = {
   activeTool: ToolId;
   selectionCount: number;
   activateTool: (tool: ToolId) => void;
-  onExitCompact: () => void;
+  showAdvancedTools: boolean;
+  toolOptions?: React.ReactNode;
 };
 
+type TopbarMenu = 'layers' | 'overlays';
+
+type MenuState = {
+  open: boolean;
+  kind: TopbarMenu;
+  x: number;
+  y: number;
+};
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const useMenuPosition = (open: boolean, x: number, y: number, ref: React.RefObject<HTMLElement>) => {
+  const [pos, setPos] = React.useState({ x, y });
+
+  React.useLayoutEffect(() => {
+    if (!open || !ref.current) {
+      setPos({ x, y });
+      return;
+    }
+    const rect = ref.current.getBoundingClientRect();
+    const padding = 8;
+    const maxX = Math.max(padding, window.innerWidth - rect.width - padding);
+    const maxY = Math.max(padding, window.innerHeight - rect.height - padding);
+    setPos({
+      x: clamp(x, padding, maxX),
+      y: clamp(y, padding, maxY),
+    });
+  }, [open, ref, x, y]);
+
+  return pos;
+};
+
+const ToggleRow = ({
+  checked,
+  label,
+  onChange,
+  title,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: () => void;
+  title?: string;
+}) => (
+  <button
+    type="button"
+    className="bottom-dock__menu-item bottom-dock__menu-toggle"
+    data-active={checked}
+    onClick={onChange}
+    title={title}
+    role="menuitemcheckbox"
+    aria-checked={checked}
+  >
+    <span className="bottom-dock__menu-toggle-indicator" aria-hidden="true" />
+    <span>{label}</span>
+  </button>
+);
+
 class TopbarErrorBoundary extends React.Component<
-  { onDisable: () => void; children: React.ReactNode },
+  { children: React.ReactNode },
   { hasError: boolean }
 > {
   state = { hasError: false };
@@ -22,17 +85,16 @@ class TopbarErrorBoundary extends React.Component<
 
   componentDidCatch(error: unknown) {
     console.error('Topbar crashed:', error);
-    this.props.onDisable();
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <div className="topbar" role="toolbar" aria-label="Tools">
-          <div style={{ opacity: 0.9 }}>Compact tools disabled due to an error.</div>
+          <div style={{ opacity: 0.9 }}>Toolbar disabled due to an error.</div>
           <div style={{ flex: 1 }} />
-          <button type="button" className="topbar__mode-button" onClick={this.props.onDisable}>
-            Disable Compact
+          <button type="button" className="topbar__mode-button" onClick={() => window.location.reload()}>
+            Reload
           </button>
         </div>
       );
@@ -45,15 +107,105 @@ const TopbarInner = ({
   activeTool,
   selectionCount,
   activateTool,
-}: Pick<TopbarProps, 'activeTool' | 'selectionCount' | 'activateTool'>) => {
+  showAdvancedTools,
+  toolOptions,
+}: Pick<
+  TopbarProps,
+  'activeTool' | 'selectionCount' | 'activateTool' | 'toolOptions' | 'showAdvancedTools'
+>) => {
+  const topbarRef = React.useRef<HTMLDivElement | null>(null);
+  const menuRef = React.useRef<HTMLDivElement | null>(null);
   const historyLocked = useHistoryStore((state) => state.locked);
   const undoAvailable = useHistoryStore((state) => state.undoStack.length > 0);
   const redoAvailable = useHistoryStore((state) => state.redoStack.length > 0);
   const undo = useHistoryStore((state) => state.undo);
   const redo = useHistoryStore((state) => state.redo);
+  const clipboard = useClipboardStore((state) => state);
+  const hasClipboard = clipboard.pixels.length > 0 && clipboard.width > 0 && clipboard.height > 0;
+  const showReferenceLayer = useLayerVisibilityStore((state) => state.showReferenceLayer);
+  const showPixelLayer = useLayerVisibilityStore((state) => state.showPixelLayer);
+  const showTileLayer = useLayerVisibilityStore((state) => state.showTileLayer);
+  const showPixelGrid = useLayerVisibilityStore((state) => state.showPixelGrid);
+  const showTileGrid = useLayerVisibilityStore((state) => state.showTileGrid);
+  const showAxes = useLayerVisibilityStore((state) => state.showAxes);
+  const toggleReferenceLayer = useLayerVisibilityStore((state) => state.toggleReferenceLayer);
+  const togglePixelLayer = useLayerVisibilityStore((state) => state.togglePixelLayer);
+  const toggleTileLayer = useLayerVisibilityStore((state) => state.toggleTileLayer);
+  const togglePixelGrid = useLayerVisibilityStore((state) => state.togglePixelGrid);
+  const toggleTileGrid = useLayerVisibilityStore((state) => state.toggleTileGrid);
+  const toggleAxes = useLayerVisibilityStore((state) => state.toggleAxes);
+
+  const [menu, setMenu] = React.useState<MenuState>({
+    open: false,
+    kind: 'layers',
+    x: 0,
+    y: 0,
+  });
+  const pos = useMenuPosition(menu.open, menu.x, menu.y, menuRef);
+
+  const closeMenu = React.useCallback(() => {
+    setMenu((prev) => (prev.open ? { ...prev, open: false } : prev));
+  }, []);
+
+  const openMenu = (kind: TopbarMenu) => (event: React.MouseEvent) => {
+    event.preventDefault();
+    const sameKind = menu.open && menu.kind === kind;
+    if (sameKind) {
+      closeMenu();
+      return;
+    }
+    setMenu({ open: true, kind, x: event.clientX, y: event.clientY });
+  };
+
+  React.useEffect(() => {
+    if (!menu.open) {
+      return;
+    }
+    const handlePointerDown = (event: MouseEvent) => {
+      if (menuRef.current && menuRef.current.contains(event.target as Node)) {
+        return;
+      }
+      closeMenu();
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeMenu();
+      }
+    };
+    window.addEventListener('mousedown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('mousedown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [closeMenu, menu.open]);
+
+  React.useLayoutEffect(() => {
+    const node = topbarRef.current;
+    if (!node) {
+      return;
+    }
+    const updateHeight = () => {
+      const nextHeight = node.offsetHeight;
+      if (nextHeight > 0) {
+        document.documentElement.style.setProperty('--topbar-height', `${nextHeight}px`);
+      }
+    };
+    updateHeight();
+    if (typeof ResizeObserver === 'undefined') {
+      const handleResize = () => updateHeight();
+      window.addEventListener('resize', handleResize);
+      return () => {
+        window.removeEventListener('resize', handleResize);
+      };
+    }
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   return (
-    <div className="topbar" role="toolbar" aria-label="Tools">
+    <div ref={topbarRef} className="topbar" role="toolbar" aria-label="Tools">
       <div className="topbar__tools" role="presentation">
         <button
           type="button"
@@ -74,6 +226,69 @@ const TopbarInner = ({
           disabled={historyLocked || !redoAvailable}
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.redo}</span>
+        </button>
+        <span className="topbar__divider" aria-hidden="true" />
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => copySelectionToClipboard()}
+          title="Copy Selection (Active Layer)"
+          aria-label="Copy Selection"
+          disabled={selectionCount === 0}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.copy}</span>
+        </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => copySelectionToClipboard({ deep: true })}
+          title="Deep Copy Selection (Merged)"
+          aria-label="Deep Copy Selection"
+          disabled={selectionCount === 0}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS['copy-deep']}</span>
+        </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => cutSelectionToClipboard()}
+          title="Cut Selection"
+          aria-label="Cut Selection"
+          disabled={selectionCount === 0}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.cut}</span>
+        </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => activateTool('stamp')}
+          title="Paste (Stamp Tool)"
+          aria-label="Paste"
+          disabled={!hasClipboard}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.paste}</span>
+        </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => {
+            void exportSelectionAsPng();
+          }}
+          title="Export PNG…"
+          aria-label="Export PNG"
+          disabled={selectionCount === 0}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.export}</span>
+        </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => useSelectionStore.getState().clear()}
+          title="Clear Selection"
+          aria-label="Clear Selection"
+          disabled={selectionCount === 0}
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.clear}</span>
         </button>
         <span className="topbar__divider" aria-hidden="true" />
         <button
@@ -145,6 +360,16 @@ const TopbarInner = ({
           aria-label="Text"
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
+        </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          data-active={activeTool === 'ai'}
+          onClick={() => activateTool('ai')}
+          title="AI Prompt"
+          aria-label="AI Prompt"
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.ai}</span>
         </button>
         <span className="topbar__divider" aria-hidden="true" />
         <button
@@ -228,68 +453,149 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['texture-roll']}</span>
         </button>
+        {showAdvancedTools && (
+          <>
+            <span className="topbar__divider" aria-hidden="true" />
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'tile-sampler'}
+              onClick={() => activateTool('tile-sampler')}
+              title="Tile Sampler (Shift+S)"
+              aria-label="Tile Sampler"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'tile-pen'}
+              onClick={() => activateTool('tile-pen')}
+              title="Tile Pen (Shift+P)"
+              aria-label="Tile Pen"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'tile-rectangle'}
+              onClick={() => activateTool('tile-rectangle')}
+              title="Tile Rectangle (Shift+R)"
+              aria-label="Tile Rectangle"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['tile-rectangle']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'tile-9slice'}
+              onClick={() => activateTool('tile-9slice')}
+              title="Tile 9-Slice (Shift+N)"
+              aria-label="Tile 9-Slice"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['tile-9slice']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'tile-export'}
+              onClick={() => activateTool('tile-export')}
+              title="Tile Export (Shift+E)"
+              aria-label="Tile Export"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['tile-export']}</span>
+            </button>
+          </>
+        )}
         <span className="topbar__divider" aria-hidden="true" />
         <button
           type="button"
           className="topbar__tool-button"
-          data-active={activeTool === 'tile-sampler'}
-          onClick={() => activateTool('tile-sampler')}
-          title="Tile Sampler (Shift+S)"
-          aria-label="Tile Sampler"
+          data-active={menu.open && menu.kind === 'layers'}
+          onClick={openMenu('layers')}
+          title="Layers"
+          aria-label="Layers"
+          aria-expanded={menu.open && menu.kind === 'layers'}
         >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
+          <span className="toolbar__tool-icon">{TOOL_ICONS.layers}</span>
         </button>
         <button
           type="button"
           className="topbar__tool-button"
-          data-active={activeTool === 'tile-pen'}
-          onClick={() => activateTool('tile-pen')}
-          title="Tile Pen (Shift+P)"
-          aria-label="Tile Pen"
+          data-active={menu.open && menu.kind === 'overlays'}
+          onClick={openMenu('overlays')}
+          title="Overlays"
+          aria-label="Overlays"
+          aria-expanded={menu.open && menu.kind === 'overlays'}
         >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
+          <span className="toolbar__tool-icon">{TOOL_ICONS.overlays}</span>
         </button>
         <button
           type="button"
           className="topbar__tool-button"
-          data-active={activeTool === 'tile-rectangle'}
-          onClick={() => activateTool('tile-rectangle')}
-          title="Tile Rectangle (Shift+R)"
-          aria-label="Tile Rectangle"
+          onClick={() => window.dispatchEvent(new Event('palette:open-add-swatch'))}
+          title="Add Swatch Preset"
+          aria-label="Add Swatch Preset"
         >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['tile-rectangle']}</span>
+          <span className="toolbar__tool-icon">{TOOL_ICONS.swatch}</span>
         </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'tile-9slice'}
-          onClick={() => activateTool('tile-9slice')}
-          title="Tile 9-Slice (Shift+N)"
-          aria-label="Tile 9-Slice"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['tile-9slice']}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'tile-export'}
-          onClick={() => activateTool('tile-export')}
-          title="Tile Export (Shift+E)"
-          aria-label="Tile Export"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['tile-export']}</span>
-        </button>
+        {toolOptions && <div className="topbar__options">{toolOptions}</div>}
       </div>
+      {menu.open && (
+        <div
+          ref={menuRef}
+          className="bottom-dock__menu"
+          role="menu"
+          aria-label={menu.kind === 'layers' ? 'Layers' : 'Overlays'}
+          style={{ top: pos.y, left: pos.x }}
+        >
+          <div className="bottom-dock__menu-title">
+            {menu.kind === 'layers' ? 'Layers' : 'Overlays'}
+          </div>
+          {menu.kind === 'layers' ? (
+            <div className="bottom-dock__menu-stack">
+              <ToggleRow checked={showReferenceLayer} label="Reference" onChange={toggleReferenceLayer} />
+              <ToggleRow checked={showPixelLayer} label="Pixels" onChange={togglePixelLayer} />
+              <ToggleRow checked={showTileLayer} label="Tiles" onChange={toggleTileLayer} />
+            </div>
+          ) : (
+            <div className="bottom-dock__menu-stack">
+              <ToggleRow
+                checked={showPixelGrid}
+                label="Pixel Grid"
+                onChange={togglePixelGrid}
+                title="Toggle pixel grid visibility"
+              />
+              <ToggleRow
+                checked={showTileGrid}
+                label="Tile Grid"
+                onChange={toggleTileGrid}
+                title="Toggle tile grid visibility"
+              />
+              <ToggleRow checked={showAxes} label="Axes" onChange={toggleAxes} title="Toggle axis visibility" />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
 
-export const Topbar = ({ activeTool, selectionCount, activateTool, onExitCompact }: TopbarProps) => (
-  <TopbarErrorBoundary onDisable={onExitCompact}>
+export const Topbar = ({
+  activeTool,
+  selectionCount,
+  activateTool,
+  showAdvancedTools,
+  toolOptions,
+}: TopbarProps) => (
+  <TopbarErrorBoundary>
     <TopbarInner
       activeTool={activeTool}
       selectionCount={selectionCount}
       activateTool={activateTool}
+      showAdvancedTools={showAdvancedTools}
+      toolOptions={toolOptions}
     />
   </TopbarErrorBoundary>
 );

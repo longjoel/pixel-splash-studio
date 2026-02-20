@@ -8,6 +8,7 @@ export type ToolId =
   | 'oval'
   | 'fill-bucket'
   | 'text'
+  | 'ai'
   | 'eyedropper'
   | 'reference-handle'
   | 'stamp'

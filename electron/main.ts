@@ -9,6 +9,22 @@ import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
 import { EXTENSION_MIME_MAP } from '../src/constants';
 import { decodeImageFile, encodeImageBuffer, type ExportImagePayload } from './imageCodecs';
+import {
+  getAdvancedMode,
+  getAiImageProvider,
+  getLocalAiConfig,
+  getLocalAiKeyInfo,
+  getOpenAiImageModel,
+  getOpenAiKeyInfo,
+  setAdvancedMode,
+  setOpenAiApiKey,
+  setOpenAiImageModel,
+  setAiImageProvider,
+  setLocalAiApiKey,
+  setLocalAiBaseUrl,
+  setLocalAiImageModel,
+} from './settings';
+import { generateSprite } from './imageProviders';
 
 // Mesa's RADV Vulkan driver often prints warnings even when Electron doesn't need Vulkan.
 // Disable Vulkan by default on Linux to reduce noisy startup logs.
@@ -40,7 +56,6 @@ const viewMenuState = {
   showPixelGrid: true,
   showTileGrid: true,
   showAxes: true,
-  toolbarCollapsed: false,
   minimapCollapsed: false,
 };
 
@@ -157,10 +172,6 @@ const applyViewMenuState = (partial: Partial<typeof viewMenuState>) => {
     viewMenuState.showAxes = partial.showAxes;
     setMenuItemChecked('view:showAxes', partial.showAxes);
   }
-  if (typeof partial.toolbarCollapsed === 'boolean') {
-    viewMenuState.toolbarCollapsed = partial.toolbarCollapsed;
-    setMenuItemChecked('view:toolbarExpanded', !partial.toolbarCollapsed);
-  }
   if (typeof partial.minimapCollapsed === 'boolean') {
     viewMenuState.minimapCollapsed = partial.minimapCollapsed;
     setMenuItemChecked('view:minimapExpanded', !partial.minimapCollapsed);
@@ -271,7 +282,7 @@ app.on('open-url', (event, url) => {
   }
 });
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   createWindow();
 
   try {
@@ -284,6 +295,8 @@ app.whenReady().then(() => {
   if (launchUrl) {
     void handleLospecDeepLink(launchUrl);
   }
+
+  const advancedModeEnabled = await getAdvancedMode();
 
   const template = [
     {
@@ -449,18 +462,6 @@ app.whenReady().then(() => {
       label: 'View',
       submenu: [
         {
-          id: 'view:toolbarExpanded',
-          label: 'Toolbar Panel',
-          type: 'checkbox' as const,
-          checked: !viewMenuState.toolbarCollapsed,
-          click: (menuItem: Electron.MenuItem) => {
-            const next = !menuItem.checked;
-            applyViewMenuState({ toolbarCollapsed: next });
-            const window = BrowserWindow.getFocusedWindow();
-            window?.webContents.send('menu:action', `view:set:toolbarCollapsed:${next}`);
-          },
-        },
-        {
           id: 'view:minimapExpanded',
           label: 'Minimap Panel',
           type: 'checkbox' as const,
@@ -598,11 +599,68 @@ app.whenReady().then(() => {
       label: 'Options',
       submenu: [
         {
+          id: 'options:advanced-mode',
+          label: 'Advanced Mode (Tile Tools)',
+          type: 'checkbox' as const,
+          checked: advancedModeEnabled,
+          click: async (menuItem: Electron.MenuItem) => {
+            await setAdvancedMode(menuItem.checked);
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send(
+              'menu:action',
+              `options:advancedMode:${menuItem.checked}`
+            );
+          },
+        },
+        { type: 'separator' as const },
+        {
+          label: 'OpenAI...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'options');
+          },
+        },
+        { type: 'separator' as const },
+        {
           label: 'Consolidate Palette',
           click: () => {
             const window = BrowserWindow.getFocusedWindow();
             window?.webContents.send('menu:action', 'palette:consolidate');
           },
+        },
+        {
+          label: 'Import LoSpec Palette URL...',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'palette:import-lospec');
+          },
+        },
+        {
+          label: 'Palette Rows',
+          submenu: [
+            {
+              label: '2 Rows',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'palette:rows:2');
+              },
+            },
+            {
+              label: '3 Rows',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'palette:rows:3');
+              },
+            },
+            {
+              label: '4 Rows',
+              click: () => {
+                const window = BrowserWindow.getFocusedWindow();
+                window?.webContents.send('menu:action', 'palette:rows:4');
+              },
+            },
+          ],
         },
         {
           label: 'Register LoSpec URL Handler (Linux)…',
@@ -1337,6 +1395,68 @@ async function importLospecPalette(urlOrSlug: string): Promise<LospecImportedPal
 
 ipcMain.handle('palette:import-lospec', async (_event, urlOrSlug: string) =>
   importLospecPalette(urlOrSlug)
+);
+
+ipcMain.handle('options:openai:get-key-info', async () => getOpenAiKeyInfo());
+
+ipcMain.handle('options:openai:set-key', async (_event, apiKey: string | null) => {
+  await setOpenAiApiKey(apiKey);
+});
+
+ipcMain.handle('options:openai:get-image-model', async () => getOpenAiImageModel());
+
+ipcMain.handle(
+  'options:openai:set-image-model',
+  async (_event, model: 'gpt-image-1' | 'gpt-image-1-mini') => {
+    await setOpenAiImageModel(model);
+  }
+);
+
+ipcMain.handle('options:ai:get-image-provider', async () => getAiImageProvider());
+
+ipcMain.handle(
+  'options:ai:set-image-provider',
+  async (_event, provider: 'openai' | 'localai') => {
+    await setAiImageProvider(provider);
+  }
+);
+
+ipcMain.handle('options:localai:get-config', async () => getLocalAiConfig());
+ipcMain.handle('options:localai:set-base-url', async (_event, baseUrl: string) =>
+  setLocalAiBaseUrl(baseUrl)
+);
+ipcMain.handle('options:localai:set-image-model', async (_event, model: string) =>
+  setLocalAiImageModel(model)
+);
+ipcMain.handle('options:localai:get-key-info', async () => getLocalAiKeyInfo());
+ipcMain.handle('options:localai:set-key', async (_event, apiKey: string | null) =>
+  setLocalAiApiKey(apiKey)
+);
+ipcMain.handle('options:ui:get-advanced-mode', async () => getAdvancedMode());
+ipcMain.handle('options:ui:set-advanced-mode', async (_event, enabled: boolean) => {
+  const next = Boolean(enabled);
+  await setAdvancedMode(next);
+  const menu = Menu.getApplicationMenu();
+  const menuItem = menu?.getMenuItemById('options:advanced-mode');
+  if (menuItem) {
+    menuItem.checked = next;
+  }
+});
+
+ipcMain.handle(
+  'ai:generate-sprite',
+  async (
+    _event,
+    payload: {
+      prompt: string;
+      palette: string[];
+      cellWidth: number;
+      cellHeight: number;
+      columns: number;
+      rows: number;
+      referencePngBase64: string | null;
+    }
+  ) => generateSprite(payload)
 );
 
 ipcMain.handle('debug:perf-log', async (_event, message: string) => {
