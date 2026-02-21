@@ -58,7 +58,12 @@ import {
 } from './services/referenceTrace';
 import { useReferenceStore } from './state/referenceStore';
 import { useReferenceHandleStore } from './state/referenceHandleStore';
-import { useTileMapStore } from './state/tileMapStore';
+import {
+  TILE_PICKER_ZOOM_MAX,
+  TILE_PICKER_ZOOM_MIN,
+  useTileMapStore,
+} from './state/tileMapStore';
+import { TILE_SIZE } from './core/grid';
 import {
   applyPaletteMap,
   buildNearestPaletteMap,
@@ -101,6 +106,9 @@ const REFERENCE_SCALE_SLIDER_MAX = 100;
 const REFERENCE_SCALE_LOG_MIN = Math.log10(REFERENCE_SCALE_MIN);
 const REFERENCE_SCALE_LOG_MAX = Math.log10(REFERENCE_SCALE_MAX);
 const REFERENCE_SCALE_LOG_RANGE = REFERENCE_SCALE_LOG_MAX - REFERENCE_SCALE_LOG_MIN;
+const TILE_PALETTE_MIN_HEIGHT = 72;
+const TILE_PALETTE_MAX_HEIGHT = 360;
+const TILE_PALETTE_CLUSTER_PADDING = 32;
 
 const scaleToSlider = (scale: number) => {
   const clamped = clamp(scale, REFERENCE_SCALE_MIN, REFERENCE_SCALE_MAX);
@@ -279,6 +287,20 @@ const App = () => {
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
   const activeTileMapId = useTileMapStore((state) => state.activeTileMapId);
   const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
+  const selectedTileIndices = useTileMapStore((state) => state.selectedTileIndices);
+  const tilePickerZoom = useTileMapStore((state) => state.tilePickerZoom);
+  const setTilePickerZoom = useTileMapStore((state) => state.setTilePickerZoom);
+  const tilePlacementMode = useTileMapStore((state) => state.tilePlacementMode);
+  const setTilePlacementMode = useTileMapStore((state) => state.setTilePlacementMode);
+  const tilePenSnapToCluster = useTileMapStore((state) => state.tilePenSnapToCluster);
+  const setTilePenSnapToCluster = useTileMapStore((state) => state.setTilePenSnapToCluster);
+  const setActiveTileSet = useTileMapStore((state) => state.setActiveTileSet);
+  const setTileSetLayout = useTileMapStore((state) => state.setTileSetLayout);
+  const addTileSet = useTileMapStore((state) => state.addTileSet);
+  const duplicateTileSet = useTileMapStore((state) => state.duplicateTileSet);
+  const renameTileSet = useTileMapStore((state) => state.renameTileSet);
+  const deleteTileSet = useTileMapStore((state) => state.deleteTileSet);
+  const deleteTilesFromSet = useTileMapStore((state) => state.deleteTilesFromSet);
   const brushSize = useBrushStore((state) => state.size);
   const brushShape = useBrushStore((state) => state.shape);
   const sprayRadius = useSprayStore((state) => state.radius);
@@ -420,10 +442,135 @@ const App = () => {
   const projectTitle = getProjectTitle();
   const activeTileSet = tileSets.find((set) => set.id === activeTileSetId) ?? tileSets[0];
   const activeTileMap = tileMaps.find((map) => map.id === activeTileMapId) ?? tileMaps[0];
+  const selectedTileIndicesList = React.useMemo(() => {
+    const unique = new Set(selectedTileIndices.filter((index) => index >= 0));
+    return Array.from(unique).sort((a, b) => a - b);
+  }, [selectedTileIndices]);
+  const setTileZoom = useCallback(
+    (next: number) => {
+      if (Number.isFinite(next)) {
+        setTilePickerZoom(next);
+      }
+    },
+    [setTilePickerZoom]
+  );
+  const updateTileClusterSize = useCallback(
+    (columns: number, rows: number) => {
+      if (!activeTileSet) {
+        return;
+      }
+      if (!Number.isFinite(columns) || !Number.isFinite(rows)) {
+        return;
+      }
+      setTileSetLayout(activeTileSet.id, columns, rows);
+    },
+    [activeTileSet, setTileSetLayout]
+  );
+  const handleCreateTileSet = useCallback(() => {
+    const baseTileWidth = activeTileSet?.tileWidth ?? TILE_SIZE;
+    const baseTileHeight = activeTileSet?.tileHeight ?? TILE_SIZE;
+    addTileSet({
+      name: `Tile Set ${tileSets.length + 1}`,
+      tileWidth: baseTileWidth,
+      tileHeight: baseTileHeight,
+      columns: 1,
+      rows: 1,
+      tiles: [],
+    });
+  }, [activeTileSet, addTileSet, tileSets.length]);
+  const handleDuplicateTileSet = useCallback(() => {
+    if (!activeTileSet) {
+      return;
+    }
+    duplicateTileSet(activeTileSet.id);
+  }, [activeTileSet, duplicateTileSet]);
+  const handleRenameTileSet = useCallback(() => {
+    if (!activeTileSet) {
+      return;
+    }
+    const currentName = activeTileSet.name;
+    const nextName = window.prompt('Rename tile set', currentName);
+    if (typeof nextName !== 'string') {
+      return;
+    }
+    const trimmed = nextName.trim();
+    if (!trimmed || trimmed === currentName) {
+      return;
+    }
+    renameTileSet(activeTileSet.id, trimmed);
+  }, [activeTileSet, renameTileSet]);
+  const handleDeleteTileSet = useCallback(() => {
+    if (!activeTileSet) {
+      return;
+    }
+    const linkedMaps = tileMaps.filter((map) => map.tileSetId === activeTileSet.id).length;
+    const message =
+      linkedMaps > 0
+        ? `Delete ${activeTileSet.name}? This will also delete ${linkedMaps} linked tile map${linkedMaps === 1 ? '' : 's'}.`
+        : `Delete ${activeTileSet.name}?`;
+    if (!window.confirm(message)) {
+      return;
+    }
+    deleteTileSet(activeTileSet.id);
+  }, [activeTileSet, deleteTileSet, tileMaps]);
+  const handleDeleteSelectedTiles = useCallback(() => {
+    if (!activeTileSet || selectedTileIndicesList.length === 0) {
+      return;
+    }
+    const label = selectedTileIndicesList.length === 1 ? 'tile' : 'tiles';
+    const confirmed = window.confirm(
+      `Delete ${selectedTileIndicesList.length} ${label} from ${activeTileSet.name}? This cannot be undone.`
+    );
+    if (!confirmed) {
+      return;
+    }
+    deleteTilesFromSet(activeTileSet.id, selectedTileIndicesList);
+  }, [activeTileSet, deleteTilesFromSet, selectedTileIndicesList]);
   const isTilingTool = advancedMode && isTileTool(activeTool);
   const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
   const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
   const resizingRef = React.useRef(false);
+
+  const getTilePaletteHeightForSet = useCallback(
+    (tileSet: { tileWidth: number; rows: number }) => {
+      const swatchSize = Math.max(16, tileSet.tileWidth * tilePickerZoom);
+      const clusterHeight = Math.max(1, tileSet.rows) * swatchSize;
+      return clamp(
+        clusterHeight + TILE_PALETTE_CLUSTER_PADDING,
+        TILE_PALETTE_MIN_HEIGHT,
+        TILE_PALETTE_MAX_HEIGHT
+      );
+    },
+    [tilePickerZoom]
+  );
+
+  const handleSelectTileSet = useCallback(
+    (tileSetId: string) => {
+      setActiveTileSet(tileSetId);
+      const nextSet = tileSets.find((set) => set.id === tileSetId);
+      if (!nextSet) {
+        return;
+      }
+      setTilePaletteHeight(getTilePaletteHeightForSet(nextSet));
+    },
+    [getTilePaletteHeightForSet, setActiveTileSet, tileSets]
+  );
+
+  useEffect(() => {
+    if (!isTilingTool || !activeTileSetId) {
+      return;
+    }
+    const nextSet = tileSets.find((set) => set.id === activeTileSetId);
+    if (!nextSet) {
+      return;
+    }
+    setTilePaletteHeight(getTilePaletteHeightForSet(nextSet));
+  }, [
+    isTilingTool,
+    activeTileSetId,
+    getTilePaletteHeightForSet,
+    tileSets,
+  ]);
 
   const startPaletteResize = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -438,7 +585,10 @@ const App = () => {
         return;
       }
       const viewportHeight = document.documentElement.clientHeight;
-      const nextHeight = Math.max(72, Math.min(360, viewportHeight - event.clientY));
+      const nextHeight = Math.max(
+        TILE_PALETTE_MIN_HEIGHT,
+        Math.min(TILE_PALETTE_MAX_HEIGHT, viewportHeight - event.clientY)
+      );
       if (resizeModeRef.current === 'tile') {
         setTilePaletteHeight(nextHeight);
       } else {
@@ -2144,42 +2294,189 @@ const App = () => {
         activeTool === 'tile-rectangle' ||
         activeTool === 'tile-9slice' ||
         activeTool === 'tile-export' ? (
-        <div className="panel__group">
-          <span className="panel__label">Tile Context</span>
-          <div className="panel__note">
-            {activeTool === 'tile-sampler'
-              ? 'Drag to capture tiles on the tile grid.'
-              : activeTool === 'tile-rectangle'
-                ? 'Fill a tile rectangle using the selected tiles.'
-                : activeTool === 'tile-9slice'
-                  ? 'Drag to set 3x3 source, then drag to fill.'
-                  : activeTool === 'tile-export'
-                    ? 'Drag to export a tile map region as tiles.png + tiles.tmx.'
-                    : 'Paint tiles from the active tile set.'}
+        <>
+          <div className="panel__row panel__row--cards">
+            <div className="panel__group">
+              <span className="panel__label">Tile Set</span>
+              {activeTileSet ? (
+                <DropdownSelect
+                  ariaLabel="Tile Set"
+                  value={activeTileSet.id}
+                  onChange={handleSelectTileSet}
+                  options={tileSets.map((set) => ({ value: set.id, label: set.name }))}
+                />
+              ) : (
+                <div className="panel__note">None</div>
+              )}
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Cluster</span>
+              <div className="panel__stack panel__stack--inline">
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Tile cluster columns"
+                  min={1}
+                  max={64}
+                  step={1}
+                  disabled={!activeTileSet}
+                  value={activeTileSet?.columns ?? 1}
+                  onChange={(event) =>
+                    updateTileClusterSize(
+                      event.currentTarget.valueAsNumber,
+                      activeTileSet?.rows ?? 1
+                    )
+                  }
+                />
+                <span className="panel__note">x</span>
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Tile cluster rows"
+                  min={1}
+                  max={64}
+                  step={1}
+                  disabled={!activeTileSet}
+                  value={activeTileSet?.rows ?? 1}
+                  onChange={(event) =>
+                    updateTileClusterSize(
+                      activeTileSet?.columns ?? 1,
+                      event.currentTarget.valueAsNumber
+                    )
+                  }
+                />
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Zoom</span>
+              <div className="panel__stack panel__stack--inline">
+                <button
+                  type="button"
+                  className="panel__item"
+                  onClick={() => setTileZoom(tilePickerZoom - 1)}
+                  disabled={tilePickerZoom <= TILE_PICKER_ZOOM_MIN}
+                >
+                  -
+                </button>
+                <input
+                  type="number"
+                  className="panel__number"
+                  aria-label="Tile picker zoom"
+                  min={TILE_PICKER_ZOOM_MIN}
+                  max={TILE_PICKER_ZOOM_MAX}
+                  step={1}
+                  value={tilePickerZoom}
+                  onChange={(event) => setTileZoom(event.currentTarget.valueAsNumber)}
+                />
+                <button
+                  type="button"
+                  className="panel__item"
+                  onClick={() => setTileZoom(tilePickerZoom + 1)}
+                  disabled={tilePickerZoom >= TILE_PICKER_ZOOM_MAX}
+                >
+                  +
+                </button>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Placement</span>
+              <div className="panel__row">
+                <button
+                  type="button"
+                  className="panel__item"
+                  data-active={tilePlacementMode === 'soft'}
+                  onClick={() => setTilePlacementMode('soft')}
+                >
+                  Soft
+                </button>
+                <button
+                  type="button"
+                  className="panel__item"
+                  data-active={tilePlacementMode === 'hard'}
+                  onClick={() => setTilePlacementMode('hard')}
+                >
+                  Hard
+                </button>
+              </div>
+            </div>
+            {activeTool === 'tile-pen' ? (
+              <div className="panel__group">
+                <span className="panel__label">Snap</span>
+                <div className="panel__row">
+                  <button
+                    type="button"
+                    className="panel__item"
+                    data-active={!tilePenSnapToCluster}
+                    onClick={() => setTilePenSnapToCluster(false)}
+                  >
+                    Free
+                  </button>
+                  <button
+                    type="button"
+                    className="panel__item"
+                    data-active={tilePenSnapToCluster}
+                    onClick={() => setTilePenSnapToCluster(true)}
+                  >
+                    Cluster
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
-          <div className="panel__stack">
-            <div className="panel__note">
-              Tile Set:{' '}
-              {activeTileSet
-                ? `${activeTileSet.name} (${activeTileSet.tiles.length} tiles)`
-                : 'None'}
-            </div>
-            <div className="panel__note">
-              Tile Map: {activeTileMap ? activeTileMap.name : 'None'}
-            </div>
-            <div className="panel__note">
-              Selected Tile: {activeTileSet ? selectedTileIndex + 1 : '—'}
-            </div>
+          <div className="panel__row">
+            <button type="button" className="panel__item" onClick={handleCreateTileSet}>
+              New Set
+            </button>
+            <button
+              type="button"
+              className="panel__item"
+              onClick={handleDuplicateTileSet}
+              disabled={!activeTileSet}
+            >
+              Duplicate Set
+            </button>
+            <button
+              type="button"
+              className="panel__item"
+              onClick={handleRenameTileSet}
+              disabled={!activeTileSet}
+            >
+              Rename Set
+            </button>
+            <button
+              type="button"
+              className="panel__item"
+              onClick={handleDeleteTileSet}
+              disabled={!activeTileSet}
+            >
+              Delete Set
+            </button>
+            <button
+              type="button"
+              className="panel__item"
+              onClick={handleDeleteSelectedTiles}
+              disabled={!activeTileSet || selectedTileIndicesList.length === 0}
+            >
+              Delete Tiles
+            </button>
+          </div>
+          <div className="panel__row">
+            <span className="panel__note">
+              Set: {activeTileSet ? `${activeTileSet.name} (${activeTileSet.tiles.length} tiles)` : 'None'}
+            </span>
+            <span className="panel__note">Map: {activeTileMap ? activeTileMap.name : 'None'}</span>
+            <span className="panel__note">Selected Tile: {activeTileSet ? selectedTileIndex + 1 : '—'}</span>
+            <span className="panel__note">Selection: {selectedTileIndicesList.length}</span>
             {activeTool === 'tile-9slice' && (
               <>
-                <div className="panel__note">9-Slice: {nineSlice ? 'set' : 'unset'}</div>
-                <div className="panel__note">
-                  Selection: {tileSelectionCols}x{tileSelectionRows}
-                </div>
+                <span className="panel__note">9-Slice: {nineSlice ? 'set' : 'unset'}</span>
+                <span className="panel__note">
+                  Selection Shape: {tileSelectionCols}x{tileSelectionRows}
+                </span>
               </>
             )}
           </div>
-        </div>
+        </>
       ) : (
         <div className="panel__item" aria-disabled="true">
           No options

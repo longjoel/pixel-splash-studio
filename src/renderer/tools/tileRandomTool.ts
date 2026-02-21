@@ -1,7 +1,8 @@
 import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { usePreviewStore } from '@/state/previewStore';
-import { useTileMapStore } from '@/state/tileMapStore';
+import { useTileMapStore, type TilePlacementMode } from '@/state/tileMapStore';
+import { TilePlacementResolver } from '@/tools/tilePlacementResolver';
 
 const DEFAULT_TILE_MAP_SIZE = 32;
 
@@ -11,6 +12,7 @@ type ActiveTileContext = {
   tileSetId: string;
   tileWidth: number;
   tileHeight: number;
+  placementMode: TilePlacementMode;
   randomPool: number[];
   selectionCols: number;
   selectionRows: number;
@@ -23,6 +25,7 @@ type ActiveMapContext = {
   originY: number;
   columns: number;
   rows: number;
+  tiles: number[];
 };
 
 const toPixelPoint = (cursor: CursorState) => ({
@@ -66,6 +69,7 @@ const getActiveTileContext = (): ActiveTileContext | null => {
     tileSetId: tileSet.id,
     tileWidth: tileSet.tileWidth,
     tileHeight: tileSet.tileHeight,
+    placementMode: tileStore.tilePlacementMode,
     randomPool: pool,
     selectionCols: tileStore.selectedTileCols,
     selectionRows: tileStore.selectedTileRows,
@@ -92,6 +96,7 @@ const ensureActiveMap = (
       originY: existing.originY,
       columns: existing.columns,
       rows: existing.rows,
+      tiles: existing.tiles,
     };
   }
 
@@ -104,6 +109,7 @@ const ensureActiveMap = (
       originY: fallback.originY,
       columns: fallback.columns,
       rows: fallback.rows,
+      tiles: fallback.tiles,
     };
   }
 
@@ -125,7 +131,7 @@ const ensureActiveMap = (
     rows: size,
     tiles,
   });
-  return { tileMapId, originX, originY, columns: size, rows: size };
+  return { tileMapId, originX, originY, columns: size, rows: size, tiles };
 };
 
 export class TileRandomTool implements Tool {
@@ -137,6 +143,41 @@ export class TileRandomTool implements Tool {
   private seed = 0;
   private activeMap: ActiveMapContext | null = null;
   private activeTile: ActiveTileContext | null = null;
+  private placementResolver: TilePlacementResolver | null = null;
+
+  private resetPlacementResolver() {
+    if (!this.activeTile) {
+      this.placementResolver = null;
+      return;
+    }
+    this.placementResolver = new TilePlacementResolver(this.activeTile.tileSetTiles);
+  }
+
+  private getCurrentTileIndex(mapIndex: number): number {
+    const changed = this.changes.get(mapIndex);
+    if (typeof changed === 'number') {
+      return changed;
+    }
+    return this.activeMap?.tiles[mapIndex] ?? -1;
+  }
+
+  private resolvePlacedTileIndex(sourceTileIndex: number, mapIndex: number): number {
+    if (!this.activeTile || !this.placementResolver || sourceTileIndex < 0) {
+      return sourceTileIndex;
+    }
+    return this.placementResolver.resolve(
+      this.activeTile.placementMode,
+      sourceTileIndex,
+      this.getCurrentTileIndex(mapIndex)
+    );
+  }
+
+  private getTilePixels(tileIndex: number): number[] | null {
+    if (tileIndex < 0) {
+      return null;
+    }
+    return this.placementResolver?.getTilePixels(tileIndex) ?? null;
+  }
 
   private toWorldTilePoint(pixelPoint: TilePoint): TilePoint | null {
     if (!this.activeTile) {
@@ -194,6 +235,7 @@ export class TileRandomTool implements Tool {
         originY: expanded.originY,
         columns: expanded.columns,
         rows: expanded.rows,
+        tiles: expanded.tiles,
       };
       const shiftX = Math.round(
         (prevOriginX - expanded.originX) / this.activeTile.tileWidth
@@ -279,13 +321,14 @@ export class TileRandomTool implements Tool {
         if (tileIndex === null) {
           continue;
         }
-        const tile = this.activeTile.tileSetTiles[tileIndex];
-        if (!tile) {
-          continue;
-        }
         const mapIndex = mapY * columns + mapX;
+        const placedTileIndex = this.resolvePlacedTileIndex(tileIndex, mapIndex);
         if (this.drawing) {
-          this.changes.set(mapIndex, tileIndex);
+          this.changes.set(mapIndex, placedTileIndex);
+        }
+        const tilePixels = this.getTilePixels(placedTileIndex);
+        if (!tilePixels) {
+          continue;
         }
         const pixelX = worldX * this.activeTile.tileWidth;
         const pixelY = worldY * this.activeTile.tileHeight;
@@ -294,7 +337,7 @@ export class TileRandomTool implements Tool {
           pixelY,
           this.activeTile.tileWidth,
           this.activeTile.tileHeight,
-          tile.pixels
+          tilePixels
         );
       }
     }
@@ -310,6 +353,7 @@ export class TileRandomTool implements Tool {
     if (!this.activeTile) {
       return;
     }
+    this.resetPlacementResolver();
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       return;
@@ -333,6 +377,7 @@ export class TileRandomTool implements Tool {
       this.drawing = false;
       return;
     }
+    this.resetPlacementResolver();
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       this.drawing = false;
@@ -368,13 +413,20 @@ export class TileRandomTool implements Tool {
       const preview = usePreviewStore.getState();
       preview.clear();
       this.changes.clear();
+      this.resetPlacementResolver();
       this.applyTileArea(this.startWorldPoint, nextWorldPoint);
     }
   };
 
   onEnd = () => {
-    if (!this.drawing || !this.activeMap) {
+    if (!this.drawing || !this.activeMap || !this.activeTile) {
       return;
+    }
+    if (this.placementResolver) {
+      const pendingTiles = this.placementResolver.getPendingTiles();
+      if (pendingTiles.length > 0) {
+        useTileMapStore.getState().appendTilesToSet(this.activeTile.tileSetId, pendingTiles);
+      }
     }
     const updates = Array.from(this.changes.entries()).map(([index, tile]) => ({
       index,
@@ -387,6 +439,7 @@ export class TileRandomTool implements Tool {
     this.changes.clear();
     this.lastWorldPoint = null;
     this.startWorldPoint = null;
+    this.placementResolver = null;
   };
 
   onCancel = () => {
@@ -396,5 +449,6 @@ export class TileRandomTool implements Tool {
     this.changes.clear();
     this.lastWorldPoint = null;
     this.startWorldPoint = null;
+    this.placementResolver = null;
   };
 }

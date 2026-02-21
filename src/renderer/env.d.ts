@@ -5,6 +5,8 @@ type TileSetPayload = {
   name: string;
   tileWidth: number;
   tileHeight: number;
+  columns?: number;
+  rows?: number;
   tiles: Array<{
     id: string;
     name?: string;

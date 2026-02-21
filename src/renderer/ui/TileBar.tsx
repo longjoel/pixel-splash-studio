@@ -1,20 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePaletteStore } from '@/state/paletteStore';
 import { useTileMapStore } from '@/state/tileMapStore';
-import DropdownSelect from './DropdownSelect';
-
-const MAX_TILE_PALETTE_COLUMNS = 64;
-const TILE_BAR_PIXEL_SIZE = 6;
-const TILE_GRID_GAP = 0;
 
 type TileCanvasProps = {
   pixels: number[];
   tileWidth: number;
   tileHeight: number;
+  pixelSize: number;
   palette: string[];
 };
 
-const TileCanvas = ({ pixels, tileWidth, tileHeight, palette }: TileCanvasProps) => {
+const TileCanvas = ({ pixels, tileWidth, tileHeight, pixelSize, palette }: TileCanvasProps) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -22,8 +18,8 @@ const TileCanvas = ({ pixels, tileWidth, tileHeight, palette }: TileCanvasProps)
     if (!canvas) {
       return;
     }
-    const width = tileWidth * TILE_BAR_PIXEL_SIZE;
-    const height = tileHeight * TILE_BAR_PIXEL_SIZE;
+    const width = tileWidth * pixelSize;
+    const height = tileHeight * pixelSize;
     canvas.width = width;
     canvas.height = height;
     const context = canvas.getContext('2d');
@@ -39,15 +35,10 @@ const TileCanvas = ({ pixels, tileWidth, tileHeight, palette }: TileCanvasProps)
           continue;
         }
         context.fillStyle = palette[paletteIndex] ?? palette[0] ?? '#000000';
-        context.fillRect(
-          x * TILE_BAR_PIXEL_SIZE,
-          y * TILE_BAR_PIXEL_SIZE,
-          TILE_BAR_PIXEL_SIZE,
-          TILE_BAR_PIXEL_SIZE
-        );
+        context.fillRect(x * pixelSize, y * pixelSize, pixelSize, pixelSize);
       }
     }
-  }, [pixels, tileWidth, tileHeight, palette]);
+  }, [pixels, tileWidth, tileHeight, pixelSize, palette]);
 
   return <canvas ref={canvasRef} aria-hidden="true" />;
 };
@@ -57,16 +48,10 @@ const TileBar = () => {
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
   const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
   const selectedTileIndices = useTileMapStore((state) => state.selectedTileIndices);
-  const tilePaletteColumns = useTileMapStore((state) => state.tilePaletteColumns);
-  const tilePaletteOffset = useTileMapStore((state) => state.tilePaletteOffset);
-  const tilePaletteRowsMin = useTileMapStore((state) => state.tilePaletteRowsMin);
+  const tilePickerZoom = useTileMapStore((state) => state.tilePickerZoom);
   const setTileSelection = useTileMapStore((state) => state.setTileSelection);
   const setActiveTileSet = useTileMapStore((state) => state.setActiveTileSet);
-  const setTilePaletteColumns = useTileMapStore((state) => state.setTilePaletteColumns);
-  const setTilePaletteOffset = useTileMapStore((state) => state.setTilePaletteOffset);
-  const setTilePaletteRowsMin = useTileMapStore((state) => state.setTilePaletteRowsMin);
   const deleteTilesFromSet = useTileMapStore((state) => state.deleteTilesFromSet);
-  const consolidateTileSet = useTileMapStore((state) => state.consolidateTileSet);
   const palette = usePaletteStore((state) => state.colors);
 
   const activeTileSet = useMemo(() => {
@@ -81,13 +66,17 @@ const TileBar = () => {
 
   const totalTiles = activeTileSet?.tiles.length ?? 0;
   const tiles = activeTileSet?.tiles ?? [];
-  const totalSlots = totalTiles + tilePaletteOffset;
-  const [layoutRows, setLayoutRows] = useState(1);
-  const gridRef = useRef<HTMLDivElement | null>(null);
+  const layoutColumns = Math.max(1, activeTileSet?.columns ?? 1);
+  const layoutRows = Math.max(1, activeTileSet?.rows ?? 1);
+  const blockSize = layoutColumns * layoutRows;
+  const totalGroups = Math.max(1, Math.ceil(totalTiles / blockSize));
+  const totalSlots = totalTiles > 0 ? Math.max(totalTiles, totalGroups * blockSize) : 0;
 
   const tileSwatchSize = activeTileSet
-    ? Math.max(32, activeTileSet.tileWidth * TILE_BAR_PIXEL_SIZE)
+    ? Math.max(16, activeTileSet.tileWidth * tilePickerZoom)
     : 32;
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const [groupsPerRow, setGroupsPerRow] = useState(1);
   const selectingRef = useRef(false);
   const selectionAnchorRef = useRef<number | null>(null);
   const selectionSet = useMemo(
@@ -113,30 +102,71 @@ const TileBar = () => {
     deleteTilesFromSet(activeTileSet.id, selectedIndices);
   }, [activeTileSet, deleteTilesFromSet, selectedIndices]);
 
-  const handleConsolidate = useCallback(() => {
-    if (!activeTileSet) {
+  const syncGridMetrics = useCallback(() => {
+    const node = gridRef.current;
+    if (!node) {
       return;
     }
-    const confirmed = window.confirm(
-      `Consolidate ${activeTileSet.name} to remove duplicate tiles? References will update.`
-    );
-    if (!confirmed) {
+    const clusters = node.querySelectorAll<HTMLElement>('.tilebar__cluster');
+    if (clusters.length === 0) {
+      setGroupsPerRow(1);
       return;
     }
-    consolidateTileSet(activeTileSet.id);
-  }, [activeTileSet, consolidateTileSet]);
+    const firstTop = clusters[0].offsetTop;
+    let count = 0;
+    for (const cluster of clusters) {
+      if (cluster.offsetTop !== firstTop) {
+        break;
+      }
+      count += 1;
+    }
+    setGroupsPerRow(Math.max(1, count));
+  }, []);
+
+  useEffect(() => {
+    const node = gridRef.current;
+    if (!node) {
+      return;
+    }
+    const updateMetrics = () => {
+      syncGridMetrics();
+    };
+    updateMetrics();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateMetrics);
+      return () => {
+        window.removeEventListener('resize', updateMetrics);
+      };
+    }
+    const observer = new ResizeObserver(() => updateMetrics());
+    const container = node.parentElement;
+    if (container) {
+      observer.observe(container);
+    }
+    observer.observe(node);
+    return () => {
+      observer.disconnect();
+    };
+  }, [syncGridMetrics]);
+
+  useEffect(() => {
+    syncGridMetrics();
+    const raf = window.requestAnimationFrame(() => {
+      syncGridMetrics();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [syncGridMetrics, tileSwatchSize, totalGroups, totalSlots]);
 
   const getGridPosition = (index: number) => {
-    const alignmentColumns = tilePaletteColumns;
-    const alignmentOffset = tilePaletteOffset;
-    const rows = Math.max(1, layoutRows);
-    const blockSize = alignmentColumns * rows;
-    const adjusted = index + alignmentOffset;
-    const block = Math.floor(adjusted / blockSize);
-    const within = adjusted % blockSize;
+    const block = Math.floor(index / blockSize);
+    const within = index % blockSize;
+    const withinCol = within % layoutColumns;
+    const withinRow = Math.floor(within / layoutColumns);
+    const groupCol = block % groupsPerRow;
+    const groupRow = Math.floor(block / groupsPerRow);
     return {
-      row: Math.floor(within / alignmentColumns),
-      col: (within % alignmentColumns) + block * alignmentColumns,
+      row: groupRow * layoutRows + withinRow,
+      col: groupCol * layoutColumns + withinCol,
     };
   };
 
@@ -175,16 +205,14 @@ const TileBar = () => {
     const cols = maxCol - minCol + 1;
     const rows = maxRow - minRow + 1;
     const grid = new Array(cols * rows).fill(-1);
-    const alignmentColumns = tilePaletteColumns;
-    const alignmentOffset = tilePaletteOffset;
-    const layout = Math.max(1, layoutRows);
-    const blockSize = alignmentColumns * layout;
     for (let row = minRow; row <= maxRow; row += 1) {
       for (let col = minCol; col <= maxCol; col += 1) {
-        const block = Math.floor(col / alignmentColumns);
-        const withinCol = col % alignmentColumns;
-        const index =
-          block * blockSize + row * alignmentColumns + withinCol - alignmentOffset;
+        const groupCol = Math.floor(col / layoutColumns);
+        const groupRow = Math.floor(row / layoutRows);
+        const withinCol = col % layoutColumns;
+        const withinRow = row % layoutRows;
+        const block = groupRow * groupsPerRow + groupCol;
+        const index = block * blockSize + withinRow * layoutColumns + withinCol;
         if (index < 0 || index >= totalTiles) {
           continue;
         }
@@ -258,204 +286,91 @@ const TileBar = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [activeTileSet, handleDeleteSelected, selectedIndices.length]);
 
-  useEffect(() => {
-    const grid = gridRef.current;
-    if (!grid) {
-      return undefined;
+  const handleGridWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    const node = gridRef.current;
+    if (!node) {
+      return;
     }
-    const updateRows = () => {
-      const height = grid.clientHeight;
-      const cell = tileSwatchSize;
-      const rows = Math.max(
-        tilePaletteRowsMin,
-        1,
-        Math.floor((height + TILE_GRID_GAP) / (cell + TILE_GRID_GAP))
-      );
-      setLayoutRows(rows);
-    };
-    updateRows();
-    const observer = new ResizeObserver(updateRows);
-    observer.observe(grid);
-    return () => observer.disconnect();
-  }, [tileSwatchSize, tilePaletteRowsMin]);
+    if (node.scrollHeight <= node.clientHeight) {
+      return;
+    }
+    node.scrollTop += event.deltaY;
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
 
   return (
     <div className="tilebar">
-      <div className="tilebar__layout">
-        <div className="tilebar__controls">
-          {activeTileSet ? (
-            <>
-              <div className="tilebar__select">
-                <label className="panel__label" htmlFor="tile-set-select">
-                  Tile Set
-                </label>
-                <DropdownSelect
-                  ariaLabel="Tile Set"
-                  value={activeTileSet.id}
-                  onChange={setActiveTileSet}
-                  options={tileSets.map((set) => ({ value: set.id, label: set.name }))}
-                />
+      <div
+        ref={gridRef}
+        className="tilebar__grid"
+        onWheel={handleGridWheel}
+        style={
+          {
+            '--tile-cell-size': `${tileSwatchSize}px`,
+            '--tile-cluster-columns': `${layoutColumns}`,
+            '--tile-cluster-rows': `${layoutRows}`,
+          } as React.CSSProperties
+        }
+      >
+        {!activeTileSet ? (
+          <div className="tilebar__empty">No tiles yet. Use Tile Sampler to capture some.</div>
+        ) : totalTiles === 0 ? (
+          <div className="tilebar__empty">No tiles in this set yet.</div>
+        ) : (
+          Array.from({ length: totalGroups }, (_value, groupIndex) => {
+            const startIndex = groupIndex * blockSize;
+            return (
+              <div key={`cluster-${groupIndex}`} className="tilebar__cluster">
+                {Array.from({ length: blockSize }, (_cell, withinIndex) => {
+                  const tileIndex = startIndex + withinIndex;
+                  const isPlaceholder = tileIndex < 0 || tileIndex >= totalTiles;
+                  const tile = !isPlaceholder ? tiles[tileIndex] : null;
+                  const isSelected = !isPlaceholder && selectionSet.has(tileIndex);
+                  return (
+                    <button
+                      key={
+                        isPlaceholder
+                          ? `placeholder-${tileIndex}`
+                          : tile?.id ?? `tile-${tileIndex}`
+                      }
+                      type="button"
+                      className="tilebar__tile"
+                      data-active={tileIndex === selectedTileIndex}
+                      data-selected={isSelected}
+                      data-placeholder={isPlaceholder}
+                      onPointerDown={(event) => {
+                        if (!isPlaceholder) {
+                          handleTilePointerDown(tileIndex, {
+                            additive: event.shiftKey,
+                            subtractive: event.ctrlKey || event.metaKey,
+                          });
+                        }
+                      }}
+                      onPointerEnter={() => {
+                        if (!isPlaceholder) {
+                          handleTilePointerEnter(tileIndex);
+                        }
+                      }}
+                      aria-label={`Tile ${tileIndex + 1}`}
+                      disabled={isPlaceholder}
+                    >
+                      {tile ? (
+                        <TileCanvas
+                          pixels={tile.pixels}
+                          tileWidth={activeTileSet.tileWidth}
+                          tileHeight={activeTileSet.tileHeight}
+                          pixelSize={tilePickerZoom}
+                          palette={palette}
+                        />
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
-              <div className="tilebar__select">
-                <label className="panel__label" htmlFor="tile-cols-input">
-                  Columns
-                </label>
-                <input
-                  id="tile-cols-input"
-                  type="number"
-                  className="panel__number"
-                  min={1}
-                  max={MAX_TILE_PALETTE_COLUMNS}
-                  step={1}
-                  value={tilePaletteColumns}
-                  onChange={(event) => {
-                    const next = event.currentTarget.valueAsNumber;
-                    if (Number.isFinite(next)) {
-                      setTilePaletteColumns(
-                        Math.max(1, Math.min(MAX_TILE_PALETTE_COLUMNS, Math.round(next)))
-                      );
-                    }
-                  }}
-                />
-              </div>
-              <div className="tilebar__select">
-                <label className="panel__label" htmlFor="tile-rows-input">
-                  Rows
-                </label>
-                <input
-                  id="tile-rows-input"
-                  type="number"
-                  className="panel__number"
-                  min={1}
-                  step={1}
-                  value={tilePaletteRowsMin}
-                  onChange={(event) => {
-                    const next = event.currentTarget.valueAsNumber;
-                    if (Number.isFinite(next)) {
-                      setTilePaletteRowsMin(Math.max(1, Math.round(next)));
-                    }
-                  }}
-                />
-              </div>
-              <div className="tilebar__select">
-                <label className="panel__label" htmlFor="tile-offset-input">
-                  Offset
-                </label>
-                <input
-                  id="tile-offset-input"
-                  type="number"
-                  className="panel__number"
-                  min={0}
-                  step={1}
-                  value={tilePaletteOffset}
-                  onChange={(event) => {
-                    const next = event.currentTarget.valueAsNumber;
-                    if (Number.isFinite(next)) {
-                      setTilePaletteOffset(Math.max(0, Math.round(next)));
-                    }
-                  }}
-                />
-              </div>
-              <div className="tilebar__actions">
-                <button
-                  type="button"
-                  className="panel__item"
-                  onClick={handleConsolidate}
-                  disabled={!activeTileSet || totalTiles === 0}
-                >
-                  Consolidate
-                </button>
-                <button
-                  type="button"
-                  className="panel__item"
-                  onClick={handleDeleteSelected}
-                  disabled={!activeTileSet || selectedIndices.length === 0}
-                >
-                  Delete
-                </button>
-              </div>
-            </>
-          ) : (
-            <span className="panel__label">Tiles</span>
-          )}
-        </div>
-        <div
-          ref={gridRef}
-          className="tilebar__grid"
-          style={
-            {
-              '--tile-swatch-size': `${tileSwatchSize}px`,
-              '--tile-cell-size': `${tileSwatchSize}px`,
-              '--tile-grid-columns': Math.max(
-                tilePaletteColumns,
-                Math.ceil(
-                  totalSlots /
-                    (Math.max(1, layoutRows) * Math.max(1, tilePaletteColumns))
-                ) * tilePaletteColumns
-              ),
-              '--tile-grid-rows': layoutRows,
-            } as React.CSSProperties
-          }
-        >
-          {!activeTileSet ? (
-            <div className="tilebar__empty">No tiles yet. Use Tile Sampler to capture some.</div>
-          ) : totalTiles === 0 ? (
-            <div className="tilebar__empty">No tiles in this set yet.</div>
-          ) : (
-            Array.from({ length: totalSlots }, (_value, slotIndex) => {
-              const alignmentColumns = tilePaletteColumns;
-              const alignmentOffset = tilePaletteOffset;
-              const rows = Math.max(1, layoutRows);
-              const blockSize = alignmentColumns * rows;
-              const adjusted = slotIndex;
-              const block = Math.floor(adjusted / blockSize);
-              const within = adjusted % blockSize;
-              const row = Math.floor(within / alignmentColumns);
-              const col = (within % alignmentColumns) + block * alignmentColumns;
-              const tileIndex = slotIndex - alignmentOffset;
-              const isPlaceholder = tileIndex < 0 || tileIndex >= totalTiles;
-              const tile = !isPlaceholder ? tiles[tileIndex] : null;
-              const isSelected = !isPlaceholder && selectionSet.has(tileIndex);
-              return (
-                <button
-                  key={
-                    isPlaceholder ? `placeholder-${slotIndex}` : tile?.id ?? `tile-${slotIndex}`
-                  }
-                  type="button"
-                  className="tilebar__tile"
-                  data-active={tileIndex === selectedTileIndex}
-                  data-selected={isSelected}
-                  data-placeholder={isPlaceholder}
-                  style={{ gridColumn: col + 1, gridRow: row + 1 }}
-                  onPointerDown={(event) => {
-                    if (!isPlaceholder) {
-                      handleTilePointerDown(tileIndex, {
-                        additive: event.shiftKey,
-                        subtractive: event.ctrlKey || event.metaKey,
-                      });
-                    }
-                  }}
-                  onPointerEnter={() => {
-                    if (!isPlaceholder) {
-                      handleTilePointerEnter(tileIndex);
-                    }
-                  }}
-                  aria-label={`Tile ${tileIndex + 1}`}
-                  disabled={isPlaceholder}
-                >
-                  {tile ? (
-                    <TileCanvas
-                      pixels={tile.pixels}
-                      tileWidth={activeTileSet.tileWidth}
-                      tileHeight={activeTileSet.tileHeight}
-                      palette={palette}
-                    />
-                  ) : null}
-                </button>
-              );
-            })
-          )}
-        </div>
+            );
+          })
+        )}
       </div>
     </div>
   );

@@ -40,6 +40,13 @@ const drawFilledRect = (bounds: TileBounds) => {
   }
 };
 
+const notifyInvalidSelection = (message: string) => {
+  const alertFn = (globalThis as { alert?: (value?: unknown) => void }).alert;
+  if (typeof alertFn === 'function') {
+    alertFn(message);
+  }
+};
+
 export class TileSamplerTool implements Tool {
   id = 'tile-sampler';
   private start: TilePoint | null = null;
@@ -73,6 +80,8 @@ export class TileSamplerTool implements Tool {
 
     const pixelStore = usePixelStore.getState();
     const tileStore = useTileMapStore.getState();
+    const columns = bounds.maxTileX - bounds.minTileX + 1;
+    const rows = bounds.maxTileY - bounds.minTileY + 1;
 
     let activeTileSetId = tileStore.activeTileSetId;
     const activeTileSet = tileStore.tileSets.find((set) => set.id === activeTileSetId);
@@ -86,9 +95,25 @@ export class TileSamplerTool implements Tool {
         name: `Tile Set ${tileStore.tileSets.length + 1}`,
         tileWidth: TILE_SIZE,
         tileHeight: TILE_SIZE,
+        columns,
+        rows,
         tiles: [],
       });
       startIndex = 0;
+    } else if (activeTileSet && activeTileSet.tiles.length === 0) {
+      tileStore.setTileSetLayout(activeTileSet.id, columns, rows);
+    } else if (
+      activeTileSet &&
+      activeTileSet.tiles.length > 0 &&
+      (activeTileSet.columns !== columns || activeTileSet.rows !== rows)
+    ) {
+      notifyInvalidSelection(
+        `Invalid selection: ${activeTileSet.name} expects ${activeTileSet.columns}x${activeTileSet.rows}. Capture that size or create a new tile set.`
+      );
+      preview.clear();
+      this.start = null;
+      this.last = null;
+      return;
     }
 
     const tilesToAdd: Array<{ name?: string; pixels: number[]; source?: { kind: 'canvas'; x: number; y: number } }> = [];
@@ -110,8 +135,6 @@ export class TileSamplerTool implements Tool {
       tileStore.appendTilesToSet(activeTileSetId, tilesToAdd);
       tileStore.setSelectedTileIndex(startIndex);
       tileStore.setTilePage(0);
-      const columns = bounds.maxTileX - bounds.minTileX + 1;
-      tileStore.setTilePaletteColumns(columns);
       tileStore.setTilePaletteOffset(0);
     }
 

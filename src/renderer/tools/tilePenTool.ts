@@ -1,7 +1,8 @@
 import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { usePreviewStore } from '@/state/previewStore';
-import { useTileMapStore } from '@/state/tileMapStore';
+import { useTileMapStore, type TilePlacementMode } from '@/state/tileMapStore';
+import { TilePlacementResolver } from '@/tools/tilePlacementResolver';
 
 const DEFAULT_TILE_MAP_SIZE = 32;
 
@@ -13,6 +14,8 @@ type ActiveTileContext = {
   tileHeight: number;
   tilePixels: number[];
   tileIndex: number;
+  placementMode: TilePlacementMode;
+  snapToCluster: boolean;
   selectionIndices: number[];
   selectionCols: number;
   selectionRows: number;
@@ -25,6 +28,7 @@ type ActiveMapContext = {
   originY: number;
   columns: number;
   rows: number;
+  tiles: number[];
 };
 
 const toPixelPoint = (cursor: CursorState) => ({
@@ -68,6 +72,8 @@ const getActiveTileContext = (): ActiveTileContext | null => {
     tileHeight: tileSet.tileHeight,
     tilePixels: tile.pixels,
     tileIndex,
+    placementMode: tileStore.tilePlacementMode,
+    snapToCluster: tileStore.tilePenSnapToCluster,
     selectionIndices: tileStore.selectedTileIndices,
     selectionCols: tileStore.selectedTileCols,
     selectionRows: tileStore.selectedTileRows,
@@ -94,6 +100,7 @@ const ensureActiveMap = (
       originY: existing.originY,
       columns: existing.columns,
       rows: existing.rows,
+      tiles: existing.tiles,
     };
   }
 
@@ -106,6 +113,7 @@ const ensureActiveMap = (
       originY: fallback.originY,
       columns: fallback.columns,
       rows: fallback.rows,
+      tiles: fallback.tiles,
     };
   }
 
@@ -127,7 +135,7 @@ const ensureActiveMap = (
     rows: size,
     tiles,
   });
-  return { tileMapId, originX, originY, columns: size, rows: size };
+  return { tileMapId, originX, originY, columns: size, rows: size, tiles };
 };
 
 export class TilePenTool implements Tool {
@@ -137,7 +145,34 @@ export class TilePenTool implements Tool {
   private lastWorldPoint: TilePoint | null = null;
   private activeMap: ActiveMapContext | null = null;
   private activeTile: ActiveTileContext | null = null;
+  private placementResolver: TilePlacementResolver | null = null;
   private erasing = false;
+
+  private getCurrentTileIndex(mapIndex: number): number {
+    const changed = this.changes.get(mapIndex);
+    if (typeof changed === 'number') {
+      return changed;
+    }
+    return this.activeMap?.tiles[mapIndex] ?? -1;
+  }
+
+  private resolvePlacedTileIndex(sourceTileIndex: number, mapIndex: number): number {
+    if (!this.activeTile || !this.placementResolver || sourceTileIndex < 0) {
+      return sourceTileIndex;
+    }
+    return this.placementResolver.resolve(
+      this.activeTile.placementMode,
+      sourceTileIndex,
+      this.getCurrentTileIndex(mapIndex)
+    );
+  }
+
+  private getTilePixels(tileIndex: number): number[] | null {
+    if (tileIndex < 0) {
+      return null;
+    }
+    return this.placementResolver?.getTilePixels(tileIndex) ?? null;
+  }
 
   private toWorldTilePoint(pixelPoint: TilePoint): TilePoint | null {
     if (!this.activeTile) {
@@ -159,6 +194,51 @@ export class TilePenTool implements Tool {
       x: worldPoint.x - originTileX,
       y: worldPoint.y - originTileY,
     };
+  }
+
+  private snapWorldPointToCluster(worldPoint: TilePoint): TilePoint {
+    if (!this.activeTile || !this.activeTile.snapToCluster) {
+      return worldPoint;
+    }
+    const stepX = Math.max(1, this.activeTile.selectionCols);
+    const stepY = Math.max(1, this.activeTile.selectionRows);
+    return {
+      x: Math.floor(worldPoint.x / stepX) * stepX,
+      y: Math.floor(worldPoint.y / stepY) * stepY,
+    };
+  }
+
+  private drawSnappedLine(startWorldPoint: TilePoint, endWorldPoint: TilePoint) {
+    if (!this.activeTile) {
+      return;
+    }
+    const stepX = Math.max(1, this.activeTile.selectionCols);
+    const stepY = Math.max(1, this.activeTile.selectionRows);
+    let x = Math.floor(startWorldPoint.x / stepX);
+    let y = Math.floor(startWorldPoint.y / stepY);
+    const targetX = Math.floor(endWorldPoint.x / stepX);
+    const targetY = Math.floor(endWorldPoint.y / stepY);
+    const dx = Math.abs(targetX - x);
+    const dy = Math.abs(targetY - y);
+    const sx = x < targetX ? 1 : -1;
+    const sy = y < targetY ? 1 : -1;
+    let err = dx - dy;
+
+    while (true) {
+      this.applyTile({ x: x * stepX, y: y * stepY });
+      if (x === targetX && y === targetY) {
+        break;
+      }
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
   }
 
   private ensureMapBounds(worldPoint: TilePoint): TilePoint | null {
@@ -195,6 +275,7 @@ export class TilePenTool implements Tool {
         originY: expanded.originY,
         columns: expanded.columns,
         rows: expanded.rows,
+        tiles: expanded.tiles,
       };
       const shiftX = Math.round(
         (prevOriginX - expanded.originX) / this.activeTile.tileWidth
@@ -256,17 +337,17 @@ export class TilePenTool implements Tool {
         const mapIndex = mapY * columns + mapX;
         const selectionIndex = rowOffset * selectionCols + colOffset;
         const selectedTileIndex = selectionIndices[selectionIndex] ?? -1;
+        const placedTileIndex = this.erasing
+          ? -1
+          : this.resolvePlacedTileIndex(selectedTileIndex, mapIndex);
         if (this.drawing) {
-          this.changes.set(mapIndex, this.erasing ? -1 : selectedTileIndex);
+          this.changes.set(mapIndex, placedTileIndex);
         }
         if (this.erasing) {
           continue;
         }
-
-        const tileIndex = selectedTileIndex;
-        const tile =
-          typeof tileIndex === 'number' ? this.activeTile.tileSetTiles[tileIndex] : undefined;
-        if (!tile) {
+        const tilePixels = this.getTilePixels(placedTileIndex);
+        if (!tilePixels) {
           continue;
         }
         const worldX = worldPoint.x + colOffset;
@@ -278,7 +359,7 @@ export class TilePenTool implements Tool {
           pixelY,
           this.activeTile.tileWidth,
           this.activeTile.tileHeight,
-          tile.pixels
+          tilePixels
         );
       }
     }
@@ -294,6 +375,7 @@ export class TilePenTool implements Tool {
     if (!this.activeTile) {
       return;
     }
+    this.placementResolver = new TilePlacementResolver(this.activeTile.tileSetTiles);
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       return;
@@ -303,7 +385,7 @@ export class TilePenTool implements Tool {
     if (!worldPoint) {
       return;
     }
-    this.applyTile(worldPoint);
+    this.applyTile(this.snapWorldPointToCluster(worldPoint));
   };
 
   onBegin = (cursor: CursorState) => {
@@ -317,6 +399,7 @@ export class TilePenTool implements Tool {
       this.drawing = false;
       return;
     }
+    this.placementResolver = new TilePlacementResolver(this.activeTile.tileSetTiles);
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       this.drawing = false;
@@ -327,8 +410,9 @@ export class TilePenTool implements Tool {
     if (!worldPoint) {
       return;
     }
-    this.applyTile(worldPoint);
-    this.lastWorldPoint = worldPoint;
+    const snappedWorldPoint = this.snapWorldPointToCluster(worldPoint);
+    this.applyTile(snappedWorldPoint);
+    this.lastWorldPoint = snappedWorldPoint;
   };
 
   onMove = (cursor: CursorState) => {
@@ -345,41 +429,52 @@ export class TilePenTool implements Tool {
     if (!nextWorldPoint) {
       return;
     }
+    const snappedNextWorldPoint = this.snapWorldPointToCluster(nextWorldPoint);
 
     if (this.lastWorldPoint) {
-      let x = this.lastWorldPoint.x;
-      let y = this.lastWorldPoint.y;
-      const dx = Math.abs(nextWorldPoint.x - this.lastWorldPoint.x);
-      const dy = Math.abs(nextWorldPoint.y - this.lastWorldPoint.y);
-      const sx = this.lastWorldPoint.x < nextWorldPoint.x ? 1 : -1;
-      const sy = this.lastWorldPoint.y < nextWorldPoint.y ? 1 : -1;
-      let err = dx - dy;
+      if (this.activeTile.snapToCluster) {
+        this.drawSnappedLine(this.lastWorldPoint, snappedNextWorldPoint);
+      } else {
+        let x = this.lastWorldPoint.x;
+        let y = this.lastWorldPoint.y;
+        const dx = Math.abs(snappedNextWorldPoint.x - this.lastWorldPoint.x);
+        const dy = Math.abs(snappedNextWorldPoint.y - this.lastWorldPoint.y);
+        const sx = this.lastWorldPoint.x < snappedNextWorldPoint.x ? 1 : -1;
+        const sy = this.lastWorldPoint.y < snappedNextWorldPoint.y ? 1 : -1;
+        let err = dx - dy;
 
-      while (true) {
-        this.applyTile({ x, y });
-        if (x === nextWorldPoint.x && y === nextWorldPoint.y) {
-          break;
-        }
-        const e2 = 2 * err;
-        if (e2 > -dy) {
-          err -= dy;
-          x += sx;
-        }
-        if (e2 < dx) {
-          err += dx;
-          y += sy;
+        while (true) {
+          this.applyTile({ x, y });
+          if (x === snappedNextWorldPoint.x && y === snappedNextWorldPoint.y) {
+            break;
+          }
+          const e2 = 2 * err;
+          if (e2 > -dy) {
+            err -= dy;
+            x += sx;
+          }
+          if (e2 < dx) {
+            err += dx;
+            y += sy;
+          }
         }
       }
     } else {
-      this.applyTile(nextWorldPoint);
+      this.applyTile(snappedNextWorldPoint);
     }
 
-    this.lastWorldPoint = nextWorldPoint;
+    this.lastWorldPoint = snappedNextWorldPoint;
   };
 
   onEnd = () => {
-    if (!this.drawing || !this.activeMap) {
+    if (!this.drawing || !this.activeMap || !this.activeTile) {
       return;
+    }
+    if (this.placementResolver) {
+      const pendingTiles = this.placementResolver.getPendingTiles();
+      if (pendingTiles.length > 0) {
+        useTileMapStore.getState().appendTilesToSet(this.activeTile.tileSetId, pendingTiles);
+      }
     }
     const updates = Array.from(this.changes.entries()).map(([index, tile]) => ({
       index,
@@ -391,6 +486,7 @@ export class TilePenTool implements Tool {
     this.drawing = false;
     this.changes.clear();
     this.lastWorldPoint = null;
+    this.placementResolver = null;
     this.erasing = false;
   };
 
@@ -400,6 +496,7 @@ export class TilePenTool implements Tool {
     this.drawing = false;
     this.changes.clear();
     this.lastWorldPoint = null;
+    this.placementResolver = null;
     this.erasing = false;
   };
 }
