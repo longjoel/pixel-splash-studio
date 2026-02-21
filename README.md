@@ -1,6 +1,7 @@
 # Pixel Splash Studio
 
 <img width="1619" height="1053" alt="image" src="https://github.com/user-attachments/assets/8e8a1c66-cb5b-4a90-9c39-1034262b2943" />
+<img width="1276" height="820" alt="image" src="https://github.com/user-attachments/assets/bcf30b46-cfbc-46d1-b84a-569fbcc3792a" />
 
 
 Pixel Splash Studio is a fast, grid-snapped pixel art editor built with Electron + React.
