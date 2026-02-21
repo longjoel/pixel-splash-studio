@@ -46,6 +46,9 @@ const TileCanvas = ({ pixels, tileWidth, tileHeight, pixelSize, palette }: TileC
 const TileBar = () => {
   const tileSets = useTileMapStore((state) => state.tileSets);
   const activeTileSetId = useTileMapStore((state) => state.activeTileSetId);
+  const tilePage = useTileMapStore((state) => state.tilePage);
+  const tilePageCount = useTileMapStore((state) => state.tilePageCount);
+  const setTilePageCount = useTileMapStore((state) => state.setTilePageCount);
   const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
   const selectedTileIndices = useTileMapStore((state) => state.selectedTileIndices);
   const tilePickerZoom = useTileMapStore((state) => state.tilePickerZoom);
@@ -70,13 +73,33 @@ const TileBar = () => {
   const layoutRows = Math.max(1, activeTileSet?.rows ?? 1);
   const blockSize = layoutColumns * layoutRows;
   const totalGroups = Math.max(1, Math.ceil(totalTiles / blockSize));
-  const totalSlots = totalTiles > 0 ? Math.max(totalTiles, totalGroups * blockSize) : 0;
 
   const tileSwatchSize = activeTileSet
     ? Math.max(16, activeTileSet.tileWidth * tilePickerZoom)
     : 32;
   const gridRef = useRef<HTMLDivElement | null>(null);
-  const [groupsPerRow, setGroupsPerRow] = useState(1);
+  const [gridSize, setGridSize] = useState({ width: 0, height: 0 });
+  const clusterWidth = layoutColumns * tileSwatchSize;
+  const clusterHeight = layoutRows * tileSwatchSize;
+  const groupsPerRow = useMemo(() => {
+    if (gridSize.width <= 0) {
+      return 1;
+    }
+    const fit = Math.floor((gridSize.width + 8) / Math.max(1, clusterWidth + 8));
+    return Math.max(1, Math.min(totalGroups, fit));
+  }, [clusterWidth, gridSize.width, totalGroups]);
+  const visibleRows = useMemo(() => {
+    if (gridSize.height <= 0) {
+      return 1;
+    }
+    const fit = Math.floor((gridSize.height + 8) / Math.max(1, clusterHeight + 8));
+    return Math.max(1, fit);
+  }, [clusterHeight, gridSize.height]);
+  const groupsPerPage = Math.max(1, groupsPerRow * visibleRows);
+  const totalPages = Math.max(1, Math.ceil(totalGroups / groupsPerPage));
+  const clampedPage = Math.min(tilePage, totalPages - 1);
+  const pageStartGroup = clampedPage * groupsPerPage;
+  const pageGroupCount = Math.max(0, Math.min(groupsPerPage, totalGroups - pageStartGroup));
   const selectingRef = useRef(false);
   const selectionAnchorRef = useRef<number | null>(null);
   const selectionSet = useMemo(
@@ -107,20 +130,11 @@ const TileBar = () => {
     if (!node) {
       return;
     }
-    const clusters = node.querySelectorAll<HTMLElement>('.tilebar__cluster');
-    if (clusters.length === 0) {
-      setGroupsPerRow(1);
-      return;
-    }
-    const firstTop = clusters[0].offsetTop;
-    let count = 0;
-    for (const cluster of clusters) {
-      if (cluster.offsetTop !== firstTop) {
-        break;
-      }
-      count += 1;
-    }
-    setGroupsPerRow(Math.max(1, count));
+    const width = Math.floor(node.clientWidth || node.getBoundingClientRect().width || 0);
+    const height = Math.floor(node.clientHeight || node.getBoundingClientRect().height || 0);
+    setGridSize((prev) =>
+      prev.width === width && prev.height === height ? prev : { width, height }
+    );
   }, []);
 
   useEffect(() => {
@@ -150,12 +164,18 @@ const TileBar = () => {
   }, [syncGridMetrics]);
 
   useEffect(() => {
+    if (tilePageCount !== totalPages) {
+      setTilePageCount(totalPages);
+    }
+  }, [setTilePageCount, tilePageCount, totalPages]);
+
+  useEffect(() => {
     syncGridMetrics();
     const raf = window.requestAnimationFrame(() => {
       syncGridMetrics();
     });
     return () => window.cancelAnimationFrame(raf);
-  }, [syncGridMetrics, tileSwatchSize, totalGroups, totalSlots]);
+  }, [syncGridMetrics, tileSwatchSize, totalGroups, totalPages, clampedPage]);
 
   const getGridPosition = (index: number) => {
     const block = Math.floor(index / blockSize);
@@ -318,7 +338,8 @@ const TileBar = () => {
         ) : totalTiles === 0 ? (
           <div className="tilebar__empty">No tiles in this set yet.</div>
         ) : (
-          Array.from({ length: totalGroups }, (_value, groupIndex) => {
+          Array.from({ length: pageGroupCount }, (_value, groupOffset) => {
+            const groupIndex = pageStartGroup + groupOffset;
             const startIndex = groupIndex * blockSize;
             return (
               <div key={`cluster-${groupIndex}`} className="tilebar__cluster">

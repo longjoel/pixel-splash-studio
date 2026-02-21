@@ -48,6 +48,7 @@ type TileMapState = {
   selectedTileCols: number;
   selectedTileRows: number;
   tilePage: number;
+  tilePageCount: number;
   tilePaletteColumns: number;
   tilePaletteOffset: number;
   tilePaletteRowsMin: number;
@@ -69,6 +70,7 @@ type TileMapState = {
     anchorIndex: number
   ) => void;
   setTilePage: (page: number) => void;
+  setTilePageCount: (count: number) => void;
   setTilePaletteColumns: (columns: number) => void;
   setTilePaletteOffset: (offset: number) => void;
   setTilePaletteRowsMin: (rows: number) => void;
@@ -172,6 +174,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
   selectedTileCols: 1,
   selectedTileRows: 1,
   tilePage: 0,
+  tilePageCount: 1,
   tilePaletteColumns: 8,
   tilePaletteOffset: 0,
   tilePaletteRowsMin: 3,
@@ -210,6 +213,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
         selectedTileCols: 1,
         selectedTileRows: 1,
         tilePage: 0,
+        tilePageCount: 1,
         tilePaletteColumns: activeTileSet?.columns ?? 8,
         tilePaletteOffset: 0,
         tilePaletteRowsMin: activeTileSet?.rows ?? 3,
@@ -227,6 +231,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
         selectedTileCols: 1,
         selectedTileRows: 1,
         tilePage: 0,
+        tilePageCount: 1,
         tilePaletteColumns: activeTileSet?.columns ?? state.tilePaletteColumns,
         tilePaletteOffset: 0,
         tilePaletteRowsMin: activeTileSet?.rows ?? state.tilePaletteRowsMin,
@@ -249,7 +254,25 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: Math.max(1, cols),
       selectedTileRows: Math.max(1, rows),
     }),
-  setTilePage: (page) => set({ tilePage: Math.max(0, page) }),
+  setTilePage: (page) =>
+    set((state) => {
+      const maxPage = Math.max(0, state.tilePageCount - 1);
+      const next = Math.min(maxPage, Math.max(0, Math.floor(page)));
+      return { tilePage: next };
+    }),
+  setTilePageCount: (count) =>
+    set((state) => {
+      const nextCount = Math.max(1, Math.floor(count));
+      const maxPage = Math.max(0, nextCount - 1);
+      const nextPage = Math.min(state.tilePage, maxPage);
+      if (state.tilePageCount === nextCount && state.tilePage === nextPage) {
+        return state;
+      }
+      return {
+        tilePageCount: nextCount,
+        tilePage: nextPage,
+      };
+    }),
   setTilePaletteColumns: (columns) =>
     set((state) => ({
       tilePaletteColumns: Math.min(MAX_TILE_PALETTE_COLUMNS, Math.max(1, columns)),
@@ -365,6 +388,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: 1,
       selectedTileRows: 1,
       tilePage: 0,
+      tilePageCount: 1,
       tilePaletteColumns: nextActiveTileSet?.columns ?? state.tilePaletteColumns,
       tilePaletteOffset: 0,
       tilePaletteRowsMin: nextActiveTileSet?.rows ?? state.tilePaletteRowsMin,
@@ -401,6 +425,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: 1,
       selectedTileRows: 1,
       tilePage: 0,
+      tilePageCount: 1,
       tilePaletteColumns: duplicatedSet.columns,
       tilePaletteRowsMin: duplicatedSet.rows,
       tilePaletteOffset: 0,
@@ -421,6 +446,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: 1,
       selectedTileRows: 1,
       tilePage: 0,
+      tilePageCount: 1,
       tilePaletteColumns: tileSet.columns,
       tilePaletteRowsMin: tileSet.rows,
       tilePaletteOffset: 0,
@@ -733,6 +759,7 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: 1,
       selectedTileRows: 1,
       tilePage: 0,
+      tilePageCount: 1,
       tilePaletteColumns: 8,
       tilePaletteOffset: 0,
       tilePaletteRowsMin: 3,

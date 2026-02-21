@@ -288,6 +288,9 @@ const App = () => {
   const activeTileMapId = useTileMapStore((state) => state.activeTileMapId);
   const selectedTileIndex = useTileMapStore((state) => state.selectedTileIndex);
   const selectedTileIndices = useTileMapStore((state) => state.selectedTileIndices);
+  const tilePage = useTileMapStore((state) => state.tilePage);
+  const tilePageCount = useTileMapStore((state) => state.tilePageCount);
+  const setTilePage = useTileMapStore((state) => state.setTilePage);
   const tilePickerZoom = useTileMapStore((state) => state.tilePickerZoom);
   const setTilePickerZoom = useTileMapStore((state) => state.setTilePickerZoom);
   const tilePlacementMode = useTileMapStore((state) => state.tilePlacementMode);
@@ -454,6 +457,14 @@ const App = () => {
     },
     [setTilePickerZoom]
   );
+  const tilePageDisplayCount = Math.max(1, tilePageCount);
+  const tilePageDisplayIndex = Math.min(tilePage, tilePageDisplayCount - 1);
+  const handleTilePageBack = useCallback(() => {
+    setTilePage(tilePage - 1);
+  }, [setTilePage, tilePage]);
+  const handleTilePageForward = useCallback(() => {
+    setTilePage(tilePage + 1);
+  }, [setTilePage, tilePage]);
   const updateTileClusterSize = useCallback(
     (columns: number, rows: number) => {
       if (!activeTileSet) {
@@ -2352,7 +2363,7 @@ const App = () => {
               <div className="panel__stack panel__stack--inline">
                 <button
                   type="button"
-                  className="panel__item"
+                  className="panel__item panel__item--icon"
                   onClick={() => setTileZoom(tilePickerZoom - 1)}
                   disabled={tilePickerZoom <= TILE_PICKER_ZOOM_MIN}
                 >
@@ -2370,11 +2381,38 @@ const App = () => {
                 />
                 <button
                   type="button"
-                  className="panel__item"
+                  className="panel__item panel__item--icon"
                   onClick={() => setTileZoom(tilePickerZoom + 1)}
                   disabled={tilePickerZoom >= TILE_PICKER_ZOOM_MAX}
                 >
                   +
+                </button>
+              </div>
+            </div>
+            <div className="panel__group">
+              <span className="panel__label">Page</span>
+              <div className="panel__stack panel__stack--inline">
+                <button
+                  type="button"
+                  className="panel__item panel__item--icon"
+                  onClick={handleTilePageBack}
+                  disabled={!activeTileSet || tilePageDisplayIndex <= 0}
+                >
+                  ◀
+                </button>
+                <span className="panel__item panel__item--static">
+                  {tilePageDisplayIndex + 1} / {tilePageDisplayCount}
+                </span>
+                <button
+                  type="button"
+                  className="panel__item panel__item--icon"
+                  onClick={handleTilePageForward}
+                  disabled={
+                    !activeTileSet ||
+                    tilePageDisplayIndex >= tilePageDisplayCount - 1
+                  }
+                >
+                  ▶
                 </button>
               </div>
             </div>

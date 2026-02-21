@@ -109,12 +109,22 @@ body {
 
 .topbar__options .panel__item {
   margin-bottom: 0;
-  padding: 6px 8px;
+  padding: 0 10px;
+  min-height: 30px;
+  height: 30px;
+  border-radius: 10px;
   font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .topbar__options .panel__select {
-  padding: 5px 8px;
+  padding: 0 10px;
+  min-height: 30px;
+  height: 30px;
+  border-radius: 10px;
   font-size: 11px;
 }
 
@@ -123,8 +133,25 @@ body {
 }
 
 .topbar__options .panel__number {
-  padding: 5px 8px;
+  padding: 0 10px;
+  min-height: 30px;
+  height: 30px;
+  border-radius: 10px;
   font-size: 11px;
+}
+
+.topbar__options .panel__item--icon {
+  width: 30px;
+  min-width: 30px;
+  padding: 0;
+  font-size: 12px;
+}
+
+.topbar__options .panel__item--static {
+  cursor: default;
+  pointer-events: none;
+  color: rgba(255, 255, 255, 0.75);
+  font-variant-numeric: tabular-nums;
 }
 
 .topbar__options .panel__radio {
@@ -862,8 +889,8 @@ body {
 }
 
 .tilebar {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   gap: 6px;
   padding: 6px 10px;
   width: 100%;
@@ -882,11 +909,10 @@ body {
   align-content: flex-start;
   width: 100%;
   overflow-x: hidden;
-  overflow-y: scroll;
-  flex: 1;
+  overflow-y: auto;
   min-width: 0;
   min-height: 0;
-  height: 100%;
+  height: auto;
   padding-bottom: 6px;
   justify-content: start;
   align-content: start;
