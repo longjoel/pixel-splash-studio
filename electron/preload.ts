@@ -46,6 +46,17 @@ contextBridge.exposeInMainWorld('appApi', {
   setTitle: (title: string) => ipcRenderer.send('app:set-title', title),
 });
 
+contextBridge.exposeInMainWorld('windowApi', {
+  toggleFullscreen: () => ipcRenderer.invoke('window:toggle-fullscreen'),
+  onFullscreenChange: (handler: (isFullscreen: boolean) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, isFullscreen: boolean) => {
+      handler(isFullscreen);
+    };
+    ipcRenderer.on('window:fullscreen-changed', listener);
+    return () => ipcRenderer.removeListener('window:fullscreen-changed', listener);
+  },
+});
+
 contextBridge.exposeInMainWorld('debugApi', {
   logPerf: (message: string) => ipcRenderer.invoke('debug:perf-log', message),
 });

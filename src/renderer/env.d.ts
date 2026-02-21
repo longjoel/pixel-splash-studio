@@ -146,6 +146,10 @@ interface Window {
   appApi: {
     setTitle: (title: string) => void;
   };
+  windowApi: {
+    toggleFullscreen: () => Promise<boolean>;
+    onFullscreenChange: (handler: (isFullscreen: boolean) => void) => () => void;
+  };
   debugApi: {
     logPerf: (message: string) => Promise<string | null>;
   };

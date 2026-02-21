@@ -540,6 +540,17 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.swatch}</span>
         </button>
+        <button
+          type="button"
+          className="topbar__tool-button"
+          onClick={() => {
+            void window.windowApi?.toggleFullscreen?.();
+          }}
+          title="Toggle Full Screen (F11)"
+          aria-label="Toggle Full Screen"
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS.fullscreen}</span>
+        </button>
         {toolOptions && <div className="topbar__options">{toolOptions}</div>}
       </div>
       {menu.open && (

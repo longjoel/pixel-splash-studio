@@ -228,6 +228,19 @@ const createWindow = () => {
       win.webContents.send('palette:apply', pendingLospecPalette);
       pendingLospecPalette = null;
     }
+    win.webContents.send('window:fullscreen-changed', win.isFullScreen());
+  });
+
+  win.on('enter-full-screen', () => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('window:fullscreen-changed', true);
+    }
+  });
+
+  win.on('leave-full-screen', () => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('window:fullscreen-changed', false);
+    }
   });
 
   mainWindow = win;
@@ -461,6 +474,18 @@ app.whenReady().then(async () => {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Toggle Full Screen',
+          accelerator: process.platform === 'darwin' ? 'Ctrl+Command+F' : 'F11',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow() ?? getMainWindow();
+            if (!window) {
+              return;
+            }
+            window.setFullScreen(!window.isFullScreen());
+          },
+        },
+        { type: 'separator' as const },
         {
           id: 'view:minimapExpanded',
           label: 'Minimap Panel',
@@ -1484,4 +1509,14 @@ ipcMain.on('view:set-state', (_event, partial: unknown) => {
   }
   const state = partial as Partial<typeof viewMenuState>;
   applyViewMenuState(state);
+});
+
+ipcMain.handle('window:toggle-fullscreen', () => {
+  const window = BrowserWindow.getFocusedWindow() ?? getMainWindow();
+  if (!window) {
+    return false;
+  }
+  const next = !window.isFullScreen();
+  window.setFullScreen(next);
+  return next;
 });
