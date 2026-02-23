@@ -1,7 +1,8 @@
 import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { usePreviewStore } from '@/state/previewStore';
-import { useTileMapStore } from '@/state/tileMapStore';
+import { useTileMapStore, type TilePlacementMode } from '@/state/tileMapStore';
+import { TilePlacementResolver } from '@/tools/tilePlacementResolver';
 
 const DEFAULT_TILE_MAP_SIZE = 32;
 
@@ -16,6 +17,7 @@ type ActiveTileContext = {
   tileSetId: string;
   tileWidth: number;
   tileHeight: number;
+  placementMode: TilePlacementMode;
   tileSetTiles: Array<{ pixels: number[] }>;
 };
 
@@ -25,6 +27,7 @@ type ActiveMapContext = {
   originY: number;
   columns: number;
   rows: number;
+  tiles: number[];
 };
 
 const toPixelPoint = (cursor: CursorState) => ({
@@ -61,6 +64,7 @@ const getActiveTileContext = (): ActiveTileContext | null => {
     tileSetId: tileSet.id,
     tileWidth: tileSet.tileWidth,
     tileHeight: tileSet.tileHeight,
+    placementMode: tileStore.tilePlacementMode,
     tileSetTiles: tileSet.tiles,
   };
 };
@@ -84,6 +88,7 @@ const ensureActiveMap = (
       originY: existing.originY,
       columns: existing.columns,
       rows: existing.rows,
+      tiles: existing.tiles,
     };
   }
 
@@ -96,6 +101,7 @@ const ensureActiveMap = (
       originY: fallback.originY,
       columns: fallback.columns,
       rows: fallback.rows,
+      tiles: fallback.tiles,
     };
   }
 
@@ -117,7 +123,7 @@ const ensureActiveMap = (
     rows: size,
     tiles,
   });
-  return { tileMapId, originX, originY, columns: size, rows: size };
+  return { tileMapId, originX, originY, columns: size, rows: size, tiles };
 };
 
 export class TileNineSliceTool implements Tool {
@@ -129,6 +135,41 @@ export class TileNineSliceTool implements Tool {
   private lastWorldPoint: TilePoint | null = null;
   private activeMap: ActiveMapContext | null = null;
   private activeTile: ActiveTileContext | null = null;
+  private placementResolver: TilePlacementResolver | null = null;
+
+  private resetPlacementResolver() {
+    if (!this.activeTile) {
+      this.placementResolver = null;
+      return;
+    }
+    this.placementResolver = new TilePlacementResolver(this.activeTile.tileSetTiles);
+  }
+
+  private getCurrentTileIndex(mapIndex: number): number {
+    const changed = this.changes.get(mapIndex);
+    if (typeof changed === 'number') {
+      return changed;
+    }
+    return this.activeMap?.tiles[mapIndex] ?? -1;
+  }
+
+  private resolvePlacedTileIndex(sourceTileIndex: number, mapIndex: number): number {
+    if (!this.activeTile || !this.placementResolver || sourceTileIndex < 0) {
+      return sourceTileIndex;
+    }
+    return this.placementResolver.resolve(
+      this.activeTile.placementMode,
+      sourceTileIndex,
+      this.getCurrentTileIndex(mapIndex)
+    );
+  }
+
+  private getTilePixels(tileIndex: number): number[] | null {
+    if (tileIndex < 0) {
+      return null;
+    }
+    return this.placementResolver?.getTilePixels(tileIndex) ?? null;
+  }
 
   private toWorldTilePoint(pixelPoint: TilePoint): TilePoint | null {
     if (!this.activeTile) {
@@ -181,6 +222,7 @@ export class TileNineSliceTool implements Tool {
         originY: expanded.originY,
         columns: expanded.columns,
         rows: expanded.rows,
+        tiles: expanded.tiles,
       };
     }
     return this.toMapPoint({ x: minX, y: minY });
@@ -335,13 +377,14 @@ export class TileNineSliceTool implements Tool {
         if (tileIndex < 0 || tileIndex >= this.activeTile.tileSetTiles.length) {
           continue;
         }
-        const tile = this.activeTile.tileSetTiles[tileIndex];
-        if (!tile) {
-          continue;
-        }
         const mapIndex = mapY * columns + mapX;
+        const placedTileIndex = this.resolvePlacedTileIndex(tileIndex, mapIndex);
         if (this.drawing) {
-          this.changes.set(mapIndex, tileIndex);
+          this.changes.set(mapIndex, placedTileIndex);
+        }
+        const tilePixels = this.getTilePixels(placedTileIndex);
+        if (!tilePixels) {
+          continue;
         }
         const pixelX = worldX * this.activeTile.tileWidth;
         const pixelY = worldY * this.activeTile.tileHeight;
@@ -350,7 +393,7 @@ export class TileNineSliceTool implements Tool {
           pixelY,
           this.activeTile.tileWidth,
           this.activeTile.tileHeight,
-          tile.pixels
+          tilePixels
         );
       }
     }
@@ -366,6 +409,7 @@ export class TileNineSliceTool implements Tool {
     if (!this.activeTile) {
       return;
     }
+    this.resetPlacementResolver();
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       return;
@@ -397,6 +441,7 @@ export class TileNineSliceTool implements Tool {
       this.drawing = false;
       return;
     }
+    this.resetPlacementResolver();
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       this.drawing = false;
@@ -446,6 +491,7 @@ export class TileNineSliceTool implements Tool {
 
     if (!this.sampling) {
       this.changes.clear();
+      this.resetPlacementResolver();
       this.applyNineSlice(this.startWorldPoint, nextWorldPoint);
       return;
     }
@@ -468,6 +514,12 @@ export class TileNineSliceTool implements Tool {
         tileStore.setNineSlice(nineSlice);
       }
     } else if (this.changes.size > 0) {
+      if (this.placementResolver) {
+        const pendingTiles = this.placementResolver.getPendingTiles();
+        if (pendingTiles.length > 0) {
+          useTileMapStore.getState().appendTilesToSet(this.activeTile.tileSetId, pendingTiles);
+        }
+      }
       const updates = Array.from(this.changes.entries()).map(([index, tile]) => ({
         index,
         tile,
@@ -481,6 +533,7 @@ export class TileNineSliceTool implements Tool {
     this.changes.clear();
     this.startWorldPoint = null;
     this.lastWorldPoint = null;
+    this.placementResolver = null;
   };
 
   onCancel = () => {
@@ -491,5 +544,6 @@ export class TileNineSliceTool implements Tool {
     this.changes.clear();
     this.startWorldPoint = null;
     this.lastWorldPoint = null;
+    this.placementResolver = null;
   };
 }

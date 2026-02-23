@@ -5,9 +5,12 @@ import { access, appendFile, mkdir, readFile, writeFile } from 'fs/promises';
 import { spawn } from 'child_process';
 import https from 'https';
 import { tmpdir } from 'os';
-import JSZip from 'jszip';
 import { Worker } from 'worker_threads';
-import { EXTENSION_MIME_MAP } from '../src/constants';
+import {
+  collectProjectTransferList,
+  readProjectZip,
+  type ProjectPayload,
+} from './projectFile';
 import { decodeImageFile, encodeImageBuffer, type ExportImagePayload } from './imageCodecs';
 import {
   getAdvancedMode,
@@ -227,6 +230,19 @@ const createWindow = () => {
     if (pendingLospecPalette) {
       win.webContents.send('palette:apply', pendingLospecPalette);
       pendingLospecPalette = null;
+    }
+    win.webContents.send('window:fullscreen-changed', win.isFullScreen());
+  });
+
+  win.on('enter-full-screen', () => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('window:fullscreen-changed', true);
+    }
+  });
+
+  win.on('leave-full-screen', () => {
+    if (!win.isDestroyed()) {
+      win.webContents.send('window:fullscreen-changed', false);
     }
   });
 
@@ -461,6 +477,18 @@ app.whenReady().then(async () => {
     {
       label: 'View',
       submenu: [
+        {
+          label: 'Toggle Full Screen',
+          accelerator: process.platform === 'darwin' ? 'Ctrl+Command+F' : 'F11',
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow() ?? getMainWindow();
+            if (!window) {
+              return;
+            }
+            window.setFullScreen(!window.isFullScreen());
+          },
+        },
+        { type: 'separator' as const },
         {
           id: 'view:minimapExpanded',
           label: 'Minimap Panel',
@@ -779,110 +807,9 @@ app.on('before-quit', () => {
   console.log(`Perf log: ${filePath}`);
 });
 
-export type ProjectPayload = {
-  data: {
-    palette: {
-      colors: string[];
-      selectedIndices?: number[];
-      primaryIndex?: number;
-      secondaryIndex?: number;
-    };
-    camera: {
-      x: number;
-      y: number;
-      zoom: number;
-    };
-    history?: {
-      undoStack: Array<{
-        layerId?: string;
-        changes: Array<{ x: number; y: number; prev: number; next: number }>;
-      }>;
-      redoStack: Array<{
-        layerId?: string;
-        changes: Array<{ x: number; y: number; prev: number; next: number }>;
-      }>;
-    };
-    references?: Array<{
-      id: string;
-      filename: string;
-      type: string;
-      width: number;
-      height: number;
-      x: number;
-      y: number;
-      scale: number;
-      rotation: number;
-      flipX: boolean;
-      flipY: boolean;
-      opacity: number;
-    }>;
-    tileSets?: Array<{
-      id: string;
-      name: string;
-      tileWidth: number;
-      tileHeight: number;
-      tiles: Array<{
-        id: string;
-        name?: string;
-        pixels: number[];
-      }>;
-    }>;
-    tileMaps?: Array<{
-      id: string;
-      name: string;
-      tileSetId: string;
-      originX: number;
-      originY: number;
-      columns: number;
-      rows: number;
-      tiles: number[];
-    }>;
-    pixelLayers?: {
-      layers: Array<{ id: string; name: string; visible: boolean }>;
-      activeLayerId?: string;
-    };
-  };
-  layers?: Array<{
-    id: string;
-    name: string;
-    visible: boolean;
-    blocks: Array<{ row: number; col: number; data: Uint8Array }>;
-  }>;
-  blocks?: Array<{ row: number; col: number; data: Uint8Array }>;
-  referenceFiles?: Array<{ filename: string; data: Uint8Array; type: string }>;
-};
-
-const getMimeTypeFromFilename = (filename: string) => {
-  const ext = filename.split('.').pop()?.toLowerCase() ?? '';
-  return EXTENSION_MIME_MAP[ext] ?? '';
-};
-
 const writeProjectToPath = (payload: ProjectPayload, filePath: string) =>
   new Promise<void>((resolve, reject) => {
-    const transferList: ArrayBuffer[] = [];
-    const seenBuffers = new Set<ArrayBuffer>();
-    const layerEntries =
-      payload.layers && payload.layers.length > 0
-        ? payload.layers
-        : payload.blocks
-          ? [{ id: 'legacy', name: 'Layer 1', visible: true, blocks: payload.blocks }]
-          : [];
-    for (const layer of layerEntries) {
-      for (const block of layer.blocks) {
-        const buffer = block.data.buffer;
-        if (buffer instanceof ArrayBuffer && !seenBuffers.has(buffer)) {
-          seenBuffers.add(buffer);
-          transferList.push(buffer);
-        }
-      }
-    }
-    for (const reference of payload.referenceFiles ?? []) {
-      const buffer = reference.data.buffer;
-      if (buffer instanceof ArrayBuffer && !seenBuffers.has(buffer)) {
-        seenBuffers.add(buffer);
-        transferList.push(buffer);
-      }
-    }
+    const transferList = collectProjectTransferList(payload);
 
     const worker = new Worker(join(__dirname, 'projectWriter.js'), {
       workerData: { payload, filePath },
@@ -909,114 +836,6 @@ const writeProjectToPath = (payload: ProjectPayload, filePath: string) =>
       }
     });
   });
-
-const readProjectZip = async (buffer: Buffer) => {
-  const zip = await JSZip.loadAsync(buffer);
-  const dataEntry = zip.file('data.json');
-  if (!dataEntry) {
-    throw new Error('Missing data.json in project');
-  }
-  const data = JSON.parse(await dataEntry.async('string'));
-  const layers: Array<{
-    id: string;
-    name: string;
-    visible: boolean;
-    blocks: Array<{ row: number; col: number; data: Uint8Array }>;
-  }> = [];
-  const blocks: Array<{ row: number; col: number; data: Uint8Array }> = [];
-  const layerEntries = data?.pixelLayers?.layers;
-  if (Array.isArray(layerEntries) && layerEntries.length > 0) {
-    for (const layer of layerEntries) {
-      const layerId = layer?.id;
-      if (typeof layerId !== 'string' || !layerId) {
-        continue;
-      }
-      const layerFolder = zip.folder(`pixels/${layerId}`);
-      const layerBlocks: Array<{ row: number; col: number; data: Uint8Array }> = [];
-      if (layerFolder) {
-        for (const filename of Object.keys(layerFolder.files)) {
-          if (!filename.endsWith('.bin')) {
-            continue;
-          }
-          const basename = filename.split('/').pop();
-          if (!basename) {
-            continue;
-          }
-          const match = basename.match(/(-?\d+)-(-?\d+)\.bin$/);
-          if (!match) {
-            continue;
-          }
-          const row = Number(match[1]);
-          const col = Number(match[2]);
-          const dataBuffer = await zip.file(filename)?.async('uint8array');
-          if (!dataBuffer) {
-            continue;
-          }
-          layerBlocks.push({ row, col, data: dataBuffer });
-        }
-      }
-      layers.push({
-        id: layerId,
-        name: typeof layer?.name === 'string' ? layer.name : 'Layer',
-        visible: layer?.visible !== false,
-        blocks: layerBlocks,
-      });
-    }
-  } else {
-    const pixelEntries = zip.folder('pixels');
-    if (pixelEntries) {
-      for (const filename of Object.keys(pixelEntries.files)) {
-        if (!filename.endsWith('.bin')) {
-          continue;
-        }
-        const basename = filename.split('/').pop();
-        if (!basename) {
-          continue;
-        }
-        const match = basename.match(/(-?\d+)-(-?\d+)\.bin$/);
-        if (!match) {
-          continue;
-        }
-        const row = Number(match[1]);
-        const col = Number(match[2]);
-        const dataBuffer = await zip.file(filename)?.async('uint8array');
-        if (!dataBuffer) {
-          continue;
-        }
-        blocks.push({ row, col, data: dataBuffer });
-      }
-    }
-  }
-  const referenceFiles: Array<{ filename: string; data: Uint8Array; type: string }> = [];
-  const referenceTypes = new Map<string, string>();
-  for (const reference of data.references ?? []) {
-    if (reference?.filename) {
-      referenceTypes.set(reference.filename, reference.type);
-    }
-  }
-  for (const filename of Object.keys(zip.files)) {
-    if (!filename.startsWith('references/') || filename.endsWith('/')) {
-      continue;
-    }
-    const basename = filename.slice('references/'.length);
-    if (!basename) {
-      continue;
-    }
-    const dataBuffer = await zip.file(filename)?.async('uint8array');
-    if (!dataBuffer) {
-      continue;
-    }
-    const type =
-      referenceTypes.get(basename) || getMimeTypeFromFilename(basename) || 'image/png';
-    referenceFiles.push({ filename: basename, data: dataBuffer, type });
-  }
-  return {
-    data,
-    layers: layers.length > 0 ? layers : undefined,
-    blocks: blocks.length > 0 ? blocks : undefined,
-    referenceFiles,
-  };
-};
 
 ipcMain.handle('project:save', async (_event, payload: ProjectPayload, existingPath?: string) => {
   if (existingPath) {
@@ -1482,4 +1301,14 @@ ipcMain.on('view:set-state', (_event, partial: unknown) => {
   }
   const state = partial as Partial<typeof viewMenuState>;
   applyViewMenuState(state);
+});
+
+ipcMain.handle('window:toggle-fullscreen', () => {
+  const window = BrowserWindow.getFocusedWindow() ?? getMainWindow();
+  if (!window) {
+    return false;
+  }
+  const next = !window.isFullScreen();
+  window.setFullScreen(next);
+  return next;
 });

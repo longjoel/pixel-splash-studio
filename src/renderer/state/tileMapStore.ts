@@ -15,7 +15,14 @@ export type TileSetPayload = {
   name: string;
   tileWidth: number;
   tileHeight: number;
+  columns: number;
+  rows: number;
   tiles: TilePayload[];
+};
+
+type IncomingTileSetPayload = Omit<TileSetPayload, 'columns' | 'rows'> & {
+  columns?: number;
+  rows?: number;
 };
 
 export type TileMapPayload = {
@@ -29,6 +36,8 @@ export type TileMapPayload = {
   tiles: number[];
 };
 
+export type TilePlacementMode = 'soft' | 'hard';
+
 type TileMapState = {
   tileSets: TileSetPayload[];
   tileMaps: TileMapPayload[];
@@ -39,14 +48,18 @@ type TileMapState = {
   selectedTileCols: number;
   selectedTileRows: number;
   tilePage: number;
+  tilePageCount: number;
   tilePaletteColumns: number;
   tilePaletteOffset: number;
   tilePaletteRowsMin: number;
+  tilePickerZoom: number;
+  tilePlacementMode: TilePlacementMode;
+  tilePenSnapToCluster: boolean;
   tileDebugOverlay: boolean;
   nineSlice: { tileSetId: string; tiles: number[] } | null;
-  setTileSets: (tileSets: TileSetPayload[]) => void;
+  setTileSets: (tileSets: IncomingTileSetPayload[]) => void;
   setTileMaps: (tileMaps: TileMapPayload[]) => void;
-  setAll: (tileSets: TileSetPayload[], tileMaps: TileMapPayload[]) => void;
+  setAll: (tileSets: IncomingTileSetPayload[], tileMaps: TileMapPayload[]) => void;
   setActiveTileSet: (id: string | null) => void;
   setActiveTileMap: (id: string | null) => void;
   setSelectedTileIndex: (index: number) => void;
@@ -57,12 +70,26 @@ type TileMapState = {
     anchorIndex: number
   ) => void;
   setTilePage: (page: number) => void;
+  setTilePageCount: (count: number) => void;
   setTilePaletteColumns: (columns: number) => void;
   setTilePaletteOffset: (offset: number) => void;
   setTilePaletteRowsMin: (rows: number) => void;
+  setTilePickerZoom: (zoom: number) => void;
+  setTilePlacementMode: (mode: TilePlacementMode) => void;
+  setTilePenSnapToCluster: (enabled: boolean) => void;
   setTileDebugOverlay: (enabled: boolean) => void;
   setNineSlice: (value: { tileSetId: string; tiles: number[] } | null) => void;
-  addTileSet: (payload: Omit<TileSetPayload, 'id'> & { id?: string }) => string;
+  setTileSetLayout: (tileSetId: string, columns: number, rows: number) => void;
+  renameTileSet: (tileSetId: string, name: string) => void;
+  deleteTileSet: (tileSetId: string) => void;
+  duplicateTileSet: (tileSetId: string) => string | null;
+  addTileSet: (
+    payload: Omit<TileSetPayload, 'id' | 'columns' | 'rows'> & {
+      id?: string;
+      columns?: number;
+      rows?: number;
+    }
+  ) => string;
   appendTilesToSet: (tileSetId: string, tiles: Array<Omit<TilePayload, 'id'>>) => void;
   refreshCanvasSourcedTiles: (
     dirtyAll: boolean,
@@ -90,6 +117,52 @@ const createId = (prefix: string) =>
     : `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
 const MAX_TILE_PALETTE_COLUMNS = 64;
+export const TILE_PICKER_ZOOM_MIN = 2;
+export const TILE_PICKER_ZOOM_MAX = 24;
+export const TILE_PICKER_ZOOM_DEFAULT = 6;
+const DEFAULT_TILE_LAYOUT_COLUMNS = 1;
+const DEFAULT_TILE_LAYOUT_ROWS = 1;
+
+const clampTileLayoutSize = (value: number | undefined, fallback: number) => {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback;
+  }
+  return Math.min(MAX_TILE_PALETTE_COLUMNS, Math.max(1, Math.floor(value)));
+};
+
+const clampTilePickerZoom = (value: number) =>
+  Math.max(TILE_PICKER_ZOOM_MIN, Math.min(TILE_PICKER_ZOOM_MAX, Math.round(value)));
+
+const normalizeTileSet = (tileSet: IncomingTileSetPayload): TileSetPayload => ({
+  ...tileSet,
+  columns: clampTileLayoutSize(tileSet.columns, DEFAULT_TILE_LAYOUT_COLUMNS),
+  rows: clampTileLayoutSize(tileSet.rows, DEFAULT_TILE_LAYOUT_ROWS),
+});
+
+const resolveActiveTileSetId = (
+  tileSets: TileSetPayload[],
+  activeTileSetId: string | null
+) => {
+  if (!activeTileSetId) {
+    return tileSets[0]?.id ?? null;
+  }
+  return tileSets.some((tileSet) => tileSet.id === activeTileSetId)
+    ? activeTileSetId
+    : tileSets[0]?.id ?? null;
+};
+
+const buildTileSetCopyName = (baseName: string, existingNames: string[]) => {
+  const seen = new Set(existingNames);
+  const first = `${baseName} Copy`;
+  if (!seen.has(first)) {
+    return first;
+  }
+  let number = 2;
+  while (seen.has(`${baseName} Copy ${number}`)) {
+    number += 1;
+  }
+  return `${baseName} Copy ${number}`;
+};
 
 export const useTileMapStore = create<TileMapState>((set, get) => ({
   tileSets: [],
@@ -101,41 +174,70 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
   selectedTileCols: 1,
   selectedTileRows: 1,
   tilePage: 0,
+  tilePageCount: 1,
   tilePaletteColumns: 8,
   tilePaletteOffset: 0,
   tilePaletteRowsMin: 3,
+  tilePickerZoom: TILE_PICKER_ZOOM_DEFAULT,
+  tilePlacementMode: 'hard',
+  tilePenSnapToCluster: false,
   tileDebugOverlay: false,
   nineSlice: null,
-  setTileSets: (tileSets) => set({ tileSets }),
+  setTileSets: (tileSets) =>
+    set((state) => {
+      const normalizedTileSets = tileSets.map(normalizeTileSet);
+      const activeTileSetId = resolveActiveTileSetId(
+        normalizedTileSets,
+        state.activeTileSetId
+      );
+      const activeTileSet = normalizedTileSets.find((set) => set.id === activeTileSetId);
+      return {
+        tileSets: normalizedTileSets,
+        activeTileSetId,
+        tilePaletteColumns: activeTileSet?.columns ?? state.tilePaletteColumns,
+        tilePaletteRowsMin: activeTileSet?.rows ?? state.tilePaletteRowsMin,
+      };
+    }),
   setTileMaps: (tileMaps) => set({ tileMaps }),
   setAll: (tileSets, tileMaps) =>
-    set({
-      tileSets,
-      tileMaps,
-      activeTileSetId: tileSets[0]?.id ?? null,
-      activeTileMapId: tileMaps[0]?.id ?? null,
-      selectedTileIndex: 0,
-      selectedTileIndices: [0],
-      selectedTileCols: 1,
-      selectedTileRows: 1,
-      tilePage: 0,
-      tilePaletteOffset: 0,
-      tilePaletteRowsMin: 3,
-      tileDebugOverlay: false,
-      nineSlice: null,
+    set(() => {
+      const normalizedTileSets = tileSets.map(normalizeTileSet);
+      const activeTileSet = normalizedTileSets[0];
+      return {
+        tileSets: normalizedTileSets,
+        tileMaps,
+        activeTileSetId: activeTileSet?.id ?? null,
+        activeTileMapId: tileMaps[0]?.id ?? null,
+        selectedTileIndex: 0,
+        selectedTileIndices: [0],
+        selectedTileCols: 1,
+        selectedTileRows: 1,
+        tilePage: 0,
+        tilePageCount: 1,
+        tilePaletteColumns: activeTileSet?.columns ?? 8,
+        tilePaletteOffset: 0,
+        tilePaletteRowsMin: activeTileSet?.rows ?? 3,
+        tileDebugOverlay: false,
+        nineSlice: null,
+      };
     }),
   setActiveTileSet: (id) =>
-    set({
-      activeTileSetId: id,
-      selectedTileIndex: 0,
-      selectedTileIndices: [0],
-      selectedTileCols: 1,
-      selectedTileRows: 1,
-      tilePage: 0,
-      tilePaletteOffset: 0,
-      tilePaletteRowsMin: 3,
-      tileDebugOverlay: false,
-      nineSlice: null,
+    set((state) => {
+      const activeTileSet = state.tileSets.find((set) => set.id === id);
+      return {
+        activeTileSetId: id,
+        selectedTileIndex: 0,
+        selectedTileIndices: [0],
+        selectedTileCols: 1,
+        selectedTileRows: 1,
+        tilePage: 0,
+        tilePageCount: 1,
+        tilePaletteColumns: activeTileSet?.columns ?? state.tilePaletteColumns,
+        tilePaletteOffset: 0,
+        tilePaletteRowsMin: activeTileSet?.rows ?? state.tilePaletteRowsMin,
+        tileDebugOverlay: false,
+        nineSlice: null,
+      };
     }),
   setActiveTileMap: (id) => set({ activeTileMapId: id }),
   setSelectedTileIndex: (index) =>
@@ -152,7 +254,25 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: Math.max(1, cols),
       selectedTileRows: Math.max(1, rows),
     }),
-  setTilePage: (page) => set({ tilePage: Math.max(0, page) }),
+  setTilePage: (page) =>
+    set((state) => {
+      const maxPage = Math.max(0, state.tilePageCount - 1);
+      const next = Math.min(maxPage, Math.max(0, Math.floor(page)));
+      return { tilePage: next };
+    }),
+  setTilePageCount: (count) =>
+    set((state) => {
+      const nextCount = Math.max(1, Math.floor(count));
+      const maxPage = Math.max(0, nextCount - 1);
+      const nextPage = Math.min(state.tilePage, maxPage);
+      if (state.tilePageCount === nextCount && state.tilePage === nextPage) {
+        return state;
+      }
+      return {
+        tilePageCount: nextCount,
+        tilePage: nextPage,
+      };
+    }),
   setTilePaletteColumns: (columns) =>
     set((state) => ({
       tilePaletteColumns: Math.min(MAX_TILE_PALETTE_COLUMNS, Math.max(1, columns)),
@@ -174,12 +294,149 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: 1,
       selectedTileRows: 1,
     })),
+  setTilePickerZoom: (zoom) =>
+    set({
+      tilePickerZoom:
+        Number.isFinite(zoom) && zoom > 0
+          ? clampTilePickerZoom(zoom)
+          : TILE_PICKER_ZOOM_DEFAULT,
+    }),
+  setTilePlacementMode: (mode) =>
+    set({
+      tilePlacementMode: mode === 'soft' ? 'soft' : 'hard',
+    }),
+  setTilePenSnapToCluster: (enabled) =>
+    set({
+      tilePenSnapToCluster: Boolean(enabled),
+    }),
   setTileDebugOverlay: (enabled) => set({ tileDebugOverlay: enabled }),
   setNineSlice: (value) => set({ nineSlice: value }),
+  setTileSetLayout: (tileSetId, columns, rows) => {
+    const tileSet = get().tileSets.find((set) => set.id === tileSetId);
+    if (!tileSet) {
+      return;
+    }
+    const nextColumns = clampTileLayoutSize(columns, tileSet.columns);
+    const nextRows = clampTileLayoutSize(rows, tileSet.rows);
+    if (tileSet.columns === nextColumns && tileSet.rows === nextRows) {
+      return;
+    }
+    useProjectStore.getState().setDirty(true);
+    set((state) => ({
+      tileSets: state.tileSets.map((set) =>
+        set.id === tileSetId ? { ...set, columns: nextColumns, rows: nextRows } : set
+      ),
+      tilePaletteColumns:
+        state.activeTileSetId === tileSetId ? nextColumns : state.tilePaletteColumns,
+      tilePaletteRowsMin:
+        state.activeTileSetId === tileSetId ? nextRows : state.tilePaletteRowsMin,
+    }));
+  },
+  renameTileSet: (tileSetId, name) => {
+    const trimmed = name.trim();
+    if (!trimmed) {
+      return;
+    }
+    const tileSet = get().tileSets.find((set) => set.id === tileSetId);
+    if (!tileSet || tileSet.name === trimmed) {
+      return;
+    }
+    useProjectStore.getState().setDirty(true);
+    set((state) => ({
+      tileSets: state.tileSets.map((set) =>
+        set.id === tileSetId ? { ...set, name: trimmed } : set
+      ),
+    }));
+  },
+  deleteTileSet: (tileSetId) => {
+    const state = get();
+    const tileSetIndex = state.tileSets.findIndex((set) => set.id === tileSetId);
+    if (tileSetIndex < 0) {
+      return;
+    }
+
+    const nextTileSets = state.tileSets.filter((set) => set.id !== tileSetId);
+    const nextTileMaps = state.tileMaps.filter((map) => map.tileSetId !== tileSetId);
+    const nextActiveTileSetId = (() => {
+      if (state.activeTileSetId && state.activeTileSetId !== tileSetId) {
+        return state.activeTileSetId;
+      }
+      const fallbackIndex = Math.min(tileSetIndex, Math.max(0, nextTileSets.length - 1));
+      return nextTileSets[fallbackIndex]?.id ?? null;
+    })();
+    const nextActiveTileSet =
+      nextTileSets.find((set) => set.id === nextActiveTileSetId) ?? nextTileSets[0];
+    const nextActiveTileMapId = (() => {
+      const activeMapStillExists = nextTileMaps.some((map) => map.id === state.activeTileMapId);
+      if (activeMapStillExists) {
+        return state.activeTileMapId;
+      }
+      const inActiveSet = nextTileMaps.find(
+        (map) => map.tileSetId === (nextActiveTileSet?.id ?? null)
+      );
+      return inActiveSet?.id ?? nextTileMaps[0]?.id ?? null;
+    })();
+
+    useProjectStore.getState().setDirty(true);
+    set({
+      tileSets: nextTileSets,
+      tileMaps: nextTileMaps,
+      activeTileSetId: nextActiveTileSet?.id ?? null,
+      activeTileMapId: nextActiveTileMapId,
+      selectedTileIndex: 0,
+      selectedTileIndices: [0],
+      selectedTileCols: 1,
+      selectedTileRows: 1,
+      tilePage: 0,
+      tilePageCount: 1,
+      tilePaletteColumns: nextActiveTileSet?.columns ?? state.tilePaletteColumns,
+      tilePaletteOffset: 0,
+      tilePaletteRowsMin: nextActiveTileSet?.rows ?? state.tilePaletteRowsMin,
+      nineSlice:
+        state.nineSlice?.tileSetId === tileSetId ? null : state.nineSlice,
+    });
+  },
+  duplicateTileSet: (tileSetId) => {
+    const state = get();
+    const sourceSet = state.tileSets.find((set) => set.id === tileSetId);
+    if (!sourceSet) {
+      return null;
+    }
+    const id = createId('tileset');
+    const duplicatedSet: TileSetPayload = {
+      ...sourceSet,
+      id,
+      name: buildTileSetCopyName(
+        sourceSet.name,
+        state.tileSets.map((set) => set.name)
+      ),
+      tiles: sourceSet.tiles.map((tile) => ({
+        ...tile,
+        id: createId('tile'),
+        pixels: tile.pixels.slice(),
+      })),
+    };
+    useProjectStore.getState().setDirty(true);
+    set((prev) => ({
+      tileSets: [...prev.tileSets, duplicatedSet],
+      activeTileSetId: id,
+      selectedTileIndex: 0,
+      selectedTileIndices: [0],
+      selectedTileCols: 1,
+      selectedTileRows: 1,
+      tilePage: 0,
+      tilePageCount: 1,
+      tilePaletteColumns: duplicatedSet.columns,
+      tilePaletteRowsMin: duplicatedSet.rows,
+      tilePaletteOffset: 0,
+      nineSlice: null,
+    }));
+    return id;
+  },
   addTileSet: (payload) => {
     const { id: providedId, ...rest } = payload;
     const id = providedId ?? createId('tileset');
-    const tileSet: TileSetPayload = { id, ...rest };
+    const tileSet = normalizeTileSet({ id, ...rest });
     useProjectStore.getState().setDirty(true);
     set((state) => ({
       tileSets: [...state.tileSets, tileSet],
@@ -189,6 +446,10 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: 1,
       selectedTileRows: 1,
       tilePage: 0,
+      tilePageCount: 1,
+      tilePaletteColumns: tileSet.columns,
+      tilePaletteRowsMin: tileSet.rows,
+      tilePaletteOffset: 0,
     }));
     return id;
   },
@@ -498,9 +759,13 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
       selectedTileCols: 1,
       selectedTileRows: 1,
       tilePage: 0,
+      tilePageCount: 1,
       tilePaletteColumns: 8,
       tilePaletteOffset: 0,
       tilePaletteRowsMin: 3,
+      tilePickerZoom: TILE_PICKER_ZOOM_DEFAULT,
+      tilePlacementMode: 'hard',
+      tilePenSnapToCluster: false,
       tileDebugOverlay: false,
       nineSlice: null,
     }),
