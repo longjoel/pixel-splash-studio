@@ -9,6 +9,7 @@ import { OptionsModal } from './ui/OptionsModal';
 import { AiPromptModal } from './ui/AiPromptModal';
 import { Topbar } from './ui/Topbar';
 import pssLogoUrl from './assets/pss-logo.png';
+import { isBrowserDemo } from './demoMode';
 import { loadProject, newProject, saveProject } from './services/project';
 import { mergeProjectPixels, readSplashProject } from './services/projectMerge';
 import { useHistoryStore } from './state/historyStore';
@@ -232,6 +233,7 @@ const buildMemorySummary = () => {
 };
 
 const App = () => {
+  const browserDemo = isBrowserDemo();
   const undo = useHistoryStore((state) => state.undo);
   const redo = useHistoryStore((state) => state.redo);
   const selectionCount = useSelectionStore((state) => state.selectedCount);
@@ -620,6 +622,10 @@ const App = () => {
   const paletteRightOffset = (minimapCollapsed ? 0 : 324) + 24;
 
   useEffect(() => {
+    if (browserDemo) {
+      setAdvancedMode(false);
+      return;
+    }
     let cancelled = false;
     const run = async () => {
       try {
@@ -635,7 +641,7 @@ const App = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [browserDemo]);
 
   useEffect(() => {
     if (activeTool !== 'reference-handle') {
@@ -649,20 +655,38 @@ const App = () => {
     }
   }, [advancedMode, activeTool, setActiveTool]);
 
+  useEffect(() => {
+    if (browserDemo && activeTool === 'ai') {
+      setActiveTool('pen');
+    }
+  }, [activeTool, browserDemo, setActiveTool]);
+
   const handleSave = React.useCallback(async () => {
+    if (browserDemo) {
+      return null;
+    }
     await saveProject(projectPath ?? undefined);
-  }, [projectPath]);
+    return null;
+  }, [browserDemo, projectPath]);
 
   const handleSaveAs = React.useCallback(async () => {
+    if (browserDemo) {
+      return null;
+    }
     await saveProject(undefined);
-  }, []);
+    return null;
+  }, [browserDemo]);
 
   const handleLoad = React.useCallback(async () => {
+    if (browserDemo) {
+      return null;
+    }
     if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
       return;
     }
     await loadProject(undefined);
-  }, [dirty]);
+    return null;
+  }, [browserDemo, dirty]);
 
   const handleNew = React.useCallback(() => {
     if (dirty && !window.confirm('You have unsaved changes. Continue?')) {
@@ -1161,10 +1185,16 @@ const App = () => {
       }
       if (key === 's') {
         event.preventDefault();
+        if (browserDemo) {
+          return;
+        }
         handleSave();
       }
       if (key === 'o') {
         event.preventDefault();
+        if (browserDemo) {
+          return;
+        }
         handleLoad();
       }
       if (key === 'n') {
@@ -1199,6 +1229,7 @@ const App = () => {
   }, [
     activeTool,
     activateTool,
+    browserDemo,
     handleLoad,
     handleNew,
     handleSave,
@@ -1325,7 +1356,7 @@ const App = () => {
       memoryInfoEnabled && memoryLabel
         ? `${projectTitle} • ${memoryLabel}`
         : projectTitle;
-    window.appApi.setTitle(title);
+    window.appApi?.setTitle?.(title);
   }, [projectTitle, memoryInfoEnabled, memoryLabel]);
 
   useEffect(() => {
@@ -1354,7 +1385,8 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    const unsubscribe = window.menuApi.onAction((action) => {
+    const unsubscribe =
+      window.menuApi?.onAction?.((action) => {
       if (action.startsWith('view:set:')) {
         const parts = action.split(':');
         const key = parts[2] ?? '';
@@ -1493,7 +1525,7 @@ const App = () => {
         default:
           break;
       }
-    });
+      }) ?? (() => {});
     return () => unsubscribe();
   }, [
     handleImport,
@@ -1520,7 +1552,7 @@ const App = () => {
   ]);
 
   useEffect(() => {
-    window.viewMenuApi?.setState({
+    window.viewMenuApi?.setState?.({
       showReferenceLayer,
       showPixelLayer,
       showTileLayer,
@@ -2533,7 +2565,11 @@ const App = () => {
           activeTool={activeTool}
           selectionCount={selectionCount}
           activateTool={activateTool}
-          showAdvancedTools={advancedMode}
+          showAdvancedTools={!browserDemo && advancedMode}
+          showAiTool={!browserDemo}
+          showExportButton={!browserDemo}
+          showFullscreenButton={!browserDemo}
+          showTileLayerControls={!browserDemo}
           toolOptions={renderToolOptions()}
         />
         {showSplash && (
@@ -3036,7 +3072,7 @@ SOFTWARE.
           </div>
         </div>
       )}
-      {showOptions && (
+      {showOptions && !browserDemo && (
         <OptionsModal
           onClose={() => {
             setShowOptions(false);
@@ -3067,7 +3103,7 @@ SOFTWARE.
           }}
         />
       )}
-      {aiModalOpen && activeTool === 'ai' && (
+      {aiModalOpen && activeTool === 'ai' && !browserDemo && (
         <AiPromptModal
           initialPrompt={aiPromptDraft}
           onCancel={() => {

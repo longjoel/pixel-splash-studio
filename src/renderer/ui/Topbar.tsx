@@ -13,6 +13,10 @@ type TopbarProps = {
   selectionCount: number;
   activateTool: (tool: ToolId) => void;
   showAdvancedTools: boolean;
+  showAiTool?: boolean;
+  showExportButton?: boolean;
+  showFullscreenButton?: boolean;
+  showTileLayerControls?: boolean;
   toolOptions?: React.ReactNode;
 };
 
@@ -108,10 +112,22 @@ const TopbarInner = ({
   selectionCount,
   activateTool,
   showAdvancedTools,
+  showAiTool,
+  showExportButton,
+  showFullscreenButton,
+  showTileLayerControls,
   toolOptions,
 }: Pick<
   TopbarProps,
-  'activeTool' | 'selectionCount' | 'activateTool' | 'toolOptions' | 'showAdvancedTools'
+  | 'activeTool'
+  | 'selectionCount'
+  | 'activateTool'
+  | 'toolOptions'
+  | 'showAdvancedTools'
+  | 'showAiTool'
+  | 'showExportButton'
+  | 'showFullscreenButton'
+  | 'showTileLayerControls'
 >) => {
   const topbarRef = React.useRef<HTMLDivElement | null>(null);
   const menuRef = React.useRef<HTMLDivElement | null>(null);
@@ -268,18 +284,20 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.paste}</span>
         </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          onClick={() => {
-            void exportSelectionAsPng();
-          }}
-          title="Export PNG…"
-          aria-label="Export PNG"
-          disabled={selectionCount === 0}
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.export}</span>
-        </button>
+        {showExportButton !== false && (
+          <button
+            type="button"
+            className="topbar__tool-button"
+            onClick={() => {
+              void exportSelectionAsPng();
+            }}
+            title="Export PNG…"
+            aria-label="Export PNG"
+            disabled={selectionCount === 0}
+          >
+            <span className="toolbar__tool-icon">{TOOL_ICONS.export}</span>
+          </button>
+        )}
         <button
           type="button"
           className="topbar__tool-button"
@@ -361,16 +379,18 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
         </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'ai'}
-          onClick={() => activateTool('ai')}
-          title="AI Prompt"
-          aria-label="AI Prompt"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.ai}</span>
-        </button>
+        {showAiTool !== false && (
+          <button
+            type="button"
+            className="topbar__tool-button"
+            data-active={activeTool === 'ai'}
+            onClick={() => activateTool('ai')}
+            title="AI Prompt"
+            aria-label="AI Prompt"
+          >
+            <span className="toolbar__tool-icon">{TOOL_ICONS.ai}</span>
+          </button>
+        )}
         <span className="topbar__divider" aria-hidden="true" />
         <button
           type="button"
@@ -540,17 +560,19 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.swatch}</span>
         </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          onClick={() => {
-            void window.windowApi?.toggleFullscreen?.();
-          }}
-          title="Toggle Full Screen (F11)"
-          aria-label="Toggle Full Screen"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.fullscreen}</span>
-        </button>
+        {showFullscreenButton !== false && (
+          <button
+            type="button"
+            className="topbar__tool-button"
+            onClick={() => {
+              void window.windowApi?.toggleFullscreen?.();
+            }}
+            title="Toggle Full Screen (F11)"
+            aria-label="Toggle Full Screen"
+          >
+            <span className="toolbar__tool-icon">{TOOL_ICONS.fullscreen}</span>
+          </button>
+        )}
         {toolOptions && <div className="topbar__options">{toolOptions}</div>}
       </div>
       {menu.open && (
@@ -568,7 +590,9 @@ const TopbarInner = ({
             <div className="bottom-dock__menu-stack">
               <ToggleRow checked={showReferenceLayer} label="Reference" onChange={toggleReferenceLayer} />
               <ToggleRow checked={showPixelLayer} label="Pixels" onChange={togglePixelLayer} />
-              <ToggleRow checked={showTileLayer} label="Tiles" onChange={toggleTileLayer} />
+              {showTileLayerControls !== false && (
+                <ToggleRow checked={showTileLayer} label="Tiles" onChange={toggleTileLayer} />
+              )}
             </div>
           ) : (
             <div className="bottom-dock__menu-stack">
@@ -578,12 +602,14 @@ const TopbarInner = ({
                 onChange={togglePixelGrid}
                 title="Toggle pixel grid visibility"
               />
-              <ToggleRow
-                checked={showTileGrid}
-                label="Tile Grid"
-                onChange={toggleTileGrid}
-                title="Toggle tile grid visibility"
-              />
+              {showTileLayerControls !== false && (
+                <ToggleRow
+                  checked={showTileGrid}
+                  label="Tile Grid"
+                  onChange={toggleTileGrid}
+                  title="Toggle tile grid visibility"
+                />
+              )}
               <ToggleRow checked={showAxes} label="Axes" onChange={toggleAxes} title="Toggle axis visibility" />
             </div>
           )}
@@ -598,6 +624,10 @@ export const Topbar = ({
   selectionCount,
   activateTool,
   showAdvancedTools,
+  showAiTool,
+  showExportButton,
+  showFullscreenButton,
+  showTileLayerControls,
   toolOptions,
 }: TopbarProps) => (
   <TopbarErrorBoundary>
@@ -606,6 +636,10 @@ export const Topbar = ({
       selectionCount={selectionCount}
       activateTool={activateTool}
       showAdvancedTools={showAdvancedTools}
+      showAiTool={showAiTool}
+      showExportButton={showExportButton}
+      showFullscreenButton={showFullscreenButton}
+      showTileLayerControls={showTileLayerControls}
       toolOptions={toolOptions}
     />
   </TopbarErrorBoundary>

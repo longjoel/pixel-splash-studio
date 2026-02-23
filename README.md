@@ -26,6 +26,7 @@ It focuses on a responsive “infinite canvas” workflow: paint pixels in block
 
 - Home: `docs/index.html`
 - Tutorials: `docs/tutorials.html`
+- Browser demo: `docs/demo.html`
 
 ## LoSpec deep links (Linux note)
 
