@@ -1355,7 +1355,7 @@ function Ku(e, t) {
     l & t | e[s] & t && (e[s] |= t), n &= ~l;
   }
 }
-var Le = 0;
+var De = 0;
 function Im(e) {
   return e &= -e, 1 < e ? 4 < e ? e & 268435455 ? 16 : 536870912 : 4 : 1;
 }
@@ -1460,21 +1460,21 @@ function Ai(e) {
 }
 var Nl = Zn.ReactCurrentBatchConfig, vr = !0;
 function kv(e, t, n, s) {
-  var l = Le, i = Nl.transition;
+  var l = De, i = Nl.transition;
   Nl.transition = null;
   try {
-    Le = 1, Qu(e, t, n, s);
+    De = 1, Qu(e, t, n, s);
   } finally {
-    Le = l, Nl.transition = i;
+    De = l, Nl.transition = i;
   }
 }
 function Cv(e, t, n, s) {
-  var l = Le, i = Nl.transition;
+  var l = De, i = Nl.transition;
   Nl.transition = null;
   try {
-    Le = 4, Qu(e, t, n, s);
+    De = 4, Qu(e, t, n, s);
   } finally {
-    Le = l, Nl.transition = i;
+    De = l, Nl.transition = i;
   }
 }
 function Qu(e, t, n, s) {
@@ -2362,10 +2362,10 @@ function w0(e) {
 function Cs() {
   if (!ec && Fn !== null) {
     ec = !0;
-    var e = 0, t = Le;
+    var e = 0, t = De;
     try {
       var n = Fn;
-      for (Le = 1; e < n.length; e++) {
+      for (De = 1; e < n.length; e++) {
         var s = n[e];
         do
           s = s(!0);
@@ -2375,7 +2375,7 @@ function Cs() {
     } catch (l) {
       throw Fn !== null && (Fn = Fn.slice(e + 1)), Cm(Vu, Cs), l;
     } finally {
-      Le = t, ec = !1;
+      De = t, ec = !1;
     }
   }
   return null;
@@ -3107,14 +3107,14 @@ function Tg(e, t, n) {
   return Vs & 21 ? (Nn(n, t) || (n = Nm(), et.lanes |= n, Ks |= n, e.baseState = !0), t) : (e.baseState && (e.baseState = !1, Ht = !0), e.memoizedState = n);
 }
 function b0(e, t) {
-  var n = Le;
-  Le = n !== 0 && 4 > n ? n : 4, e(!0);
+  var n = De;
+  De = n !== 0 && 4 > n ? n : 4, e(!0);
   var s = nc.transition;
   nc.transition = {};
   try {
     e(!1), t();
   } finally {
-    Le = n, nc.transition = s;
+    De = n, nc.transition = s;
   }
 }
 function kg() {
@@ -4624,7 +4624,7 @@ function At() {
   return Te & 6 ? it() : rr !== -1 ? rr : rr = it();
 }
 function Ss(e) {
-  return e.mode & 1 ? Te & 2 && St !== 0 ? St & -St : S0.transition !== null ? (ar === 0 && (ar = Nm()), ar) : (e = Le, e !== 0 || (e = window.event, e = e === void 0 ? 16 : Bm(e.type)), e) : 1;
+  return e.mode & 1 ? Te & 2 && St !== 0 ? St & -St : S0.transition !== null ? (ar === 0 && (ar = Nm()), ar) : (e = De, e !== 0 || (e = window.event, e = e === void 0 ? 16 : Bm(e.type)), e) : 1;
 }
 function Pn(e, t, n, s) {
   if (50 < ki) throw ki = 0, bu = null, Error(O(185));
@@ -4796,11 +4796,11 @@ function Gs(e) {
   ps !== null && ps.tag === 0 && !(Te & 6) && El();
   var t = Te;
   Te |= 1;
-  var n = xn.transition, s = Le;
+  var n = xn.transition, s = De;
   try {
-    if (xn.transition = null, Le = 1, e) return e();
+    if (xn.transition = null, De = 1, e) return e();
   } finally {
-    Le = s, xn.transition = n, Te = t, !(Te & 6) && Cs();
+    De = s, xn.transition = n, Te = t, !(Te & 6) && Cs();
   }
 }
 function bd() {
@@ -4988,11 +4988,11 @@ function Zg(e) {
   ft === 0 && (ft = 5);
 }
 function Ds(e, t, n) {
-  var s = Le, l = xn.transition;
+  var s = De, l = xn.transition;
   try {
-    xn.transition = null, Le = 1, z0(e, t, n, s);
+    xn.transition = null, De = 1, z0(e, t, n, s);
   } finally {
-    xn.transition = l, Le = s;
+    xn.transition = l, De = s;
   }
   return null;
 }
@@ -5011,10 +5011,10 @@ function z0(e, t, n, s) {
     return El(), null;
   })), i = (n.flags & 15990) !== 0, n.subtreeFlags & 15990 || i) {
     i = xn.transition, xn.transition = null;
-    var o = Le;
-    Le = 1;
+    var o = De;
+    De = 1;
     var a = Te;
-    Te |= 4, vd.current = null, D0(e, n), Ug(n, e), a0(nu), vr = !!tu, nu = tu = null, e.current = n, B0(n), fv(), Te = a, Le = o, xn.transition = i;
+    Te |= 4, vd.current = null, D0(e, n), Ug(n, e), a0(nu), vr = !!tu, nu = tu = null, e.current = n, B0(n), fv(), Te = a, De = o, xn.transition = i;
   } else e.current = n;
   if (Ho && (Ho = !1, ps = e, Lr = l), i = e.pendingLanes, i === 0 && (ws = null), gv(n.stateNode), Kt(e, it()), t !== null) for (s = e.onRecoverableError, n = 0; n < t.length; n++) l = t[n], s(l.value, { componentStack: l.stack, digest: l.digest });
   if (Ar) throw Ar = !1, e = Mu, Mu = null, e;
@@ -5022,9 +5022,9 @@ function z0(e, t, n, s) {
 }
 function El() {
   if (ps !== null) {
-    var e = Im(Lr), t = xn.transition, n = Le;
+    var e = Im(Lr), t = xn.transition, n = De;
     try {
-      if (xn.transition = null, Le = 16 > e ? 16 : e, ps === null) var s = !1;
+      if (xn.transition = null, De = 16 > e ? 16 : e, ps === null) var s = !1;
       else {
         if (e = ps, ps = null, Lr = 0, Te & 6) throw Error(O(331));
         var l = Te;
@@ -5126,7 +5126,7 @@ function El() {
       }
       return s;
     } finally {
-      Le = n, xn.transition = t;
+      De = n, xn.transition = t;
     }
   }
   return !1;
@@ -5589,14 +5589,14 @@ Rm = function(e) {
   }
 };
 Am = function() {
-  return Le;
+  return De;
 };
 Lm = function(e, t) {
-  var n = Le;
+  var n = De;
   try {
-    return Le = e, t();
+    return De = e, t();
   } finally {
-    Le = n;
+    De = n;
   }
 };
 Vc = function(e, t, n) {
@@ -6864,7 +6864,7 @@ const zw = "Pixel Splash Studio", Hw = (e, t) => {
       tiles: e.nineSlice.tiles.slice()
     } : null
   };
-}, Jw = (e, t) => JSON.stringify(e) === JSON.stringify(t), Zs = (e, t) => Jw(e, t) ? !1 : (Ae.getState().pushBatch({
+}, Jw = (e, t) => JSON.stringify(e) === JSON.stringify(t), Zs = (e, t) => Jw(e, t) ? !1 : (Le.getState().pushBatch({
   changes: [],
   tileBefore: e,
   tileAfter: t
@@ -6884,7 +6884,7 @@ const zw = "Pixel Splash Studio", Hw = (e, t) => {
     tilePaletteRowsMin: t.tilePaletteRowsMin,
     nineSlice: t.nineSlice
   });
-}, Ae = st((e, t) => ({
+}, Le = st((e, t) => ({
   locked: !1,
   undoStack: [],
   redoStack: [],
@@ -7082,7 +7082,7 @@ class t1 {
       }
       s.setPixelsInLayer(l, i);
       const a = performance.now();
-      Ae.getState().pushBatch({ layerId: l, changes: Array.from(this.changes.values()) });
+      Le.getState().pushBatch({ layerId: l, changes: Array.from(this.changes.values()) });
       const u = performance.now();
       this.changes.clear(), n.clear(), this.drawing = !1, this.layerId = null, this.lastPoint = null;
       const d = performance.now();
@@ -7185,7 +7185,7 @@ class i1 {
         }
         l.push({ x: i.x, y: i.y, paletteIndex: i.paletteIndex });
       }
-      n.setPixelsInLayer(s, l), Ae.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) }), t.clear(), this.changes.clear(), this.drawing = !1, this.layerId = null, this.lastCursor = null, this.rng = null, this.lastFrameTime = 0, this.emissionBudget = 0;
+      n.setPixelsInLayer(s, l), Le.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) }), t.clear(), this.changes.clear(), this.drawing = !1, this.layerId = null, this.lastCursor = null, this.rng = null, this.lastFrameTime = 0, this.emissionBudget = 0;
     }, this.onCancel = () => {
       this.stopLoop(), z.getState().clear(), this.changes.clear(), this.drawing = !1, this.layerId = null, this.lastCursor = null, this.rng = null, this.lastFrameTime = 0, this.emissionBudget = 0;
     };
@@ -7451,7 +7451,7 @@ class v1 {
         }
         n.setPixelInLayer(s, i.x, i.y, i.paletteIndex);
       }
-      Ae.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) }), t.clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
+      Le.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) }), t.clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
     }, this.onCancel = () => {
       z.getState().clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
     };
@@ -7544,7 +7544,7 @@ class M1 {
         }
         l.push({ x: i.x, y: i.y, paletteIndex: i.paletteIndex });
       }
-      l.length > 0 && (n.setPixelsInLayer(s, l), Ae.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) })), t.clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
+      l.length > 0 && (n.setPixelsInLayer(s, l), Le.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) })), t.clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
     }, this.onCancel = () => {
       z.getState().clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
     };
@@ -7714,7 +7714,7 @@ class T1 {
         }
         l.push({ x: i.x, y: i.y, paletteIndex: i.paletteIndex });
       }
-      l.length > 0 && (n.setPixelsInLayer(s, l), Ae.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) })), t.clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
+      l.length > 0 && (n.setPixelsInLayer(s, l), Le.getState().pushBatch({ layerId: s, changes: Array.from(this.changes.values()) })), t.clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
     }, this.onCancel = () => {
       z.getState().clear(), this.start = null, this.layerId = null, this.changes.clear(), this.activeRamp = [];
     };
@@ -7723,9 +7723,37 @@ class T1 {
 const Ul = st((e) => ({
   snap: "pixel",
   setSnap: (t) => e({ snap: t })
+})), Ae = st((e) => ({
+  showReferenceLayer: !0,
+  showPixelLayer: !0,
+  showTileLayer: !0,
+  showPixelGrid: !0,
+  showTileGrid: !0,
+  showAxes: !0,
+  setShowReferenceLayer: (t) => e({ showReferenceLayer: t }),
+  setShowPixelLayer: (t) => e({ showPixelLayer: t }),
+  setShowTileLayer: (t) => e({ showTileLayer: t }),
+  setShowPixelGrid: (t) => e({ showPixelGrid: t }),
+  setShowTileGrid: (t) => e({ showTileGrid: t }),
+  setShowAxes: (t) => e({ showAxes: t }),
+  toggleReferenceLayer: () => e((t) => ({ showReferenceLayer: !t.showReferenceLayer })),
+  togglePixelLayer: () => e((t) => ({ showPixelLayer: !t.showPixelLayer })),
+  toggleTileLayer: () => e((t) => ({ showTileLayer: !t.showTileLayer })),
+  togglePixelGrid: () => e((t) => ({ showPixelGrid: !t.showPixelGrid })),
+  toggleTileGrid: () => e((t) => ({ showTileGrid: !t.showTileGrid })),
+  toggleAxes: () => e((t) => ({ showAxes: !t.showAxes }))
 })), qs = st((e) => ({
   mode: "pixel",
-  setMode: (t) => e({ mode: t === "tile" ? "tile" : "pixel" })
+  setMode: (t) => {
+    const n = t === "tile" ? "tile" : "pixel";
+    e({ mode: n });
+    const s = Ae.getState();
+    if (n === "tile") {
+      s.setShowTileLayer(!0), s.setShowPixelLayer(!1);
+      return;
+    }
+    s.setShowPixelLayer(!0), s.setShowTileLayer(!1);
+  }
 })), k1 = (e) => ({
   x: Math.floor(e.canvasX / j),
   y: Math.floor(e.canvasY / j)
@@ -8020,7 +8048,7 @@ class B1 {
           const l = `${s.x}:${s.y}`, i = this.originalPixels.get(l) ?? 0, o = t.getPixelInLayer(this.layerId, s.x, s.y);
           i !== o && n.push({ x: s.x, y: s.y, prev: i, next: o });
         }
-      n.length > 0 && Ae.getState().pushBatch({ layerId: this.layerId, changes: n }), z.getState().clear(), this.startCursor = null, this.layerId = null, this.dragging = !1, this.didMove = !1, this.selectedPixels = [], this.originalPixels = /* @__PURE__ */ new Map(), this.rowGroups = /* @__PURE__ */ new Map(), this.colGroups = /* @__PURE__ */ new Map(), this.lastDx = 0, this.lastDy = 0;
+      n.length > 0 && Le.getState().pushBatch({ layerId: this.layerId, changes: n }), z.getState().clear(), this.startCursor = null, this.layerId = null, this.dragging = !1, this.didMove = !1, this.selectedPixels = [], this.originalPixels = /* @__PURE__ */ new Map(), this.rowGroups = /* @__PURE__ */ new Map(), this.colGroups = /* @__PURE__ */ new Map(), this.lastDx = 0, this.lastDy = 0;
     }, this.onCancel = () => {
       if (z.getState().clear(), this.dragging && this.layerId) {
         const t = ne.getState(), n = [];
@@ -8153,7 +8181,7 @@ const fr = () => typeof performance < "u" ? performance.now() : Date.now(), gx =
 }, yx = () => {
   const e = Fs[0];
   if (!e) {
-    Ae.getState().setLocked(!1), zr = !1, Rl = null;
+    Le.getState().setLocked(!1), zr = !1, Rl = null;
     return;
   }
   const t = fr(), n = e.chunkSize, s = e.timeBudgetMs, l = ne.getState();
@@ -8165,7 +8193,7 @@ const fr = () => typeof performance < "u" ? performance.now() : Date.now(), gx =
         break;
     }
     if (i.length > 0 && l.setPixelsInLayer(e.layerId, i), e.index >= e.changes.length) {
-      Ae.getState().pushBatch({ layerId: e.layerId, changes: e.changes }), Fs.shift(), Fs.length === 0 && Ae.getState().setLocked(!1);
+      Le.getState().pushBatch({ layerId: e.layerId, changes: e.changes }), Fs.shift(), Fs.length === 0 && Le.getState().setLocked(!1);
       break;
     }
     if (fr() - t > s)
@@ -8178,7 +8206,7 @@ const fr = () => typeof performance < "u" ? performance.now() : Date.now(), gx =
   var c;
   if (e.length === 0)
     return;
-  Fs.length === 0 && Ae.getState().setLocked(!0);
+  Fs.length === 0 && Le.getState().setLocked(!0);
   const n = String(hp);
   hp += 1;
   const s = (c = t.label) != null && c.trim() ? t.label.trim() : "Operation", l = ne.getState().activeLayerId, i = typeof t.chunkSize == "number" && t.chunkSize > 0 ? Math.floor(t.chunkSize) : Y1, o = typeof t.timeBudgetMs == "number" && t.timeBudgetMs > 0 ? t.timeBudgetMs : X1;
@@ -8195,7 +8223,7 @@ const fr = () => typeof performance < "u" ? performance.now() : Date.now(), gx =
   const [t, n] = e.split(":");
   return { row: Number(t), col: Number(n) };
 }), Ed = () => {
-  Fs.length = 0, Ws.clear(), Ae.getState().setLocked(!1), zr = !1, Rl !== null && (O1(Rl), Rl = null);
+  Fs.length = 0, Ws.clear(), Le.getState().setLocked(!1), zr = !1, Rl !== null && (O1(Rl), Rl = null);
 }, vx = () => {
   const e = Ce.getState();
   if (e.width === 0 || e.height === 0)
@@ -8471,7 +8499,7 @@ class J1 {
       if (this.changes.size === 0)
         return;
       const t = ne.getState(), n = this.layerId ?? t.activeLayerId;
-      Ae.getState().pushBatch({ layerId: n, changes: Array.from(this.changes.values()) }), this.changes.clear();
+      Le.getState().pushBatch({ layerId: n, changes: Array.from(this.changes.values()) }), this.changes.clear();
     }, this.stampLine = (t, n) => {
       let s = t.x, l = t.y;
       const i = Math.abs(n.x - t.x), o = Math.abs(n.y - t.y), a = t.x < n.x ? 1 : -1, c = t.y < n.y ? 1 : -1;
@@ -10102,25 +10130,6 @@ class LS {
 const jt = st((e) => ({
   activeTool: "pen",
   setActiveTool: (t) => e({ activeTool: t })
-})), Be = st((e) => ({
-  showReferenceLayer: !0,
-  showPixelLayer: !0,
-  showTileLayer: !0,
-  showPixelGrid: !0,
-  showTileGrid: !0,
-  showAxes: !0,
-  setShowReferenceLayer: (t) => e({ showReferenceLayer: t }),
-  setShowPixelLayer: (t) => e({ showPixelLayer: t }),
-  setShowTileLayer: (t) => e({ showTileLayer: t }),
-  setShowPixelGrid: (t) => e({ showPixelGrid: t }),
-  setShowTileGrid: (t) => e({ showTileGrid: t }),
-  setShowAxes: (t) => e({ showAxes: t }),
-  toggleReferenceLayer: () => e((t) => ({ showReferenceLayer: !t.showReferenceLayer })),
-  togglePixelLayer: () => e((t) => ({ showPixelLayer: !t.showPixelLayer })),
-  toggleTileLayer: () => e((t) => ({ showTileLayer: !t.showTileLayer })),
-  togglePixelGrid: () => e((t) => ({ showPixelGrid: !t.showPixelGrid })),
-  toggleTileGrid: () => e((t) => ({ showTileGrid: !t.showTileGrid })),
-  toggleAxes: () => e((t) => ({ showAxes: !t.showAxes }))
 })), Go = (e, t, n) => Math.min(n, Math.max(t, e)), DS = ({ x: e, y: t, onClose: n }) => {
   const s = jt((S) => S.activeTool), l = mn((S) => S.size), i = mn((S) => S.shape), o = Zt((S) => S.radius), a = Zt((S) => S.density), c = wt((S) => S.mode), u = ge((S) => S.selectedCount), d = T.useRef(null), [f, h] = T.useState({ x: e, y: t }), p = T.useMemo(() => Bw[s] ?? "Tools", [s]);
   T.useEffect(() => {
@@ -10753,7 +10762,7 @@ const jt = st((e) => ({
         const Nt = qS(sn);
         Nt ? i.current.set(qe, Nt) : i.current.delete(qe);
       }
-      const mt = Be.getState();
+      const mt = Ae.getState();
       mt.showReferenceLayer && lM(Z, U.camera.x, U.camera.y, _e, Ie);
       let wn = 0, In = 0;
       if (mt.showPixelLayer) {
@@ -11061,7 +11070,7 @@ const jt = st((e) => ({
   e.strokeStyle = d, e.lineWidth = 2, e.beginPath(), e.moveTo(m + 0.5, w + h.minY * p), e.lineTo(m + 0.5, w + h.maxY * p), e.stroke(), e.beginPath(), e.moveTo(g + h.minX * p, x + 0.5), e.lineTo(g + h.maxX * p, x + 0.5), e.stroke();
   const S = ne.getState();
   let b = 0, _ = 0;
-  if (Be.getState().showPixelLayer) {
+  if (Ae.getState().showPixelLayer) {
     const k = p * j, C = Math.max(1, Math.floor(1 / Math.max(k * 0.75, 0.01)));
     for (const R of S.layers)
       if (R.visible)
@@ -11129,7 +11138,7 @@ const jt = st((e) => ({
       ));
     };
     b();
-    const _ = Ce.subscribe(b), k = ne.subscribe(b), C = re.subscribe(b), R = Be.subscribe(b), D = new ResizeObserver(b);
+    const _ = Ce.subscribe(b), k = ne.subscribe(b), C = re.subscribe(b), R = Ae.subscribe(b), D = new ResizeObserver(b);
     return D.observe(x), () => {
       _(), k(), C(), R(), D.disconnect();
     };
@@ -11698,7 +11707,7 @@ const jt = st((e) => ({
 }, Ip = (e) => /^#[0-9a-f]{6}$/i.test(e), Ep = (e) => {
   const t = e.trim().toLowerCase();
   return t ? t.startsWith("#") ? t : `#${t}` : "";
-}, De = (e) => Math.min(1, Math.max(0, e)), bn = (e, t, n) => Math.round(Math.min(n, Math.max(t, e))), Rd = (e) => (e % 360 + 360) % 360, Nc = (e) => e.toString(16).padStart(2, "0"), fn = (e) => `#${Nc(e.r)}${Nc(e.g)}${Nc(e.b)}`, Cx = (e) => {
+}, Be = (e) => Math.min(1, Math.max(0, e)), bn = (e, t, n) => Math.round(Math.min(n, Math.max(t, e))), Rd = (e) => (e % 360 + 360) % 360, Nc = (e) => e.toString(16).padStart(2, "0"), fn = (e) => `#${Nc(e.r)}${Nc(e.g)}${Nc(e.b)}`, Cx = (e) => {
   const t = e.r / 255, n = e.g / 255, s = e.b / 255, l = Math.max(t, n, s), i = Math.min(t, n, s), o = l - i;
   let a = 0;
   o !== 0 && (l === t ? a = (n - s) / o % 6 : l === n ? a = (s - t) / o + 2 : a = (t - n) / o + 4, a *= 60), a < 0 && (a += 360);
@@ -11711,7 +11720,7 @@ const jt = st((e) => ({
   const c = l === 0 ? 0 : o / l;
   return { h: a, s: c, v: l };
 }, Au = (e) => {
-  const t = Rd(e.h), n = De(e.s), s = De(e.l), l = (1 - Math.abs(2 * s - 1)) * n, i = l * (1 - Math.abs(t / 60 % 2 - 1)), o = s - l / 2;
+  const t = Rd(e.h), n = Be(e.s), s = Be(e.l), l = (1 - Math.abs(2 * s - 1)) * n, i = l * (1 - Math.abs(t / 60 % 2 - 1)), o = s - l / 2;
   let a = 0, c = 0, u = 0;
   return t < 60 ? (a = l, c = i) : t < 120 ? (a = i, c = l) : t < 180 ? (c = l, u = i) : t < 240 ? (c = i, u = l) : t < 300 ? (a = i, u = l) : (a = l, u = i), {
     r: Math.round((a + o) * 255),
@@ -11719,7 +11728,7 @@ const jt = st((e) => ({
     b: Math.round((u + o) * 255)
   };
 }, dl = (e) => {
-  const t = Rd(e.h), n = De(e.s), s = De(e.v), l = s * n, i = l * (1 - Math.abs(t / 60 % 2 - 1)), o = s - l;
+  const t = Rd(e.h), n = Be(e.s), s = Be(e.v), l = s * n, i = l * (1 - Math.abs(t / 60 % 2 - 1)), o = s - l;
   let a = 0, c = 0, u = 0;
   return t < 60 ? (a = l, c = i) : t < 120 ? (a = i, c = l) : t < 180 ? (c = l, u = i) : t < 240 ? (c = i, u = l) : t < 300 ? (a = i, u = l) : (a = l, u = i), {
     r: Math.round((a + o) * 255),
@@ -11736,8 +11745,8 @@ const jt = st((e) => ({
   const t = Mt(e) ?? { r: 255, g: 255, b: 255 }, n = { r: 0, g: 0, b: 0 }, s = { r: 255, g: 255, b: 255 }, l = Cx(t), i = (R, D, P) => fn(
     Au({
       h: Rd(l.h + R),
-      s: De(D),
-      l: De(P)
+      s: Be(D),
+      l: Be(P)
     })
   ), o = (R, D = 0, P = 0) => i(R, l.s + D, l.l + P), a = cn([
     o(0, 0, 0.12),
@@ -11774,36 +11783,36 @@ const jt = st((e) => ({
     fn(ds(t, n, 0.3)),
     fn(ds(t, s, 0.25)),
     fn(ds(t, s, 0.5))
-  ]), p = De(l.s * 0.45 + 0.15), g = De(l.l * 0.4 + 0.6), w = cn([
-    i(-25, p, De(g + 0.05)),
-    i(-10, p, De(g + 0.02)),
+  ]), p = Be(l.s * 0.45 + 0.15), g = Be(l.l * 0.4 + 0.6), w = cn([
+    i(-25, p, Be(g + 0.05)),
+    i(-10, p, Be(g + 0.02)),
     i(0, p, g),
-    i(10, p, De(g - 0.03)),
-    i(25, p, De(g - 0.06))
-  ]), M = De(l.s * 0.35 + 0.12), v = De(l.l * 0.8 + 0.1), m = cn([
-    i(-30, M, De(v - 0.08)),
+    i(10, p, Be(g - 0.03)),
+    i(25, p, Be(g - 0.06))
+  ]), M = Be(l.s * 0.35 + 0.12), v = Be(l.l * 0.8 + 0.1), m = cn([
+    i(-30, M, Be(v - 0.08)),
     i(-15, M, v),
-    i(0, M, De(v + 0.05)),
-    i(15, M, De(v - 0.03)),
-    i(30, M, De(v + 0.08))
-  ]), x = De(Math.max(0.7, l.s * 1.25)), S = De(l.l * 0.85 + 0.06), b = cn([
-    i(-20, x, De(S - 0.08)),
+    i(0, M, Be(v + 0.05)),
+    i(15, M, Be(v - 0.03)),
+    i(30, M, Be(v + 0.08))
+  ]), x = Be(Math.max(0.7, l.s * 1.25)), S = Be(l.l * 0.85 + 0.06), b = cn([
+    i(-20, x, Be(S - 0.08)),
     i(-10, x, S),
-    i(0, x, De(S + 0.04)),
-    i(15, x, De(S - 0.04)),
-    i(30, x, De(S + 0.08))
-  ]), _ = De(l.s * 0.9 + 0.05), k = cn([
+    i(0, x, Be(S + 0.04)),
+    i(15, x, Be(S - 0.04)),
+    i(30, x, Be(S + 0.08))
+  ]), _ = Be(l.s * 0.9 + 0.05), k = cn([
     i(0, _, 0.14),
     i(0, _, 0.3),
     i(0, _, 0.5),
     i(0, _, 0.7),
     i(0, _, 0.86)
   ]), C = cn([
-    i(0, l.s, De(l.l - 0.06)),
+    i(0, l.s, Be(l.l - 0.06)),
     i(45, l.s, l.l),
-    i(90, l.s, De(l.l + 0.05)),
+    i(90, l.s, Be(l.l + 0.05)),
     i(135, l.s, l.l),
-    i(180, l.s, De(l.l - 0.04))
+    i(180, l.s, Be(l.l - 0.04))
   ]);
   return [
     { id: "complementary", label: "Complementary", colors: a },
@@ -13871,12 +13880,12 @@ const jt = st((e) => ({
   const t = ne.getState(), n = [], s = [];
   for (const l of e.pixels)
     l.paletteIndex !== 0 && (n.push({ x: l.x, y: l.y, prev: l.paletteIndex, next: 0 }), s.push({ x: l.x, y: l.y, paletteIndex: 0 }));
-  s.length > 0 && (t.setPixels(s), Ae.getState().pushBatch({ changes: n })), ge.getState().clear(), jt.getState().setActiveTool("stamp");
+  s.length > 0 && (t.setPixels(s), Le.getState().pushBatch({ changes: n })), ge.getState().clear(), jt.getState().setActiveTool("stamp");
 }, YM = () => {
   const e = ge.getState();
   if (e.selectedCount === 0)
     return;
-  const t = Ae.getState();
+  const t = Le.getState();
   if (t.locked)
     return;
   const n = ne.getState(), s = n.activeLayerId, l = [], i = [], o = e.store.getBlocks();
@@ -14081,7 +14090,7 @@ const zM = ({
   showTileLayerControls: d,
   toolOptions: f
 }) => {
-  const h = ke.useRef(null), p = ke.useRef(null), g = Ae((N) => N.locked), w = Ae((N) => N.undoStack.length > 0), M = Ae((N) => N.redoStack.length > 0), v = Ae((N) => N.undo), m = Ae((N) => N.redo), x = ot((N) => N), S = x.pixels.length > 0 && x.width > 0 && x.height > 0, b = x.tileBuffer !== null && x.tileBuffer.cols > 0 && x.tileBuffer.rows > 0 && x.tileBuffer.tiles.length > 0, _ = s === "tile", k = W(
+  const h = ke.useRef(null), p = ke.useRef(null), g = Le((N) => N.locked), w = Le((N) => N.undoStack.length > 0), M = Le((N) => N.redoStack.length > 0), v = Le((N) => N.undo), m = Le((N) => N.redo), x = ot((N) => N), S = x.pixels.length > 0 && x.width > 0 && x.height > 0, b = x.tileBuffer !== null && x.tileBuffer.cols > 0 && x.tileBuffer.rows > 0 && x.tileBuffer.tiles.length > 0, _ = s === "tile", k = W(
     (N) => new Set(N.selectedTileIndices.filter(($) => $ >= 0)).size
   ), C = t > 0 || k > 0, R = () => {
     if (_) {
@@ -14101,7 +14110,7 @@ const zM = ({
       return;
     }
     n("stamp");
-  }, A = Be((N) => N.showReferenceLayer), H = Be((N) => N.showPixelLayer), J = Be((N) => N.showTileLayer), oe = Be((N) => N.showPixelGrid), le = Be((N) => N.showTileGrid), ie = Be((N) => N.showAxes), B = Be((N) => N.toggleReferenceLayer), X = Be((N) => N.togglePixelLayer), K = Be((N) => N.toggleTileLayer), ee = Be((N) => N.togglePixelGrid), ce = Be((N) => N.toggleTileGrid), U = Be((N) => N.toggleAxes), [Z, xe] = ke.useState({
+  }, A = Ae((N) => N.showReferenceLayer), H = Ae((N) => N.showPixelLayer), J = Ae((N) => N.showTileLayer), oe = Ae((N) => N.showPixelGrid), le = Ae((N) => N.showTileGrid), ie = Ae((N) => N.showAxes), B = Ae((N) => N.toggleReferenceLayer), X = Ae((N) => N.togglePixelLayer), K = Ae((N) => N.toggleTileLayer), ee = Ae((N) => N.togglePixelGrid), ce = Ae((N) => N.toggleTileGrid), U = Ae((N) => N.toggleAxes), [Z, xe] = ke.useState({
     open: !1,
     kind: "layers",
     x: 0,
@@ -14733,7 +14742,7 @@ const zM = ({
     URL.revokeObjectURL(i), s(new Error("Failed to load reference image"));
   }, o.src = i;
 }), VM = () => {
-  const e = re.getState(), t = Ce.getState(), n = ne.getState(), s = Ae.getState(), l = Ut.getState(), i = W.getState(), o = Ft.getState(), a = /* @__PURE__ */ new Map(), c = l.items.filter((u) => u.assetFilename && u.assetData).map((u) => (a.has(u.assetFilename) || a.set(u.assetFilename, {
+  const e = re.getState(), t = Ce.getState(), n = ne.getState(), s = Le.getState(), l = Ut.getState(), i = W.getState(), o = Ft.getState(), a = /* @__PURE__ */ new Map(), c = l.items.filter((u) => u.assetFilename && u.assetData).map((u) => (a.has(u.assetFilename) || a.set(u.assetFilename, {
     filename: u.assetFilename,
     data: u.assetData,
     type: u.assetType
@@ -14784,7 +14793,7 @@ const zM = ({
   const t = re.getState();
   t.setPalette(e.data.palette.colors), Array.isArray(e.data.palette.selectedIndices) ? t.setSelectedIndices(e.data.palette.selectedIndices) : typeof e.data.palette.primaryIndex == "number" ? t.setSelectedIndices([e.data.palette.primaryIndex]) : t.setSelectedIndices([]), Ce.getState().setCamera(e.data.camera);
   const s = ne.getState();
-  e.layers && e.layers.length > 0 ? s.loadLayerPayloads(e.layers, (f = e.data.pixelLayers) == null ? void 0 : f.activeLayerId) : e.blocks ? s.loadBlocks(e.blocks) : s.clear(), z.getState().clear(), Ae.getState().setStacks(((h = e.data.history) == null ? void 0 : h.undoStack) ?? [], ((p = e.data.history) == null ? void 0 : p.redoStack) ?? []);
+  e.layers && e.layers.length > 0 ? s.loadLayerPayloads(e.layers, (f = e.data.pixelLayers) == null ? void 0 : f.activeLayerId) : e.blocks ? s.loadBlocks(e.blocks) : s.clear(), z.getState().clear(), Le.getState().setStacks(((h = e.data.history) == null ? void 0 : h.undoStack) ?? [], ((p = e.data.history) == null ? void 0 : p.redoStack) ?? []);
   const o = Ut.getState();
   o.clear();
   const a = e.data.references ?? [], c = e.referenceFiles ?? [];
@@ -14834,7 +14843,7 @@ const zM = ({
   const n = we.getState();
   return n.setPath(t.path), n.setDirty(!1), t.path;
 }, Ox = () => {
-  Ed(), Ft.getState().clear(), re.getState().reset(), Ce.getState().resetCamera(), ne.getState().clear(), z.getState().clear(), Ae.getState().clear(), Ut.getState().clear(), W.getState().clear();
+  Ed(), Ft.getState().clear(), re.getState().reset(), Ce.getState().resetCamera(), ne.getState().clear(), z.getState().clear(), Le.getState().clear(), Ut.getState().clear(), W.getState().clear();
   const a = we.getState();
   a.setPath(null), a.setDirty(!1);
 }, QM = (e, t) => {
@@ -15263,7 +15272,7 @@ const zM = ({
       height: u.height
     });
   }
-  const d = Ae.getState(), f = (h) => ({
+  const d = Le.getState(), f = (h) => ({
     layerId: h.layerId,
     changes: h.changes.map((p) => ({
       ...p,
@@ -15597,7 +15606,7 @@ const zM = ({
   const t = ne.getState().layers.reduce(
     (M, v) => M + Wp(v.store.getBlocks()),
     0
-  ), n = Wp(ge.getState().store.getBlocks()), s = z.getState().pixels.size * Kf, l = ot.getState().pixels.length * Kf, i = Ut.getState().items.reduce((M, v) => M + v.width * v.height * 4, 0), o = Ae.getState();
+  ), n = Wp(ge.getState().store.getBlocks()), s = z.getState().pixels.size * Kf, l = ot.getState().pixels.length * Kf, i = Ut.getState().items.reduce((M, v) => M + v.width * v.height * 4, 0), o = Le.getState();
   let a = 0;
   for (const M of o.undoStack)
     a += M.changes.length;
@@ -15613,7 +15622,7 @@ const zM = ({
     fill: rn(wt.getState()),
     stamp: rn(Ge.getState()),
     viewport: rn(Ce.getState()),
-    layers: rn(Be.getState()),
+    layers: rn(Ae.getState()),
     project: rn(we.getState()),
     referenceHandle: rn(Hr.getState())
   }, h = Ub(f), p = [
@@ -15628,7 +15637,7 @@ const zM = ({
   ], g = p.reduce((M, v) => M + v.bytes, 0), w = p.filter((M) => M.bytes > 0).map((M) => `${M.label} ${Hp(M.bytes)}`);
   return `Mem ${Hp(g)}${w.length ? ` • ${w.join(" • ")}` : ""}`;
 }, Vb = () => {
-  const e = UM(), t = Ae((y) => y.undo), n = Ae((y) => y.redo), s = ge((y) => y.selectedCount), l = we((y) => y.path), i = we((y) => y.dirty), [o, a] = T.useState(!1), [c, u] = T.useState(!1), [d, f] = T.useState(!1), [h, p] = T.useState(!1), [g, w] = T.useState(!0), [M, v] = T.useState(!1), [m, x] = T.useState("pen"), [S, b] = T.useState(""), [_, k] = T.useState("monospace"), [C, R] = T.useState(16), [D, P] = T.useState(!1), [A, H] = T.useState("pen"), [J, oe] = T.useState(""), [le, ie] = T.useState(!1), [B, X] = T.useState(null), [K, ee] = T.useState(null), [ce, U] = T.useState(0), [Z, xe] = T.useState(0), [me, F] = T.useState(!1), [G, N] = T.useState(null), [$, se] = T.useState([]), [de, Ze] = T.useState(2), [be, Fe] = T.useState("nearest"), [ze, _e] = T.useState(0), Ie = 32, Se = 2, [pt, $e] = T.useState(!0), [Bt, mt] = T.useState(!1), [wn, In] = T.useState(""), [qn, Yt] = T.useState(96), [tl, Yn] = T.useState(220), he = jt((y) => y.activeTool), rt = jt((y) => y.setActiveTool), je = qs((y) => y.mode), qe = qs((y) => y.setMode), sn = Be((y) => y.showReferenceLayer), Nt = Be((y) => y.showPixelLayer), Jn = Be((y) => y.showTileLayer), Ps = Be((y) => y.showPixelGrid), I = Be((y) => y.showTileGrid), E = Be((y) => y.showAxes), Q = Be((y) => y.setShowReferenceLayer), ue = Be((y) => y.setShowPixelLayer), Pe = Be((y) => y.setShowTileLayer), It = Be((y) => y.setShowPixelGrid), ln = Be((y) => y.setShowTileGrid), Ns = Be((y) => y.setShowAxes), Xt = W((y) => y.tileSets), Sn = W((y) => y.tileMaps), es = W((y) => y.activeTileSetId), Gl = W((y) => y.activeTileMapId), Gx = W((y) => y.selectedTileIndex), Yd = W((y) => y.selectedTileIndices), Ql = W((y) => y.tilePage), Qx = W((y) => y.tilePageCount), Ji = W((y) => y.setTilePage), Is = W((y) => y.tilePickerZoom), Xd = W((y) => y.setTilePickerZoom), Od = W((y) => y.tilePlacementMode), Fd = W((y) => y.setTilePlacementMode), zd = W((y) => y.tilePenSnapToCluster), Hd = W((y) => y.setTilePenSnapToCluster), Wd = W((y) => y.setActiveTileSet), Ud = W((y) => y.setTileSetLayout), $d = W((y) => y.addTileSet), Vd = W((y) => y.duplicateTileSet), Kd = W((y) => y.renameTileSet), Gd = W((y) => y.deleteTileSet), Qd = W((y) => y.deleteTilesFromSet), Zx = mn((y) => y.size), Zd = mn((y) => y.shape), qd = Zt((y) => y.radius), Jd = Zt((y) => y.density), eh = Zt((y) => y.falloff), th = Xr((y) => y.mode), nh = Xr((y) => y.setMode), sh = Or((y) => y.mode), lh = Or((y) => y.setMode), eo = Ul((y) => y.snap), to = Ul((y) => y.setSnap), ih = wt((y) => y.mode), oh = wt((y) => y.setMode), no = wt((y) => y.gradientDirection), so = wt((y) => y.setGradientDirection), lo = wt((y) => y.gradientDither), io = wt((y) => y.setGradientDither), ga = re((y) => y.selectedIndices), oo = ga.length, qx = re((y) => y.getActiveIndex()), ro = Ge((y) => y.mode), nl = Ge((y) => y.snap), Jx = Ge((y) => y.rotation), ey = Ge((y) => y.scale), rh = Ge((y) => y.flipX), ah = Ge((y) => y.flipY), ao = Ge((y) => y.drag), xa = Ge((y) => y.pasteDuplicateColors), ch = W((y) => y.tileDebugOverlay), ya = W((y) => y.setTileDebugOverlay), ty = W((y) => y.nineSlice), ny = W((y) => y.selectedTileCols), sy = W((y) => y.selectedTileRows), va = Ut((y) => y.removeReference), co = ke.useRef(!1), sl = T.useRef(null), uh = T.useRef(null), Zl = T.useRef(null), Re = 8, ll = G ? Math.floor(G.width / Re) : 0, Es = G ? Math.floor(G.height / Re) : 0, uo = Math.max(1, Math.ceil(Es / Ie)), ho = Math.min(Math.max(0, ze), Math.max(0, uo - 1)), dh = ho * Ie, ql = $[$.length - 1] ?? null;
+  const e = UM(), t = Le((y) => y.undo), n = Le((y) => y.redo), s = ge((y) => y.selectedCount), l = we((y) => y.path), i = we((y) => y.dirty), [o, a] = T.useState(!1), [c, u] = T.useState(!1), [d, f] = T.useState(!1), [h, p] = T.useState(!1), [g, w] = T.useState(!0), [M, v] = T.useState(!1), [m, x] = T.useState("pen"), [S, b] = T.useState(""), [_, k] = T.useState("monospace"), [C, R] = T.useState(16), [D, P] = T.useState(!1), [A, H] = T.useState("pen"), [J, oe] = T.useState(""), [le, ie] = T.useState(!1), [B, X] = T.useState(null), [K, ee] = T.useState(null), [ce, U] = T.useState(0), [Z, xe] = T.useState(0), [me, F] = T.useState(!1), [G, N] = T.useState(null), [$, se] = T.useState([]), [de, Ze] = T.useState(2), [be, Fe] = T.useState("nearest"), [ze, _e] = T.useState(0), Ie = 32, Se = 2, [pt, $e] = T.useState(!0), [Bt, mt] = T.useState(!1), [wn, In] = T.useState(""), [qn, Yt] = T.useState(96), [tl, Yn] = T.useState(220), he = jt((y) => y.activeTool), rt = jt((y) => y.setActiveTool), je = qs((y) => y.mode), qe = qs((y) => y.setMode), sn = Ae((y) => y.showReferenceLayer), Nt = Ae((y) => y.showPixelLayer), Jn = Ae((y) => y.showTileLayer), Ps = Ae((y) => y.showPixelGrid), I = Ae((y) => y.showTileGrid), E = Ae((y) => y.showAxes), Q = Ae((y) => y.setShowReferenceLayer), ue = Ae((y) => y.setShowPixelLayer), Pe = Ae((y) => y.setShowTileLayer), It = Ae((y) => y.setShowPixelGrid), ln = Ae((y) => y.setShowTileGrid), Ns = Ae((y) => y.setShowAxes), Xt = W((y) => y.tileSets), Sn = W((y) => y.tileMaps), es = W((y) => y.activeTileSetId), Gl = W((y) => y.activeTileMapId), Gx = W((y) => y.selectedTileIndex), Yd = W((y) => y.selectedTileIndices), Ql = W((y) => y.tilePage), Qx = W((y) => y.tilePageCount), Ji = W((y) => y.setTilePage), Is = W((y) => y.tilePickerZoom), Xd = W((y) => y.setTilePickerZoom), Od = W((y) => y.tilePlacementMode), Fd = W((y) => y.setTilePlacementMode), zd = W((y) => y.tilePenSnapToCluster), Hd = W((y) => y.setTilePenSnapToCluster), Wd = W((y) => y.setActiveTileSet), Ud = W((y) => y.setTileSetLayout), $d = W((y) => y.addTileSet), Vd = W((y) => y.duplicateTileSet), Kd = W((y) => y.renameTileSet), Gd = W((y) => y.deleteTileSet), Qd = W((y) => y.deleteTilesFromSet), Zx = mn((y) => y.size), Zd = mn((y) => y.shape), qd = Zt((y) => y.radius), Jd = Zt((y) => y.density), eh = Zt((y) => y.falloff), th = Xr((y) => y.mode), nh = Xr((y) => y.setMode), sh = Or((y) => y.mode), lh = Or((y) => y.setMode), eo = Ul((y) => y.snap), to = Ul((y) => y.setSnap), ih = wt((y) => y.mode), oh = wt((y) => y.setMode), no = wt((y) => y.gradientDirection), so = wt((y) => y.setGradientDirection), lo = wt((y) => y.gradientDither), io = wt((y) => y.setGradientDither), ga = re((y) => y.selectedIndices), oo = ga.length, qx = re((y) => y.getActiveIndex()), ro = Ge((y) => y.mode), nl = Ge((y) => y.snap), Jx = Ge((y) => y.rotation), ey = Ge((y) => y.scale), rh = Ge((y) => y.flipX), ah = Ge((y) => y.flipY), ao = Ge((y) => y.drag), xa = Ge((y) => y.pasteDuplicateColors), ch = W((y) => y.tileDebugOverlay), ya = W((y) => y.setTileDebugOverlay), ty = W((y) => y.nineSlice), ny = W((y) => y.selectedTileCols), sy = W((y) => y.selectedTileRows), va = Ut((y) => y.removeReference), co = ke.useRef(!1), sl = T.useRef(null), uh = T.useRef(null), Zl = T.useRef(null), Re = 8, ll = G ? Math.floor(G.width / Re) : 0, Es = G ? Math.floor(G.height / Re) : 0, uo = Math.max(1, Math.ceil(Es / Ie)), ho = Math.min(Math.max(0, ze), Math.max(0, uo - 1)), dh = ho * Ie, ql = $[$.length - 1] ?? null;
   T.useEffect(() => {
     const y = window.setTimeout(() => {
       w(!1);
@@ -16138,12 +16147,12 @@ const zM = ({
         return;
       }
       if (te === "z") {
-        if (L.preventDefault(), Ae.getState().locked)
+        if (L.preventDefault(), Le.getState().locked)
           return;
         L.shiftKey ? n() : t();
       }
       if (te === "y") {
-        if (L.preventDefault(), Ae.getState().locked)
+        if (L.preventDefault(), Le.getState().locked)
           return;
         n();
       }
