@@ -4,6 +4,7 @@ import { usePreviewStore } from '@/state/previewStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import type { SelectionSnap } from '@/state/selectionRectangleStore';
 import { useSelectionRectangleStore } from '@/state/selectionRectangleStore';
+import { useWorkspaceStore } from '@/state/workspaceStore';
 
 type GridPoint = { x: number; y: number };
 
@@ -99,7 +100,10 @@ export class SelectionOvalTool implements Tool {
     const preview = usePreviewStore.getState();
     preview.clear();
     this.isRemoving = cursor.ctrl;
-    this.snap = useSelectionRectangleStore.getState().snap;
+    this.snap =
+      useWorkspaceStore.getState().mode === 'tile'
+        ? 'tile'
+        : useSelectionRectangleStore.getState().snap;
     this.start = toSnappedPoint(cursor, this.snap);
     this.last = this.start;
   };

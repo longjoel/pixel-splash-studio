@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { TilePenTool } from '@/tools/tilePenTool';
 import { usePreviewStore } from '@/state/previewStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { useHistoryStore } from '@/state/historyStore';
 
 const makeCursor = (erasing: boolean) => ({
   screenX: 0,
@@ -35,6 +36,7 @@ describe('TilePenTool', () => {
   beforeEach(() => {
     usePreviewStore.getState().clear();
     useTileMapStore.getState().clear();
+    useHistoryStore.getState().clear();
   });
 
   it('erases tiles with Alt', () => {
@@ -211,5 +213,67 @@ describe('TilePenTool', () => {
     expect(updatedMap?.tiles[6 * 8 + 3]).toBe(0);
     expect(updatedMap?.tiles[6 * 8 + 4]).toBe(0);
     expect(updatedMap?.tiles[4 * 8 + 2]).toBe(-1);
+  });
+
+  it('records tile-map painting in undo/redo history', () => {
+    const tileStore = useTileMapStore.getState();
+    const tileSetId = tileStore.addTileSet({
+      name: 'History Set',
+      tileWidth: 2,
+      tileHeight: 2,
+      tiles: [{ pixels: [1, 1, 1, 1] }],
+    });
+    tileStore.setActiveTileSet(tileSetId);
+
+    const tileMapId = tileStore.addTileMap({
+      name: 'History Map',
+      tileSetId,
+      originX: 0,
+      originY: 0,
+      columns: 1,
+      rows: 1,
+      tiles: [-1],
+    });
+    tileStore.setActiveTileMap(tileMapId);
+
+    const tool = new TilePenTool();
+    tool.onBegin?.(makeCursor(false));
+    tool.onEnd?.();
+
+    expect(useHistoryStore.getState().undoStack).toHaveLength(1);
+    let map = useTileMapStore.getState().tileMaps.find((entry) => entry.id === tileMapId);
+    expect(map?.tiles[0]).toBe(0);
+
+    useHistoryStore.getState().undo();
+    map = useTileMapStore.getState().tileMaps.find((entry) => entry.id === tileMapId);
+    expect(map?.tiles[0]).toBe(-1);
+
+    useHistoryStore.getState().redo();
+    map = useTileMapStore.getState().tileMaps.find((entry) => entry.id === tileMapId);
+    expect(map?.tiles[0]).toBe(0);
+  });
+
+  it('records implicit tile-map creation in undo/redo history', () => {
+    const tileStore = useTileMapStore.getState();
+    const tileSetId = tileStore.addTileSet({
+      name: 'Auto Map Set',
+      tileWidth: 2,
+      tileHeight: 2,
+      tiles: [{ pixels: [1, 1, 1, 1] }],
+    });
+    tileStore.setActiveTileSet(tileSetId);
+
+    const tool = new TilePenTool();
+    tool.onBegin?.(makeCursor(false));
+    tool.onEnd?.();
+
+    expect(useTileMapStore.getState().tileMaps.length).toBe(1);
+    expect(useHistoryStore.getState().undoStack).toHaveLength(1);
+
+    useHistoryStore.getState().undo();
+    expect(useTileMapStore.getState().tileMaps.length).toBe(0);
+
+    useHistoryStore.getState().redo();
+    expect(useTileMapStore.getState().tileMaps.length).toBe(1);
   });
 });

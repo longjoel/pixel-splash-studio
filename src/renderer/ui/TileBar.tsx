@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePaletteStore } from '@/state/paletteStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import {
+  captureTileHistorySnapshot,
+  pushTileHistoryBatchIfChanged,
+} from '@/state/historyStore';
 
 type TileCanvasProps = {
   pixels: number[];
@@ -117,12 +121,15 @@ const TileBar = () => {
     }
     const label = selectedIndices.length === 1 ? 'tile' : 'tiles';
     const confirmed = window.confirm(
-      `Delete ${selectedIndices.length} ${label} from ${activeTileSet.name}? This cannot be undone.`
+      `Delete ${selectedIndices.length} ${label} from ${activeTileSet.name}?`
     );
     if (!confirmed) {
       return;
     }
+    const before = captureTileHistorySnapshot();
     deleteTilesFromSet(activeTileSet.id, selectedIndices);
+    const after = captureTileHistorySnapshot();
+    pushTileHistoryBatchIfChanged(before, after);
   }, [activeTileSet, deleteTilesFromSet, selectedIndices]);
 
   const syncGridMetrics = useCallback(() => {

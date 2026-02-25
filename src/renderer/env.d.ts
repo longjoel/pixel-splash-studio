@@ -36,6 +36,47 @@ type PixelLayerPayload = PixelLayerInfoPayload & {
   blocks: Array<{ row: number; col: number; data: Uint8Array }>;
 };
 
+type TileHistorySnapshot = {
+  tileSets: TileSetPayload[];
+  tileMaps: TileMapPayload[];
+  activeTileSetId: string | null;
+  activeTileMapId: string | null;
+  selectedTileIndex: number;
+  selectedTileIndices: number[];
+  selectedTileCols: number;
+  selectedTileRows: number;
+  tilePaletteColumns: number;
+  tilePaletteOffset: number;
+  tilePaletteRowsMin: number;
+  nineSlice: { tileSetId: string; tiles: number[] } | null;
+};
+
+type ProjectHistoryBatch = {
+  layerId?: string;
+  changes: Array<{ x: number; y: number; prev: number; next: number }>;
+  tileBefore?: TileHistorySnapshot;
+  tileAfter?: TileHistorySnapshot;
+};
+
+type BookmarkPayload =
+  | {
+      id: string;
+      name: string;
+      kind: 'camera';
+      centerX: number;
+      centerY: number;
+      zoom: number;
+    }
+  | {
+      id: string;
+      name: string;
+      kind: 'region';
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+    };
+
 type ProjectPayload = {
   data: {
     palette: {
@@ -50,14 +91,8 @@ type ProjectPayload = {
       zoom: number;
     };
     history?: {
-      undoStack: Array<{
-        layerId?: string;
-        changes: Array<{ x: number; y: number; prev: number; next: number }>;
-      }>;
-      redoStack: Array<{
-        layerId?: string;
-        changes: Array<{ x: number; y: number; prev: number; next: number }>;
-      }>;
+      undoStack: ProjectHistoryBatch[];
+      redoStack: ProjectHistoryBatch[];
     };
     references?: Array<{
       id: string;
@@ -75,6 +110,10 @@ type ProjectPayload = {
     }>;
     tileSets?: TileSetPayload[];
     tileMaps?: TileMapPayload[];
+    bookmarks?: {
+      items: BookmarkPayload[];
+      overlaysVisible?: boolean;
+    };
     pixelLayers?: {
       layers: PixelLayerInfoPayload[];
       activeLayerId?: string;

@@ -27,6 +27,10 @@ import {
   copySelectionToClipboard,
   cutSelectionToClipboard,
 } from './services/selectionClipboard';
+import {
+  copyTilesToClipboard,
+  cutTilesToClipboard,
+} from './services/tileClipboard';
 import { exportSelectionAsPng } from './services/selectionExport';
 import { exportSelectionAsGbr } from './services/selectionExportGbr';
 import { exportSelectionAsChr } from './services/selectionExportChr';
@@ -65,6 +69,7 @@ import {
   useTileMapStore,
 } from './state/tileMapStore';
 import { TILE_SIZE } from './core/grid';
+import { useWorkspaceStore } from './state/workspaceStore';
 import {
   applyPaletteMap,
   buildNearestPaletteMap,
@@ -96,11 +101,20 @@ const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value));
 
 const isTileTool = (tool: ToolId) =>
-  tool === 'tile-sampler' ||
   tool === 'tile-pen' ||
+  tool === 'tile-stamp' ||
   tool === 'tile-rectangle' ||
   tool === 'tile-9slice' ||
   tool === 'tile-export';
+
+const isAdvancedOnlyTool = (tool: ToolId) => tool === 'tile-sampler' || isTileTool(tool);
+
+const isSelectionTool = (tool: ToolId) =>
+  tool === 'selection-rect' ||
+  tool === 'selection-oval' ||
+  tool === 'selection-lasso' ||
+  tool === 'magic-wand' ||
+  tool === 'texture-roll';
 
 const REFERENCE_SCALE_SLIDER_MIN = 0;
 const REFERENCE_SCALE_SLIDER_MAX = 100;
@@ -272,6 +286,8 @@ const App = () => {
   const [tilePaletteHeight, setTilePaletteHeight] = useState(220);
   const activeTool = useToolStore((state) => state.activeTool);
   const setActiveTool = useToolStore((state) => state.setActiveTool);
+  const workspaceMode = useWorkspaceStore((state) => state.mode);
+  const setWorkspaceMode = useWorkspaceStore((state) => state.setMode);
   const showReferenceLayer = useLayerVisibilityStore((state) => state.showReferenceLayer);
   const showPixelLayer = useLayerVisibilityStore((state) => state.showPixelLayer);
   const showTileLayer = useLayerVisibilityStore((state) => state.showTileLayer);
@@ -411,8 +427,55 @@ const App = () => {
   const setSprayRadius = useSprayStore((state) => state.setRadius);
   const setSprayDensity = useSprayStore((state) => state.setDensity);
   const setSprayFalloff = useSprayStore((state) => state.setFalloff);
+  const lastPixelToolRef = React.useRef<ToolId>('pen');
+  const lastTileToolRef = React.useRef<ToolId>('tile-pen');
+
+  useEffect(() => {
+    if (isTileTool(activeTool)) {
+      lastTileToolRef.current = activeTool;
+      return;
+    }
+    lastPixelToolRef.current = activeTool;
+  }, [activeTool]);
+
+  const switchWorkspace = useCallback(
+    (nextMode: 'pixel' | 'tile') => {
+      if (nextMode === 'tile' && (!advancedMode || browserDemo)) {
+        return;
+      }
+      setWorkspaceMode(nextMode);
+      if (nextMode === 'tile') {
+        const nextTileTool = isTileTool(lastTileToolRef.current)
+          ? lastTileToolRef.current
+          : 'tile-pen';
+        setActiveTool(nextTileTool);
+        return;
+      }
+      const nextPixelTool = isTileTool(lastPixelToolRef.current)
+        ? 'pen'
+        : lastPixelToolRef.current;
+      setActiveTool(nextPixelTool);
+    },
+    [advancedMode, browserDemo, setActiveTool, setWorkspaceMode]
+  );
+
   const activateTool = useCallback(
     (tool: ToolId) => {
+      if (isTileTool(tool)) {
+        if (!advancedMode || browserDemo) {
+          return;
+        }
+        setWorkspaceMode('tile');
+      } else if (
+        isSelectionTool(tool) &&
+        workspaceMode === 'tile' &&
+        advancedMode &&
+        !browserDemo
+      ) {
+        setWorkspaceMode('tile');
+      } else {
+        setWorkspaceMode('pixel');
+      }
       if (tool === 'selection-lasso') {
         setActiveTool('selection-lasso');
         setBrushSize(1);
@@ -433,7 +496,16 @@ const App = () => {
       }
       setActiveTool(tool);
     },
-    [activeTool, setActiveTool, setBrushShape, setBrushSize]
+    [
+      activeTool,
+      advancedMode,
+      browserDemo,
+      setActiveTool,
+      setBrushShape,
+      setBrushSize,
+      setWorkspaceMode,
+      workspaceMode,
+    ]
   );
   const paletteColors = usePaletteStore((state) => state.colors);
   const referenceSnap = useReferenceHandleStore((state) => state.snap);
@@ -539,10 +611,33 @@ const App = () => {
     }
     deleteTilesFromSet(activeTileSet.id, selectedTileIndicesList);
   }, [activeTileSet, deleteTilesFromSet, selectedTileIndicesList]);
-  const isTilingTool = advancedMode && isTileTool(activeTool);
-  const paletteHeightValue = isTilingTool ? tilePaletteHeight : paletteHeight;
+  const isTileWorkspace = workspaceMode === 'tile' && advancedMode && !browserDemo;
+  const paletteHeightValue = isTileWorkspace ? tilePaletteHeight : paletteHeight;
   const resizeModeRef = React.useRef<'palette' | 'tile'>('palette');
   const resizingRef = React.useRef(false);
+
+  useEffect(() => {
+    if (!isTileWorkspace) {
+      return;
+    }
+    if (selectionSnap !== 'tile') {
+      setSelectionSnap('tile');
+    }
+    if (stampSnap !== 'tile') {
+      setStampSnap('tile');
+    }
+    if (referenceSnap !== 'tile') {
+      setReferenceSnap('tile');
+    }
+  }, [
+    isTileWorkspace,
+    referenceSnap,
+    selectionSnap,
+    setReferenceSnap,
+    setSelectionSnap,
+    setStampSnap,
+    stampSnap,
+  ]);
 
   const getTilePaletteHeightForSet = useCallback(
     (tileSet: { tileWidth: number; rows: number }) => {
@@ -570,7 +665,7 @@ const App = () => {
   );
 
   useEffect(() => {
-    if (!isTilingTool || !activeTileSetId) {
+    if (!isTileWorkspace || !activeTileSetId) {
       return;
     }
     const nextSet = tileSets.find((set) => set.id === activeTileSetId);
@@ -579,7 +674,7 @@ const App = () => {
     }
     setTilePaletteHeight(getTilePaletteHeightForSet(nextSet));
   }, [
-    isTilingTool,
+    isTileWorkspace,
     activeTileSetId,
     getTilePaletteHeightForSet,
     tileSets,
@@ -588,7 +683,7 @@ const App = () => {
   const startPaletteResize = (event: React.PointerEvent<HTMLDivElement>) => {
     event.preventDefault();
     event.currentTarget.setPointerCapture(event.pointerId);
-    resizeModeRef.current = isTilingTool ? 'tile' : 'palette';
+    resizeModeRef.current = isTileWorkspace ? 'tile' : 'palette';
     resizingRef.current = true;
   };
 
@@ -609,7 +704,7 @@ const App = () => {
       }
     };
     const handlePointerUp = () => {
-      resizeModeRef.current = isTilingTool ? 'tile' : 'palette';
+      resizeModeRef.current = isTileWorkspace ? 'tile' : 'palette';
       resizingRef.current = false;
     };
     window.addEventListener('pointermove', handlePointerMove);
@@ -618,7 +713,7 @@ const App = () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [isTilingTool]);
+  }, [isTileWorkspace]);
   const paletteRightOffset = (minimapCollapsed ? 0 : 324) + 24;
 
   useEffect(() => {
@@ -652,8 +747,15 @@ const App = () => {
   useEffect(() => {
     if (!advancedMode && isTileTool(activeTool)) {
       setActiveTool('pen');
+      setWorkspaceMode('pixel');
     }
-  }, [advancedMode, activeTool, setActiveTool]);
+  }, [advancedMode, activeTool, setActiveTool, setWorkspaceMode]);
+
+  useEffect(() => {
+    if (workspaceMode === 'tile' && (!advancedMode || browserDemo)) {
+      setWorkspaceMode('pixel');
+    }
+  }, [advancedMode, browserDemo, setWorkspaceMode, workspaceMode]);
 
   useEffect(() => {
     if (browserDemo && activeTool === 'ai') {
@@ -1124,7 +1226,7 @@ const App = () => {
         });
         if (action) {
           if (action.type === 'tool') {
-            if (!advancedMode && isTileTool(action.tool)) {
+            if (isAdvancedOnlyTool(action.tool) && (!advancedMode || browserDemo)) {
               return;
             }
             event.preventDefault();
@@ -1144,6 +1246,13 @@ const App = () => {
       }
       const key = event.key.toLowerCase();
       if (key === 'v') {
+        if (workspaceMode === 'tile') {
+          if (useClipboardStore.getState().tileBuffer) {
+            event.preventDefault();
+            activateTool('tile-stamp');
+            return;
+          }
+        }
         pasteShortcutRef.current = true;
         window.setTimeout(() => {
           pasteShortcutRef.current = false;
@@ -1202,22 +1311,34 @@ const App = () => {
         handleNew();
       }
       if (key === 'c') {
-        if (useSelectionStore.getState().selectedCount === 0) {
+        if (workspaceMode === 'tile') {
+          const copied = copyTilesToClipboard();
+          if (copied) {
+            event.preventDefault();
+          }
           return;
         }
-        event.preventDefault();
-        if (event.shiftKey) {
-          copySelectionToClipboard({ deep: true });
-        } else {
-          copySelectionToClipboard();
+        if (useSelectionStore.getState().selectedCount > 0) {
+          event.preventDefault();
+          if (event.shiftKey) {
+            copySelectionToClipboard({ deep: true });
+          } else {
+            copySelectionToClipboard();
+          }
         }
       }
       if (key === 'x') {
-        if (useSelectionStore.getState().selectedCount === 0) {
+        if (workspaceMode === 'tile') {
+          const cut = cutTilesToClipboard();
+          if (cut) {
+            event.preventDefault();
+          }
           return;
         }
-        event.preventDefault();
-        cutSelectionToClipboard();
+        if (useSelectionStore.getState().selectedCount > 0) {
+          event.preventDefault();
+          cutSelectionToClipboard();
+        }
       }
       if (key === '/') {
         event.preventDefault();
@@ -1239,6 +1360,7 @@ const App = () => {
     removeReference,
     selectedReference,
     undo,
+    workspaceMode,
   ]);
 
   useEffect(() => {
@@ -1520,7 +1642,7 @@ const App = () => {
           setTileDebugOverlay(false);
           break;
         case 'view:select-tool:pen':
-          setActiveTool('pen');
+          switchWorkspace('pixel');
           break;
         default:
           break;
@@ -1548,6 +1670,7 @@ const App = () => {
     setShowTileGrid,
     setShowTileLayer,
     setTileDebugOverlay,
+    switchWorkspace,
     undo,
   ]);
 
@@ -2315,7 +2438,8 @@ const App = () => {
                 type="radio"
                 name="selection-snap"
                 value="pixel"
-                checked={selectionSnap === 'pixel'}
+                checked={!isTileWorkspace && selectionSnap === 'pixel'}
+                disabled={isTileWorkspace}
                 onChange={() => setSelectionSnap('pixel')}
               />
               Pixel
@@ -2325,15 +2449,19 @@ const App = () => {
                 type="radio"
                 name="selection-snap"
                 value="tile"
-                checked={selectionSnap === 'tile'}
+                checked={isTileWorkspace || selectionSnap === 'tile'}
                 onChange={() => setSelectionSnap('tile')}
               />
               Tile
             </label>
           </div>
+          {isTileWorkspace ? (
+            <span className="panel__note">Tile Space locks selection snap to tiles.</span>
+          ) : null}
         </div>
       ) : activeTool === 'tile-sampler' ||
         activeTool === 'tile-pen' ||
+        activeTool === 'tile-stamp' ||
         activeTool === 'tile-rectangle' ||
         activeTool === 'tile-9slice' ||
         activeTool === 'tile-export' ? (
@@ -2565,7 +2693,10 @@ const App = () => {
           activeTool={activeTool}
           selectionCount={selectionCount}
           activateTool={activateTool}
+          workspaceMode={workspaceMode}
+          switchWorkspace={switchWorkspace}
           showAdvancedTools={!browserDemo && advancedMode}
+          showTileTools={isTileWorkspace}
           showAiTool={!browserDemo}
           showExportButton={!browserDemo}
           showFullscreenButton={!browserDemo}
@@ -2578,7 +2709,7 @@ const App = () => {
           </div>
         )}
         <div
-          className={`app__palette panel${isTilingTool ? ' app__palette--tile' : ''}`}
+          className={`app__palette panel${isTileWorkspace ? ' app__palette--tile' : ''}`}
           style={
             {
               '--palette-right-offset': `${paletteRightOffset}px`,
@@ -2592,8 +2723,9 @@ const App = () => {
             aria-label="Resize palette bar"
             onPointerDown={startPaletteResize}
           />
-          <div className={`bottom-bar${isTilingTool ? ' bottom-bar--tile' : ''}`}>
-            <div className="bottom-bar__center">{isTilingTool ? <TileBar /> : <PaletteBar />}</div>
+          <div className={`bottom-bar${isTileWorkspace ? ' bottom-bar--tile' : ''}`}>
+            <div className="bottom-bar__left" />
+            <div className="bottom-bar__center">{isTileWorkspace ? <TileBar /> : <PaletteBar />}</div>
           </div>
         </div>
         {!minimapCollapsed ? (

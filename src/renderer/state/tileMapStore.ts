@@ -164,6 +164,147 @@ const buildTileSetCopyName = (baseName: string, existingNames: string[]) => {
   return `${baseName} Copy ${number}`;
 };
 
+type TileDeletionPlan = {
+  nextTiles: TilePayload[];
+  indexMap: Map<number, number>;
+  nextColumns: number;
+  nextRows: number;
+};
+
+const buildLinearDeletionPlan = (
+  tileSet: TileSetPayload,
+  deleteSet: Set<number>
+): TileDeletionPlan => {
+  const indexMap = new Map<number, number>();
+  const nextTiles: TilePayload[] = [];
+  let nextIndex = 0;
+  tileSet.tiles.forEach((tile, index) => {
+    if (deleteSet.has(index)) {
+      indexMap.set(index, -1);
+      return;
+    }
+    indexMap.set(index, nextIndex);
+    nextTiles.push(tile);
+    nextIndex += 1;
+  });
+  return {
+    nextTiles,
+    indexMap,
+    nextColumns: tileSet.columns,
+    nextRows: tileSet.rows,
+  };
+};
+
+const buildSpreadsheetCollapsePlan = (
+  tileSet: TileSetPayload,
+  deleteSet: Set<number>
+): TileDeletionPlan => {
+  const tileCount = tileSet.tiles.length;
+  const columns = Math.max(1, tileSet.columns);
+  const totalRows = Math.ceil(tileCount / columns);
+
+  const fullRows: number[] = [];
+  let fullRowCellCount = 0;
+  for (let row = 0; row < totalRows; row += 1) {
+    const start = row * columns;
+    const end = Math.min(tileCount, start + columns);
+    let full = true;
+    for (let index = start; index < end; index += 1) {
+      if (!deleteSet.has(index)) {
+        full = false;
+        break;
+      }
+    }
+    if (full) {
+      fullRows.push(row);
+      fullRowCellCount += end - start;
+    }
+  }
+
+  const fullCols: number[] = [];
+  let fullColCellCount = 0;
+  for (let col = 0; col < columns; col += 1) {
+    let hasCells = false;
+    let full = true;
+    let colCells = 0;
+    for (let row = 0; row < totalRows; row += 1) {
+      const index = row * columns + col;
+      if (index >= tileCount) {
+        continue;
+      }
+      hasCells = true;
+      colCells += 1;
+      if (!deleteSet.has(index)) {
+        full = false;
+        break;
+      }
+    }
+    if (hasCells && full) {
+      fullCols.push(col);
+      fullColCellCount += colCells;
+    }
+  }
+
+  const exactRows = fullRows.length > 0 && fullRowCellCount === deleteSet.size;
+  const exactCols = fullCols.length > 0 && fullColCellCount === deleteSet.size;
+
+  if (exactCols && columns - fullCols.length >= 1) {
+    const deletedCols = new Set(fullCols);
+    const indexMap = new Map<number, number>();
+    const nextTiles: TilePayload[] = [];
+    for (let row = 0; row < totalRows; row += 1) {
+      for (let col = 0; col < columns; col += 1) {
+        const index = row * columns + col;
+        if (index >= tileCount) {
+          continue;
+        }
+        if (deletedCols.has(col)) {
+          indexMap.set(index, -1);
+          continue;
+        }
+        indexMap.set(index, nextTiles.length);
+        nextTiles.push(tileSet.tiles[index] as TilePayload);
+      }
+    }
+    return {
+      nextTiles,
+      indexMap,
+      nextColumns: columns - deletedCols.size,
+      nextRows: tileSet.rows,
+    };
+  }
+
+  if (exactRows && totalRows - fullRows.length >= 1) {
+    const deletedRows = new Set(fullRows);
+    const indexMap = new Map<number, number>();
+    const nextTiles: TilePayload[] = [];
+    for (let row = 0; row < totalRows; row += 1) {
+      for (let col = 0; col < columns; col += 1) {
+        const index = row * columns + col;
+        if (index >= tileCount) {
+          continue;
+        }
+        if (deletedRows.has(row)) {
+          indexMap.set(index, -1);
+          continue;
+        }
+        indexMap.set(index, nextTiles.length);
+        nextTiles.push(tileSet.tiles[index] as TilePayload);
+      }
+    }
+    const nextRows =
+      totalRows === tileSet.rows ? Math.max(1, tileSet.rows - deletedRows.size) : tileSet.rows;
+    return {
+      nextTiles,
+      indexMap,
+      nextColumns: tileSet.columns,
+      nextRows,
+    };
+  }
+
+  return buildLinearDeletionPlan(tileSet, deleteSet);
+};
+
 export const useTileMapStore = create<TileMapState>((set, get) => ({
   tileSets: [],
   tileMaps: [],
@@ -542,25 +683,28 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
     if (indices.length === 0) {
       return;
     }
-    const deleteSet = new Set(indices);
+    const uniqueIndices = Array.from(new Set(indices.filter((index) => index >= 0)));
+    if (uniqueIndices.length === 0) {
+      return;
+    }
+    const deleteSet = new Set(uniqueIndices);
     useProjectStore.getState().setDirty(true);
     set((state) => {
       const tileSet = state.tileSets.find((set) => set.id === tileSetId);
       if (!tileSet) {
         return state;
       }
-      const indexMap = new Map<number, number>();
-      const nextTiles: TilePayload[] = [];
-      let nextIndex = 0;
-      tileSet.tiles.forEach((tile, index) => {
-        if (deleteSet.has(index)) {
-          indexMap.set(index, -1);
-          return;
-        }
-        indexMap.set(index, nextIndex);
-        nextTiles.push(tile);
-        nextIndex += 1;
-      });
+      const validDeleteSet = new Set(
+        Array.from(deleteSet).filter((index) => index >= 0 && index < tileSet.tiles.length)
+      );
+      if (validDeleteSet.size === 0) {
+        return state;
+      }
+
+      const { nextTiles, indexMap, nextColumns, nextRows } = buildSpreadsheetCollapsePlan(
+        tileSet,
+        validDeleteSet
+      );
 
       const remapIndices = (values: number[]) =>
         values.map((value) => (value >= 0 ? indexMap.get(value) ?? -1 : -1));
@@ -574,7 +718,9 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
 
       return {
         tileSets: state.tileSets.map((set) =>
-          set.id === tileSetId ? { ...set, tiles: nextTiles } : set
+          set.id === tileSetId
+            ? { ...set, tiles: nextTiles, columns: nextColumns, rows: nextRows }
+            : set
         ),
         tileMaps: state.tileMaps.map((map) => {
           if (map.tileSetId !== tileSetId) {
@@ -592,6 +738,10 @@ export const useTileMapStore = create<TileMapState>((set, get) => ({
         selectedTileIndices: [nextSelectedIndex],
         selectedTileCols: 1,
         selectedTileRows: 1,
+        tilePaletteColumns:
+          state.activeTileSetId === tileSetId ? nextColumns : state.tilePaletteColumns,
+        tilePaletteRowsMin:
+          state.activeTileSetId === tileSetId ? nextRows : state.tilePaletteRowsMin,
         nineSlice:
           state.nineSlice?.tileSetId === tileSetId && state.nineSlice.tiles.length > 0
             ? {

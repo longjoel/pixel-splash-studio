@@ -27,6 +27,8 @@ const NavigationPanel = () => {
   const removeBookmark = useBookmarkStore((state) => state.remove);
   const moveBookmark = useBookmarkStore((state) => state.move);
   const jumpToBookmark = useBookmarkStore((state) => state.jumpTo);
+  const overlaysVisible = useBookmarkStore((state) => state.overlaysVisible);
+  const toggleOverlaysVisible = useBookmarkStore((state) => state.toggleOverlaysVisible);
   const references = useReferenceStore((state) => state.items);
 
   const referenceRows = useMemo(
@@ -52,13 +54,23 @@ const NavigationPanel = () => {
       <div className="nav-panel__section">
         <div className="nav-panel__header">
           <div className="nav-panel__title">Bookmarks</div>
-          <button
-            type="button"
-            className="nav-panel__button"
-            onClick={addBookmark}
-          >
-            Add
-          </button>
+          <div className="nav-panel__actions">
+            <button
+              type="button"
+              className="nav-panel__button"
+              onClick={toggleOverlaysVisible}
+              title="Toggle bookmark tag overlays in Pixel mode"
+            >
+              {overlaysVisible ? 'Hide Tags' : 'Show Tags'}
+            </button>
+            <button
+              type="button"
+              className="nav-panel__button"
+              onClick={addBookmark}
+            >
+              Add
+            </button>
+          </div>
         </div>
         {bookmarks.length === 0 ? (
           <div className="nav-panel__empty">No bookmarks yet.</div>
@@ -76,8 +88,9 @@ const NavigationPanel = () => {
                     }
                   />
                   <div className="nav-panel__coords">
-                    {formatWorld(bookmark.centerX)},{formatWorld(bookmark.centerY)} • z
-                    {bookmark.zoom.toFixed(2)}
+                    {bookmark.kind === 'camera'
+                      ? `${formatWorld(bookmark.centerX)},${formatWorld(bookmark.centerY)} • z${bookmark.zoom.toFixed(2)}`
+                      : `${bookmark.x},${bookmark.y} • ${bookmark.width}x${bookmark.height}`}
                   </div>
                 </div>
                 <div className="nav-panel__actions">
@@ -159,4 +172,3 @@ const NavigationPanel = () => {
 };
 
 export default NavigationPanel;
-

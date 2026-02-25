@@ -2,6 +2,11 @@ import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { usePreviewStore } from '@/state/previewStore';
 import { useTileMapStore, type TilePlacementMode } from '@/state/tileMapStore';
+import {
+  captureTileHistorySnapshot,
+  pushTileHistoryBatchIfChanged,
+  type TileHistorySnapshot,
+} from '@/state/historyStore';
 import { TilePlacementResolver } from '@/tools/tilePlacementResolver';
 
 const DEFAULT_TILE_MAP_SIZE = 32;
@@ -147,6 +152,7 @@ export class TilePenTool implements Tool {
   private activeTile: ActiveTileContext | null = null;
   private placementResolver: TilePlacementResolver | null = null;
   private erasing = false;
+  private historyBefore: TileHistorySnapshot | null = null;
 
   private getCurrentTileIndex(mapIndex: number): number {
     const changed = this.changes.get(mapIndex);
@@ -399,10 +405,12 @@ export class TilePenTool implements Tool {
       this.drawing = false;
       return;
     }
+    this.historyBefore = captureTileHistorySnapshot();
     this.placementResolver = new TilePlacementResolver(this.activeTile.tileSetTiles);
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       this.drawing = false;
+      this.historyBefore = null;
       return;
     }
     const pixelPoint = toPixelPoint(cursor);
@@ -481,6 +489,10 @@ export class TilePenTool implements Tool {
       tile,
     }));
     useTileMapStore.getState().setTileMapTiles(this.activeMap.tileMapId, updates);
+    if (this.historyBefore) {
+      const after = captureTileHistorySnapshot();
+      pushTileHistoryBatchIfChanged(this.historyBefore, after);
+    }
     const preview = usePreviewStore.getState();
     preview.clear();
     this.drawing = false;
@@ -488,6 +500,7 @@ export class TilePenTool implements Tool {
     this.lastWorldPoint = null;
     this.placementResolver = null;
     this.erasing = false;
+    this.historyBefore = null;
   };
 
   onCancel = () => {
@@ -498,5 +511,6 @@ export class TilePenTool implements Tool {
     this.lastWorldPoint = null;
     this.placementResolver = null;
     this.erasing = false;
+    this.historyBefore = null;
   };
 }

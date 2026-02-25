@@ -2,6 +2,11 @@ import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { usePreviewStore } from '@/state/previewStore';
 import { useTileMapStore, type TilePlacementMode } from '@/state/tileMapStore';
+import {
+  captureTileHistorySnapshot,
+  pushTileHistoryBatchIfChanged,
+  type TileHistorySnapshot,
+} from '@/state/historyStore';
 import { TilePlacementResolver } from '@/tools/tilePlacementResolver';
 
 const DEFAULT_TILE_MAP_SIZE = 32;
@@ -144,6 +149,7 @@ export class TileRandomTool implements Tool {
   private activeMap: ActiveMapContext | null = null;
   private activeTile: ActiveTileContext | null = null;
   private placementResolver: TilePlacementResolver | null = null;
+  private historyBefore: TileHistorySnapshot | null = null;
 
   private resetPlacementResolver() {
     if (!this.activeTile) {
@@ -377,10 +383,12 @@ export class TileRandomTool implements Tool {
       this.drawing = false;
       return;
     }
+    this.historyBefore = captureTileHistorySnapshot();
     this.resetPlacementResolver();
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       this.drawing = false;
+      this.historyBefore = null;
       return;
     }
     const pixelPoint = toPixelPoint(cursor);
@@ -433,6 +441,10 @@ export class TileRandomTool implements Tool {
       tile,
     }));
     useTileMapStore.getState().setTileMapTiles(this.activeMap.tileMapId, updates);
+    if (this.historyBefore) {
+      const after = captureTileHistorySnapshot();
+      pushTileHistoryBatchIfChanged(this.historyBefore, after);
+    }
     const preview = usePreviewStore.getState();
     preview.clear();
     this.drawing = false;
@@ -440,6 +452,7 @@ export class TileRandomTool implements Tool {
     this.lastWorldPoint = null;
     this.startWorldPoint = null;
     this.placementResolver = null;
+    this.historyBefore = null;
   };
 
   onCancel = () => {
@@ -450,5 +463,6 @@ export class TileRandomTool implements Tool {
     this.lastWorldPoint = null;
     this.startWorldPoint = null;
     this.placementResolver = null;
+    this.historyBefore = null;
   };
 }

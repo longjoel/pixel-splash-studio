@@ -128,7 +128,7 @@ describe('getGlobalHotkeyAction', () => {
     ).toEqual({ type: 'tool', tool: 'selection-lasso' });
   });
 
-  it('maps shift+S/P/R/N/E to tile tools', () => {
+  it('maps shift+S/P/R/N/E/V to tile tools', () => {
     expect(
       getGlobalHotkeyAction({
         key: 'S',
@@ -174,6 +174,15 @@ describe('getGlobalHotkeyAction', () => {
         shiftKey: true,
       })
     ).toEqual({ type: 'tool', tool: 'tile-export' });
+    expect(
+      getGlobalHotkeyAction({
+        key: 'V',
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: true,
+      })
+    ).toEqual({ type: 'tool', tool: 'tile-stamp' });
   });
 
   it('ignores ctrl/cmd combos (reserved for app shortcuts)', () => {

@@ -180,6 +180,14 @@ export const TOOL_ICONS: Record<string, React.ReactNode> = {
       <path d="M14.2 6.2l3.6 3.6" />
     </svg>
   ),
+  'tile-stamp': (
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 5h6v6H5z" />
+      <path d="M13 5h6v6h-6z" />
+      <path d="M7 15h10v4H7z" />
+      <path d="M9 15v-2a3 3 0 016 0v2" />
+    </svg>
+  ),
   'tile-rectangle': (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
       <rect x="5" y="5" width="14" height="14" rx="1.5" />

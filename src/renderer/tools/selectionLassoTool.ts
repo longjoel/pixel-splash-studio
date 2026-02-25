@@ -1,8 +1,9 @@
 import type { Tool, CursorState } from '@/core/tools';
-import { PIXEL_SIZE } from '@/core/grid';
+import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { useBrushStore } from '@/state/brushStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { useSelectionStore } from '@/state/selectionStore';
+import { useWorkspaceStore } from '@/state/workspaceStore';
 
 type GridPoint = { x: number; y: number };
 
@@ -123,14 +124,32 @@ const fillEnclosedPixelsFromStroke = (strokePixels: Array<{ x: number; y: number
   return filled;
 };
 
-const toGridPoint = (cursor: CursorState): GridPoint => ({
-  x: Math.floor(cursor.canvasX / PIXEL_SIZE),
-  y: Math.floor(cursor.canvasY / PIXEL_SIZE),
-});
+const toGridPoint = (cursor: CursorState, tileMode: boolean): GridPoint => {
+  const pixelX = Math.floor(cursor.canvasX / PIXEL_SIZE);
+  const pixelY = Math.floor(cursor.canvasY / PIXEL_SIZE);
+  if (!tileMode) {
+    return { x: pixelX, y: pixelY };
+  }
+  return {
+    x: Math.floor(pixelX / TILE_SIZE),
+    y: Math.floor(pixelY / TILE_SIZE),
+  };
+};
 
-const applyBrushPreview = (x: number, y: number) => {
-  const { size, shape } = useBrushStore.getState();
+const applyBrushPreview = (x: number, y: number, tileMode: boolean) => {
   const preview = usePreviewStore.getState();
+  if (tileMode) {
+    const startX = x * TILE_SIZE;
+    const startY = y * TILE_SIZE;
+    for (let ty = 0; ty < TILE_SIZE; ty += 1) {
+      for (let tx = 0; tx < TILE_SIZE; tx += 1) {
+        preview.setPixel(startX + tx, startY + ty, 1);
+      }
+    }
+    return;
+  }
+
+  const { size, shape } = useBrushStore.getState();
 
   if (shape === 'point') {
     preview.setPixel(x, y, 1);
@@ -143,7 +162,7 @@ const applyBrushPreview = (x: number, y: number) => {
   }
 };
 
-const drawLinePreview = (from: GridPoint, to: GridPoint) => {
+const drawLinePreview = (from: GridPoint, to: GridPoint, tileMode: boolean) => {
   const dx = Math.abs(to.x - from.x);
   const dy = Math.abs(to.y - from.y);
   const sx = from.x < to.x ? 1 : -1;
@@ -153,7 +172,7 @@ const drawLinePreview = (from: GridPoint, to: GridPoint) => {
   let y = from.y;
 
   while (true) {
-    applyBrushPreview(x, y);
+    applyBrushPreview(x, y, tileMode);
     if (x === to.x && y === to.y) {
       break;
     }
@@ -232,15 +251,17 @@ export class SelectionLassoTool implements Tool {
   private startPoint: GridPoint | null = null;
   private lastPoint: GridPoint | null = null;
   private path: GridPoint[] = [];
+  private tileMode = false;
 
   onHover = (cursor: CursorState) => {
     if (this.drawing) {
       return;
     }
+    this.tileMode = useWorkspaceStore.getState().mode === 'tile';
     const preview = usePreviewStore.getState();
     preview.clear();
-    const point = toGridPoint(cursor);
-    applyBrushPreview(point.x, point.y);
+    const point = toGridPoint(cursor, this.tileMode);
+    applyBrushPreview(point.x, point.y, this.tileMode);
   };
 
   onBegin = (cursor: CursorState) => {
@@ -248,8 +269,9 @@ export class SelectionLassoTool implements Tool {
     preview.clear();
     this.drawing = true;
     this.isRemoving = cursor.ctrl;
-    const point = toGridPoint(cursor);
-    applyBrushPreview(point.x, point.y);
+    this.tileMode = useWorkspaceStore.getState().mode === 'tile';
+    const point = toGridPoint(cursor, this.tileMode);
+    applyBrushPreview(point.x, point.y, this.tileMode);
     this.startPoint = point;
     this.lastPoint = point;
     this.path = [point];
@@ -260,14 +282,14 @@ export class SelectionLassoTool implements Tool {
       this.onHover(cursor);
       return;
     }
-    const nextPoint = toGridPoint(cursor);
+    const nextPoint = toGridPoint(cursor, this.tileMode);
     if (this.lastPoint && nextPoint.x === this.lastPoint.x && nextPoint.y === this.lastPoint.y) {
       return;
     }
     if (this.lastPoint) {
-      drawLinePreview(this.lastPoint, nextPoint);
+      drawLinePreview(this.lastPoint, nextPoint, this.tileMode);
     } else {
-      applyBrushPreview(nextPoint.x, nextPoint.y);
+      applyBrushPreview(nextPoint.x, nextPoint.y, this.tileMode);
     }
     this.lastPoint = nextPoint;
     this.path.push(nextPoint);
@@ -285,7 +307,7 @@ export class SelectionLassoTool implements Tool {
     const startPoint = this.startPoint;
     const endPoint = this.lastPoint;
     if (startPoint && endPoint && (startPoint.x !== endPoint.x || startPoint.y !== endPoint.y)) {
-      drawLinePreview(endPoint, startPoint);
+      drawLinePreview(endPoint, startPoint, this.tileMode);
     }
 
     const path: GridPoint[] = [];
@@ -302,7 +324,10 @@ export class SelectionLassoTool implements Tool {
     }
 
     const strokePixels = Array.from(preview.entries()).map((pixel) => ({ x: pixel.x, y: pixel.y }));
-    const fillPixels = shape === 'point' ? fillPolygonPixels(path) : fillEnclosedPixelsFromStroke(strokePixels);
+    const fillPixels =
+      shape === 'point' && !this.tileMode
+        ? fillPolygonPixels(path)
+        : fillEnclosedPixelsFromStroke(strokePixels);
     const pixels: Array<{ x: number; y: number; selected: boolean }> = (
       fillPixels.length > 0 ? fillPixels : strokePixels
     ).map((pixel) => ({ x: pixel.x, y: pixel.y, selected }));
@@ -313,6 +338,7 @@ export class SelectionLassoTool implements Tool {
     this.startPoint = null;
     this.lastPoint = null;
     this.path = [];
+    this.tileMode = false;
   };
 
   onCancel = () => {
@@ -322,5 +348,6 @@ export class SelectionLassoTool implements Tool {
     this.startPoint = null;
     this.lastPoint = null;
     this.path = [];
+    this.tileMode = false;
   };
 }

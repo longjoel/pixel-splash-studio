@@ -5,14 +5,19 @@ import { useHistoryStore } from '@/state/historyStore';
 import { useClipboardStore } from '@/state/clipboardStore';
 import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
 import { copySelectionToClipboard, cutSelectionToClipboard } from '@/services/selectionClipboard';
+import { copyTilesToClipboard, cutTilesToClipboard } from '@/services/tileClipboard';
 import { exportSelectionAsPng } from '@/services/selectionExport';
 import { useSelectionStore } from '@/state/selectionStore';
+import { useTileMapStore } from '@/state/tileMapStore';
 
 type TopbarProps = {
   activeTool: ToolId;
   selectionCount: number;
   activateTool: (tool: ToolId) => void;
+  workspaceMode: 'pixel' | 'tile';
+  switchWorkspace: (mode: 'pixel' | 'tile') => void;
   showAdvancedTools: boolean;
+  showTileTools?: boolean;
   showAiTool?: boolean;
   showExportButton?: boolean;
   showFullscreenButton?: boolean;
@@ -111,7 +116,10 @@ const TopbarInner = ({
   activeTool,
   selectionCount,
   activateTool,
+  workspaceMode,
+  switchWorkspace,
   showAdvancedTools,
+  showTileTools,
   showAiTool,
   showExportButton,
   showFullscreenButton,
@@ -122,8 +130,11 @@ const TopbarInner = ({
   | 'activeTool'
   | 'selectionCount'
   | 'activateTool'
+  | 'workspaceMode'
+  | 'switchWorkspace'
   | 'toolOptions'
   | 'showAdvancedTools'
+  | 'showTileTools'
   | 'showAiTool'
   | 'showExportButton'
   | 'showFullscreenButton'
@@ -138,6 +149,39 @@ const TopbarInner = ({
   const redo = useHistoryStore((state) => state.redo);
   const clipboard = useClipboardStore((state) => state);
   const hasClipboard = clipboard.pixels.length > 0 && clipboard.width > 0 && clipboard.height > 0;
+  const hasTileClipboard =
+    clipboard.tileBuffer !== null &&
+    clipboard.tileBuffer.cols > 0 &&
+    clipboard.tileBuffer.rows > 0 &&
+    clipboard.tileBuffer.tiles.length > 0;
+  const isTileWorkspace = workspaceMode === 'tile';
+  const tilePaletteSelectionCount = useTileMapStore(
+    (state) => new Set(state.selectedTileIndices.filter((index) => index >= 0)).size
+  );
+  const tileCopyEnabled = selectionCount > 0 || tilePaletteSelectionCount > 0;
+  const handleCopy = () => {
+    if (isTileWorkspace) {
+      copyTilesToClipboard();
+      return;
+    }
+    copySelectionToClipboard();
+  };
+  const handleCut = () => {
+    if (isTileWorkspace) {
+      cutTilesToClipboard();
+      return;
+    }
+    cutSelectionToClipboard();
+  };
+  const handlePaste = () => {
+    if (isTileWorkspace) {
+      if (hasTileClipboard) {
+        activateTool('tile-stamp');
+      }
+      return;
+    }
+    activateTool('stamp');
+  };
   const showReferenceLayer = useLayerVisibilityStore((state) => state.showReferenceLayer);
   const showPixelLayer = useLayerVisibilityStore((state) => state.showPixelLayer);
   const showTileLayer = useLayerVisibilityStore((state) => state.showTileLayer);
@@ -223,6 +267,29 @@ const TopbarInner = ({
   return (
     <div ref={topbarRef} className="topbar" role="toolbar" aria-label="Tools">
       <div className="topbar__tools" role="presentation">
+        {showAdvancedTools && (
+          <div className="topbar__workspace-toggle" role="group" aria-label="Workspace mode">
+            <button
+              type="button"
+              className="topbar__mode-button"
+              data-active={workspaceMode === 'pixel'}
+              onClick={() => switchWorkspace('pixel')}
+              aria-pressed={workspaceMode === 'pixel'}
+            >
+              Pixel
+            </button>
+            <button
+              type="button"
+              className="topbar__mode-button"
+              data-active={workspaceMode === 'tile'}
+              onClick={() => switchWorkspace('tile')}
+              aria-pressed={workspaceMode === 'tile'}
+            >
+              Tile
+            </button>
+          </div>
+        )}
+        {showAdvancedTools && <span className="topbar__divider" aria-hidden="true" />}
         <button
           type="button"
           className="topbar__tool-button"
@@ -247,10 +314,10 @@ const TopbarInner = ({
         <button
           type="button"
           className="topbar__tool-button"
-          onClick={() => copySelectionToClipboard()}
-          title="Copy Selection (Active Layer)"
+          onClick={handleCopy}
+          title={isTileWorkspace ? 'Copy Tiles' : 'Copy Selection (Active Layer)'}
           aria-label="Copy Selection"
-          disabled={selectionCount === 0}
+          disabled={isTileWorkspace ? !tileCopyEnabled : selectionCount === 0}
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.copy}</span>
         </button>
@@ -260,27 +327,27 @@ const TopbarInner = ({
           onClick={() => copySelectionToClipboard({ deep: true })}
           title="Deep Copy Selection (Merged)"
           aria-label="Deep Copy Selection"
-          disabled={selectionCount === 0}
+          disabled={isTileWorkspace || selectionCount === 0}
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS['copy-deep']}</span>
         </button>
         <button
           type="button"
           className="topbar__tool-button"
-          onClick={() => cutSelectionToClipboard()}
-          title="Cut Selection"
+          onClick={handleCut}
+          title={isTileWorkspace ? 'Cut Tiles' : 'Cut Selection'}
           aria-label="Cut Selection"
-          disabled={selectionCount === 0}
+          disabled={isTileWorkspace ? !tileCopyEnabled : selectionCount === 0}
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.cut}</span>
         </button>
         <button
           type="button"
           className="topbar__tool-button"
-          onClick={() => activateTool('stamp')}
-          title="Paste (Stamp Tool)"
+          onClick={handlePaste}
+          title={isTileWorkspace ? 'Paste Tiles (Tile Stamp)' : 'Paste (Stamp Tool)'}
           aria-label="Paste"
-          disabled={!hasClipboard}
+          disabled={isTileWorkspace ? !hasTileClipboard : !hasClipboard}
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.paste}</span>
         </button>
@@ -309,183 +376,193 @@ const TopbarInner = ({
           <span className="toolbar__tool-icon">{TOOL_ICONS.clear}</span>
         </button>
         <span className="topbar__divider" aria-hidden="true" />
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'pen'}
-          onClick={() => activateTool('pen')}
-          title="Pen (P)"
-          aria-label="Pen"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.pen}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'spray'}
-          onClick={() => activateTool('spray')}
-          title="Spray (S)"
-          aria-label="Spray"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.spray}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'line'}
-          onClick={() => activateTool('line')}
-          title="Line (L)"
-          aria-label="Line"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.line}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'rectangle'}
-          onClick={() => activateTool('rectangle')}
-          title="Rectangle (R)"
-          aria-label="Rectangle"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.rectangle}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'oval'}
-          onClick={() => activateTool('oval')}
-          title="Oval (O)"
-          aria-label="Oval"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.oval}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'fill-bucket'}
-          onClick={() => activateTool('fill-bucket')}
-          title="Fill (F)"
-          aria-label="Fill"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['fill-bucket']}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'text'}
-          onClick={() => activateTool('text')}
-          title="Text (T)"
-          aria-label="Text"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
-        </button>
-        {showAiTool !== false && (
-          <button
-            type="button"
-            className="topbar__tool-button"
-            data-active={activeTool === 'ai'}
-            onClick={() => activateTool('ai')}
-            title="AI Prompt"
-            aria-label="AI Prompt"
-          >
-            <span className="toolbar__tool-icon">{TOOL_ICONS.ai}</span>
-          </button>
-        )}
-        <span className="topbar__divider" aria-hidden="true" />
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'reference-handle'}
-          onClick={() => activateTool('reference-handle')}
-          title="Reference Handle (H)"
-          aria-label="Reference Handle"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['reference-handle']}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'eyedropper'}
-          onClick={() => activateTool('eyedropper')}
-          title="Eyedropper (E)"
-          aria-label="Eyedropper"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.eyedropper}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'stamp'}
-          onClick={() => activateTool('stamp')}
-          title="Stamp (V)"
-          aria-label="Stamp"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.stamp}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'selection-rect'}
-          onClick={() => activateTool('selection-rect')}
-          title="Selection Rectangle (Alt+R)"
-          aria-label="Selection Rectangle"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['selection-rect']}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'selection-oval'}
-          onClick={() => activateTool('selection-oval')}
-          title="Selection Oval (Alt+O)"
-          aria-label="Selection Oval"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'magic-wand'}
-          onClick={() => activateTool('magic-wand')}
-          title="Magic Wand (W)"
-          aria-label="Magic Wand"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['magic-wand']}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'selection-lasso'}
-          onClick={() => activateTool('selection-lasso')}
-          title="Selection Lasso (Alt+P)"
-          aria-label="Selection Lasso"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['selection-lasso']}</span>
-        </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          data-active={activeTool === 'texture-roll'}
-          onClick={() => activateTool('texture-roll')}
-          title="Scroll Selection (Q)"
-          aria-label="Scroll Selection"
-          disabled={selectionCount === 0}
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS['texture-roll']}</span>
-        </button>
-        {showAdvancedTools && (
+        {!isTileWorkspace && (
           <>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'pen'}
+              onClick={() => activateTool('pen')}
+              title="Pen (P)"
+              aria-label="Pen"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.pen}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'spray'}
+              onClick={() => activateTool('spray')}
+              title="Spray (S)"
+              aria-label="Spray"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.spray}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'line'}
+              onClick={() => activateTool('line')}
+              title="Line (L)"
+              aria-label="Line"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.line}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'rectangle'}
+              onClick={() => activateTool('rectangle')}
+              title="Rectangle (R)"
+              aria-label="Rectangle"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.rectangle}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'oval'}
+              onClick={() => activateTool('oval')}
+              title="Oval (O)"
+              aria-label="Oval"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.oval}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'fill-bucket'}
+              onClick={() => activateTool('fill-bucket')}
+              title="Fill (F)"
+              aria-label="Fill"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['fill-bucket']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'text'}
+              onClick={() => activateTool('text')}
+              title="Text (T)"
+              aria-label="Text"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.text}</span>
+            </button>
+            {showAiTool !== false && (
+              <button
+                type="button"
+                className="topbar__tool-button"
+                data-active={activeTool === 'ai'}
+                onClick={() => activateTool('ai')}
+                title="AI Prompt"
+                aria-label="AI Prompt"
+              >
+                <span className="toolbar__tool-icon">{TOOL_ICONS.ai}</span>
+              </button>
+            )}
             <span className="topbar__divider" aria-hidden="true" />
             <button
               type="button"
               className="topbar__tool-button"
-              data-active={activeTool === 'tile-sampler'}
-              onClick={() => activateTool('tile-sampler')}
-              title="Tile Sampler (Shift+S)"
-              aria-label="Tile Sampler"
+              data-active={activeTool === 'reference-handle'}
+              onClick={() => activateTool('reference-handle')}
+              title="Reference Handle (H)"
+              aria-label="Reference Handle"
             >
-              <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
+              <span className="toolbar__tool-icon">{TOOL_ICONS['reference-handle']}</span>
             </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'eyedropper'}
+              onClick={() => activateTool('eyedropper')}
+              title="Eyedropper (E)"
+              aria-label="Eyedropper"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.eyedropper}</span>
+            </button>
+            {showAdvancedTools && (
+              <button
+                type="button"
+                className="topbar__tool-button"
+                data-active={activeTool === 'tile-sampler'}
+                onClick={() => activateTool('tile-sampler')}
+                title="Tile Sampler (Shift+S)"
+                aria-label="Tile Sampler"
+              >
+                <span className="toolbar__tool-icon">{TOOL_ICONS['tile-sampler']}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'stamp'}
+              onClick={() => activateTool('stamp')}
+              title="Stamp (V)"
+              aria-label="Stamp"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS.stamp}</span>
+            </button>
+          </>
+        )}
+        {!isTileWorkspace && (
+          <>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'selection-rect'}
+              onClick={() => activateTool('selection-rect')}
+              title="Selection Rectangle (Alt+R)"
+              aria-label="Selection Rectangle"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['selection-rect']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'selection-oval'}
+              onClick={() => activateTool('selection-oval')}
+              title="Selection Oval (Alt+O)"
+              aria-label="Selection Oval"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'magic-wand'}
+              onClick={() => activateTool('magic-wand')}
+              title="Magic Wand (W)"
+              aria-label="Magic Wand"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['magic-wand']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'selection-lasso'}
+              onClick={() => activateTool('selection-lasso')}
+              title="Selection Lasso (Alt+P)"
+              aria-label="Selection Lasso"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['selection-lasso']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'texture-roll'}
+              onClick={() => activateTool('texture-roll')}
+              title="Scroll Selection (Q)"
+              aria-label="Scroll Selection"
+              disabled={selectionCount === 0}
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['texture-roll']}</span>
+            </button>
+          </>
+        )}
+        {isTileWorkspace && showAdvancedTools && showTileTools !== false && (
+          <>
+            <span className="topbar__divider" aria-hidden="true" />
             <button
               type="button"
               className="topbar__tool-button"
@@ -495,6 +572,16 @@ const TopbarInner = ({
               aria-label="Tile Pen"
             >
               <span className="toolbar__tool-icon">{TOOL_ICONS['tile-pen']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'tile-stamp'}
+              onClick={() => activateTool('tile-stamp')}
+              title="Tile Stamp (Ctrl/Cmd+V)"
+              aria-label="Tile Stamp"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['tile-stamp']}</span>
             </button>
             <button
               type="button"
@@ -526,6 +613,57 @@ const TopbarInner = ({
             >
               <span className="toolbar__tool-icon">{TOOL_ICONS['tile-export']}</span>
             </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'selection-rect'}
+              onClick={() => activateTool('selection-rect')}
+              title="Selection Rectangle (Alt+R)"
+              aria-label="Selection Rectangle"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['selection-rect']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'selection-oval'}
+              onClick={() => activateTool('selection-oval')}
+              title="Selection Oval (Alt+O)"
+              aria-label="Selection Oval"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['selection-oval']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'magic-wand'}
+              onClick={() => activateTool('magic-wand')}
+              title="Magic Wand (W)"
+              aria-label="Magic Wand"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['magic-wand']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'selection-lasso'}
+              onClick={() => activateTool('selection-lasso')}
+              title="Selection Lasso (Alt+P)"
+              aria-label="Selection Lasso"
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['selection-lasso']}</span>
+            </button>
+            <button
+              type="button"
+              className="topbar__tool-button"
+              data-active={activeTool === 'texture-roll'}
+              onClick={() => activateTool('texture-roll')}
+              title="Scroll Selection (Q)"
+              aria-label="Scroll Selection"
+              disabled={selectionCount === 0}
+            >
+              <span className="toolbar__tool-icon">{TOOL_ICONS['texture-roll']}</span>
+            </button>
           </>
         )}
         <span className="topbar__divider" aria-hidden="true" />
@@ -551,15 +689,17 @@ const TopbarInner = ({
         >
           <span className="toolbar__tool-icon">{TOOL_ICONS.overlays}</span>
         </button>
-        <button
-          type="button"
-          className="topbar__tool-button"
-          onClick={() => window.dispatchEvent(new Event('palette:open-add-swatch'))}
-          title="Add Swatch Preset"
-          aria-label="Add Swatch Preset"
-        >
-          <span className="toolbar__tool-icon">{TOOL_ICONS.swatch}</span>
-        </button>
+        {!isTileWorkspace && (
+          <button
+            type="button"
+            className="topbar__tool-button"
+            onClick={() => window.dispatchEvent(new Event('palette:open-add-swatch'))}
+            title="Add Swatch Preset"
+            aria-label="Add Swatch Preset"
+          >
+            <span className="toolbar__tool-icon">{TOOL_ICONS.swatch}</span>
+          </button>
+        )}
         {showFullscreenButton !== false && (
           <button
             type="button"
@@ -623,7 +763,10 @@ export const Topbar = ({
   activeTool,
   selectionCount,
   activateTool,
+  workspaceMode,
+  switchWorkspace,
   showAdvancedTools,
+  showTileTools,
   showAiTool,
   showExportButton,
   showFullscreenButton,
@@ -635,7 +778,10 @@ export const Topbar = ({
       activeTool={activeTool}
       selectionCount={selectionCount}
       activateTool={activateTool}
+      workspaceMode={workspaceMode}
+      switchWorkspace={switchWorkspace}
       showAdvancedTools={showAdvancedTools}
+      showTileTools={showTileTools}
       showAiTool={showAiTool}
       showExportButton={showExportButton}
       showFullscreenButton={showFullscreenButton}

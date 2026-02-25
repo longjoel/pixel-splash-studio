@@ -32,6 +32,7 @@ export const buildProjectPayload = () => {
   const history = useHistoryStore.getState();
   const referenceStore = useReferenceStore.getState();
   const tileStore = useTileMapStore.getState();
+  const bookmarkStore = useBookmarkStore.getState();
 
   const referenceFiles = new Map<
     string,
@@ -77,6 +78,10 @@ export const buildProjectPayload = () => {
       references: referenceData.length > 0 ? referenceData : undefined,
       tileSets: tileStore.tileSets.length > 0 ? tileStore.tileSets : undefined,
       tileMaps: tileStore.tileMaps.length > 0 ? tileStore.tileMaps : undefined,
+      bookmarks:
+        bookmarkStore.items.length > 0
+          ? { items: bookmarkStore.items, overlaysVisible: bookmarkStore.overlaysVisible }
+          : undefined,
       pixelLayers: {
         layers: pixelStore.layers.map((layer) => ({
           id: layer.id,
@@ -174,6 +179,9 @@ export const applyProjectPayload = async (payload: ProjectPayload) => {
 
   const tileStore = useTileMapStore.getState();
   tileStore.setAll(payload.data.tileSets ?? [], payload.data.tileMaps ?? []);
+  useBookmarkStore
+    .getState()
+    .setAll(payload.data.bookmarks?.items ?? [], payload.data.bookmarks?.overlaysVisible ?? true);
 };
 
 export const saveProject = async (existingPath?: string) => {

@@ -19,6 +19,7 @@ export type ToolId =
   | 'texture-roll'
   | 'tile-sampler'
   | 'tile-pen'
+  | 'tile-stamp'
   | 'tile-rectangle'
   | 'tile-9slice'
   | 'tile-export';

@@ -3,6 +3,7 @@ import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { usePixelStore } from '@/state/pixelStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { useBookmarkStore } from '@/state/bookmarkStore';
 import { TileSamplerTool } from '@/tools/tileSamplerTool';
 
 const makeCursor = (canvasX: number, canvasY: number) => ({
@@ -26,6 +27,7 @@ describe('TileSamplerTool', () => {
     usePixelStore.getState().clear();
     usePreviewStore.getState().clear();
     useTileMapStore.getState().clear();
+    useBookmarkStore.getState().clear();
   });
 
   it('creates the first tile set with sampled rows and columns', () => {
@@ -155,5 +157,25 @@ describe('TileSamplerTool', () => {
     expect(tileSet?.columns).toBe(2);
     expect(tileSet?.rows).toBe(2);
     expect(tileSet?.tiles).toHaveLength(5);
+  });
+
+  it('creates a region bookmark tag for sampled tile bounds', () => {
+    const tool = new TileSamplerTool();
+    const end = endPointForRegion(2, 1);
+
+    tool.onBegin?.(makeCursor(0, 0));
+    tool.onEnd?.(makeCursor(end.x, end.y));
+
+    const tags = useBookmarkStore.getState().items.filter((item) => item.kind === 'region');
+    expect(tags).toHaveLength(1);
+    const [tag] = tags;
+    expect(tag?.kind).toBe('region');
+    if (!tag || tag.kind !== 'region') {
+      return;
+    }
+    expect(tag.x).toBe(0);
+    expect(tag.y).toBe(0);
+    expect(tag.width).toBe(TILE_SIZE * 2);
+    expect(tag.height).toBe(TILE_SIZE);
   });
 });

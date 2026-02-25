@@ -207,6 +207,16 @@ export const ToolGroups = ({ activeTool, selectionCount, activateTool }: ToolGro
         <button
           type="button"
           className="panel__item toolbar__tool-button"
+          data-active={activeTool === 'tile-stamp'}
+          onClick={() => activateTool('tile-stamp')}
+          title="Tile Stamp (Ctrl/Cmd+V)"
+          aria-label="Tile Stamp"
+        >
+          <span className="toolbar__tool-icon">{TOOL_ICONS['tile-stamp']}</span>
+        </button>
+        <button
+          type="button"
+          className="panel__item toolbar__tool-button"
           data-active={activeTool === 'tile-rectangle'}
           onClick={() => activateTool('tile-rectangle')}
           title="Tile Rectangle (Shift+R)"

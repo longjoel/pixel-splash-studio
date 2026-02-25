@@ -255,6 +255,26 @@ body {
   background: rgba(255, 255, 255, 0.12);
 }
 
+.topbar__workspace-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 2px;
+}
+
+.topbar__workspace-toggle .topbar__mode-button {
+  min-width: 54px;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+
+.topbar__workspace-toggle .topbar__mode-button[data-active='true'] {
+  border-color: rgba(245, 197, 66, 0.8);
+  box-shadow: 0 0 0 2px rgba(245, 197, 66, 0.18);
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(245, 197, 66, 0.16);
+}
+
 .app__splash {
   position: absolute;
   inset: 0;
@@ -756,6 +776,28 @@ body {
   display: flex;
   align-items: center;
   flex: 0 0 auto;
+}
+
+.workspace-tabs {
+  display: inline-flex;
+  gap: 6px;
+  padding-right: 8px;
+}
+
+.workspace-tabs__tab {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  padding: 7px 10px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.workspace-tabs__tab[data-active='true'] {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .bottom-bar__center {

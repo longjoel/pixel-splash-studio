@@ -4,6 +4,7 @@ import { PIXEL_SIZE } from '@/core/grid';
 import { useBrushStore } from '@/state/brushStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { useSelectionStore } from '@/state/selectionStore';
+import { useWorkspaceStore } from '@/state/workspaceStore';
 
 const cursorAt = (x: number, y: number, overrides?: Partial<ReturnType<typeof cursorAt>>) => ({
   screenX: 0,
@@ -23,6 +24,7 @@ describe('SelectionLassoTool', () => {
     usePreviewStore.getState().clear();
     useBrushStore.getState().setSize(1);
     useBrushStore.getState().setShape('round');
+    useWorkspaceStore.getState().setMode('pixel');
   });
 
   it('fills the enclosed area when closing the loop (point brush)', () => {

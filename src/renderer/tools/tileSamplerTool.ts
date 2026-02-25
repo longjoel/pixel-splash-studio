@@ -3,6 +3,7 @@ import { PIXEL_SIZE, TILE_SIZE } from '@/core/grid';
 import { usePixelStore } from '@/state/pixelStore';
 import { usePreviewStore } from '@/state/previewStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { useBookmarkStore } from '@/state/bookmarkStore';
 
 type TilePoint = { x: number; y: number };
 
@@ -136,6 +137,12 @@ export class TileSamplerTool implements Tool {
       tileStore.setSelectedTileIndex(startIndex);
       tileStore.setTilePage(0);
       tileStore.setTilePaletteOffset(0);
+      useBookmarkStore.getState().addRegionTag({
+        x: bounds.minTileX * TILE_SIZE,
+        y: bounds.minTileY * TILE_SIZE,
+        width: columns * TILE_SIZE,
+        height: rows * TILE_SIZE,
+      });
     }
 
     preview.clear();

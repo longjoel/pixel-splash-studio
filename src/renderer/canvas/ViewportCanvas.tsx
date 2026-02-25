@@ -23,6 +23,7 @@ import { EyeDropperTool } from '@/tools/eyeDropperTool';
 import { ReferenceHandleTool } from '@/tools/referenceHandleTool';
 import { TileSamplerTool } from '@/tools/tileSamplerTool';
 import { TilePenTool } from '@/tools/tilePenTool';
+import { TileStampTool } from '@/tools/tileStampTool';
 import { TileRandomTool } from '@/tools/tileRandomTool';
 import { TileExportTool } from '@/tools/tileExportTool';
 import { TileNineSliceTool } from '@/tools/tileNineSliceTool';
@@ -33,6 +34,8 @@ import { useToolStore } from '@/state/toolStore';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useReferenceStore } from '@/state/referenceStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { useWorkspaceStore } from '@/state/workspaceStore';
+import { useBookmarkStore } from '@/state/bookmarkStore';
 import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
 import ToolContextMenu from '@/ui/ToolContextMenu';
 import { getBlocksUnderConstruction } from '@/services/largeOperationQueue';
@@ -137,6 +140,58 @@ const drawAxes = (
   context.moveTo(0.5, viewY);
   context.lineTo(0.5, viewY + viewHeight);
   context.stroke();
+};
+
+const drawBookmarkTags = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number
+) => {
+  const bookmarkState = useBookmarkStore.getState();
+  if (!bookmarkState.overlaysVisible) {
+    return;
+  }
+  const tags = bookmarkState.items.filter((item) => item.kind === 'region');
+  if (tags.length === 0) {
+    return;
+  }
+  context.save();
+  context.lineWidth = 1.5;
+  context.font = '11px "Segoe UI", "Helvetica Neue", sans-serif';
+  for (const tag of tags) {
+    const left = tag.x * PIXEL_SIZE;
+    const top = tag.y * PIXEL_SIZE;
+    const width = Math.max(1, tag.width) * PIXEL_SIZE;
+    const height = Math.max(1, tag.height) * PIXEL_SIZE;
+    const right = left + width;
+    const bottom = top + height;
+    if (
+      right < viewX ||
+      bottom < viewY ||
+      left > viewX + viewWidth ||
+      top > viewY + viewHeight
+    ) {
+      continue;
+    }
+
+    context.fillStyle = 'rgba(66, 197, 255, 0.16)';
+    context.strokeStyle = 'rgba(66, 197, 255, 0.85)';
+    context.fillRect(left, top, width, height);
+    context.strokeRect(left + 0.5, top + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
+
+    const label = tag.name?.trim() || 'Tile Tag';
+    const labelWidth = context.measureText(label).width;
+    const padX = 5;
+    const barHeight = 16;
+    const barWidth = Math.max(36, Math.ceil(labelWidth + padX * 2));
+    context.fillStyle = 'rgba(66, 197, 255, 0.85)';
+    context.fillRect(left, top - barHeight, barWidth, barHeight);
+    context.fillStyle = 'rgba(5, 12, 18, 0.95)';
+    context.fillText(label, left + padX, top - 4);
+  }
+  context.restore();
 };
 
 const setupCanvas = (canvas: HTMLCanvasElement, width: number, height: number) => {
@@ -532,6 +587,93 @@ const drawTileMapLayer = (
   }
 };
 
+const drawTileShadowLayer = (
+  context: CanvasRenderingContext2D,
+  viewX: number,
+  viewY: number,
+  viewWidth: number,
+  viewHeight: number,
+  fillColor: string,
+  strokeColor: string
+) => {
+  const { tileSets, tileMaps } = useTileMapStore.getState();
+  if (tileSets.length === 0 || tileMaps.length === 0) {
+    return;
+  }
+
+  const viewLeft = viewX / PIXEL_SIZE;
+  const viewTop = viewY / PIXEL_SIZE;
+  const viewRight = viewLeft + viewWidth / PIXEL_SIZE;
+  const viewBottom = viewTop + viewHeight / PIXEL_SIZE;
+
+  const tileSetMap = new Map(tileSets.map((tileSet) => [tileSet.id, tileSet]));
+  context.save();
+  context.fillStyle = fillColor;
+  context.strokeStyle = strokeColor;
+  context.lineWidth = Math.max(1, PIXEL_SIZE * 0.08);
+
+  for (const tileMap of tileMaps) {
+    const tileSet = tileSetMap.get(tileMap.tileSetId);
+    if (!tileSet) {
+      continue;
+    }
+
+    const tileWidth = tileSet.tileWidth;
+    const tileHeight = tileSet.tileHeight;
+    if (tileWidth <= 0 || tileHeight <= 0) {
+      continue;
+    }
+
+    const mapWidth = tileMap.columns * tileWidth;
+    const mapHeight = tileMap.rows * tileHeight;
+    const mapLeft = tileMap.originX;
+    const mapTop = tileMap.originY;
+    const mapRight = mapLeft + mapWidth;
+    const mapBottom = mapTop + mapHeight;
+
+    if (
+      mapRight < viewLeft ||
+      mapBottom < viewTop ||
+      mapLeft > viewRight ||
+      mapTop > viewBottom
+    ) {
+      continue;
+    }
+
+    const startCol = Math.max(0, Math.floor((viewLeft - mapLeft) / tileWidth));
+    const endCol = Math.min(
+      tileMap.columns - 1,
+      Math.ceil((viewRight - mapLeft) / tileWidth) - 1
+    );
+    const startRow = Math.max(0, Math.floor((viewTop - mapTop) / tileHeight));
+    const endRow = Math.min(
+      tileMap.rows - 1,
+      Math.ceil((viewBottom - mapTop) / tileHeight) - 1
+    );
+
+    if (endCol < startCol || endRow < startRow) {
+      continue;
+    }
+
+    for (let row = startRow; row <= endRow; row += 1) {
+      for (let col = startCol; col <= endCol; col += 1) {
+        const index = row * tileMap.columns + col;
+        const tileIndex = tileMap.tiles[index] ?? -1;
+        if (tileIndex < 0) {
+          continue;
+        }
+        const x = (mapLeft + col * tileWidth) * PIXEL_SIZE;
+        const y = (mapTop + row * tileHeight) * PIXEL_SIZE;
+        const width = tileWidth * PIXEL_SIZE;
+        const height = tileHeight * PIXEL_SIZE;
+        context.fillRect(x, y, width, height);
+        context.strokeRect(x + 0.5, y + 0.5, width - 1, height - 1);
+      }
+    }
+  }
+  context.restore();
+};
+
 const drawPreviewLayer = (
   context: CanvasRenderingContext2D,
   palette: string[],
@@ -693,6 +835,7 @@ const ViewportCanvas = () => {
       'texture-roll': new TextureRollTool(),
       'tile-sampler': new TileSamplerTool(),
       'tile-pen': new TilePenTool(),
+      'tile-stamp': new TileStampTool(),
       'tile-rectangle': new TileRandomTool(),
       'tile-9slice': new TileNineSliceTool(),
       'tile-export': new TileExportTool(),
@@ -737,6 +880,8 @@ const ViewportCanvas = () => {
       const axisColor = toRgba(accent, 0.5);
       const constructionFill = toRgba(accent, 0.08);
       const constructionStroke = toRgba(accent, 0.35);
+      const tileShadowFill = toRgba(accent, 0.2);
+      const tileShadowStroke = toRgba(accent, 0.5);
 
       context.fillStyle = bgHex;
       context.fillRect(0, 0, state.width, state.height);
@@ -823,6 +968,19 @@ const ViewportCanvas = () => {
         pixelsDrawn = pixelMetrics.pixelsDrawn;
       }
 
+      const workspaceMode = useWorkspaceStore.getState().mode;
+      if (workspaceMode === 'pixel' && !layers.showTileLayer) {
+        drawTileShadowLayer(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight,
+          tileShadowFill,
+          tileShadowStroke
+        );
+      }
+
       if (layers.showTileLayer) {
         drawTileMapLayer(
           context,
@@ -859,6 +1017,15 @@ const ViewportCanvas = () => {
         viewWidth,
         viewHeight
       );
+      if (workspaceMode === 'pixel') {
+        drawBookmarkTags(
+          context,
+          state.camera.x,
+          state.camera.y,
+          viewWidth,
+          viewHeight
+        );
+      }
       if (layers.showTileLayer && useTileMapStore.getState().tileDebugOverlay) {
         drawTileDebugOverlay(
           context,
@@ -1018,8 +1185,8 @@ const ViewportCanvas = () => {
     if (event.button === 2) {
       return;
     }
-    event.currentTarget.setPointerCapture(event.pointerId);
     const cursor = toCursorState(event);
+    event.currentTarget.setPointerCapture(event.pointerId);
     controllerRef.current?.handleEvent('begin', cursor);
   };
 

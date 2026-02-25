@@ -2,6 +2,11 @@ import type { Tool, CursorState } from '@/core/tools';
 import { PIXEL_SIZE } from '@/core/grid';
 import { usePreviewStore } from '@/state/previewStore';
 import { useTileMapStore, type TilePlacementMode } from '@/state/tileMapStore';
+import {
+  captureTileHistorySnapshot,
+  pushTileHistoryBatchIfChanged,
+  type TileHistorySnapshot,
+} from '@/state/historyStore';
 import { TilePlacementResolver } from '@/tools/tilePlacementResolver';
 
 const DEFAULT_TILE_MAP_SIZE = 32;
@@ -136,6 +141,7 @@ export class TileNineSliceTool implements Tool {
   private activeMap: ActiveMapContext | null = null;
   private activeTile: ActiveTileContext | null = null;
   private placementResolver: TilePlacementResolver | null = null;
+  private historyBefore: TileHistorySnapshot | null = null;
 
   private resetPlacementResolver() {
     if (!this.activeTile) {
@@ -441,10 +447,12 @@ export class TileNineSliceTool implements Tool {
       this.drawing = false;
       return;
     }
+    this.historyBefore = captureTileHistorySnapshot();
     this.resetPlacementResolver();
     this.activeMap = ensureActiveMap(this.activeTile.tileSetId, true);
     if (!this.activeMap) {
       this.drawing = false;
+      this.historyBefore = null;
       return;
     }
 
@@ -526,6 +534,10 @@ export class TileNineSliceTool implements Tool {
       }));
       useTileMapStore.getState().setTileMapTiles(this.activeMap.tileMapId, updates);
     }
+    if (this.historyBefore) {
+      const after = captureTileHistorySnapshot();
+      pushTileHistoryBatchIfChanged(this.historyBefore, after);
+    }
     const preview = usePreviewStore.getState();
     preview.clear();
     this.drawing = false;
@@ -534,6 +546,7 @@ export class TileNineSliceTool implements Tool {
     this.startWorldPoint = null;
     this.lastWorldPoint = null;
     this.placementResolver = null;
+    this.historyBefore = null;
   };
 
   onCancel = () => {
@@ -545,5 +558,6 @@ export class TileNineSliceTool implements Tool {
     this.startWorldPoint = null;
     this.lastWorldPoint = null;
     this.placementResolver = null;
+    this.historyBefore = null;
   };
 }

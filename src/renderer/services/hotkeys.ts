@@ -51,6 +51,9 @@ export const getGlobalHotkeyAction = (
     if (key === 'e') {
       return { type: 'tool', tool: 'tile-export' };
     }
+    if (key === 'v') {
+      return { type: 'tool', tool: 'tile-stamp' };
+    }
   }
 
   if (key.length === 1 && key >= '0' && key <= '9') {

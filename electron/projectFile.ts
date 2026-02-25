@@ -27,10 +27,66 @@ export type ProjectPayload = {
       undoStack: Array<{
         layerId?: string;
         changes: Array<{ x: number; y: number; prev: number; next: number }>;
+        tileBefore?: {
+          tileSets: unknown[];
+          tileMaps: unknown[];
+          activeTileSetId: string | null;
+          activeTileMapId: string | null;
+          selectedTileIndex: number;
+          selectedTileIndices: number[];
+          selectedTileCols: number;
+          selectedTileRows: number;
+          tilePaletteColumns: number;
+          tilePaletteOffset: number;
+          tilePaletteRowsMin: number;
+          nineSlice: { tileSetId: string; tiles: number[] } | null;
+        };
+        tileAfter?: {
+          tileSets: unknown[];
+          tileMaps: unknown[];
+          activeTileSetId: string | null;
+          activeTileMapId: string | null;
+          selectedTileIndex: number;
+          selectedTileIndices: number[];
+          selectedTileCols: number;
+          selectedTileRows: number;
+          tilePaletteColumns: number;
+          tilePaletteOffset: number;
+          tilePaletteRowsMin: number;
+          nineSlice: { tileSetId: string; tiles: number[] } | null;
+        };
       }>;
       redoStack: Array<{
         layerId?: string;
         changes: Array<{ x: number; y: number; prev: number; next: number }>;
+        tileBefore?: {
+          tileSets: unknown[];
+          tileMaps: unknown[];
+          activeTileSetId: string | null;
+          activeTileMapId: string | null;
+          selectedTileIndex: number;
+          selectedTileIndices: number[];
+          selectedTileCols: number;
+          selectedTileRows: number;
+          tilePaletteColumns: number;
+          tilePaletteOffset: number;
+          tilePaletteRowsMin: number;
+          nineSlice: { tileSetId: string; tiles: number[] } | null;
+        };
+        tileAfter?: {
+          tileSets: unknown[];
+          tileMaps: unknown[];
+          activeTileSetId: string | null;
+          activeTileMapId: string | null;
+          selectedTileIndex: number;
+          selectedTileIndices: number[];
+          selectedTileCols: number;
+          selectedTileRows: number;
+          tilePaletteColumns: number;
+          tilePaletteOffset: number;
+          tilePaletteRowsMin: number;
+          nineSlice: { tileSetId: string; tiles: number[] } | null;
+        };
       }>;
     };
     references?: Array<{
@@ -70,6 +126,28 @@ export type ProjectPayload = {
       rows: number;
       tiles: number[];
     }>;
+    bookmarks?: {
+      items: Array<
+        | {
+            id: string;
+            name: string;
+            kind: 'camera';
+            centerX: number;
+            centerY: number;
+            zoom: number;
+          }
+        | {
+            id: string;
+            name: string;
+            kind: 'region';
+            x: number;
+            y: number;
+            width: number;
+            height: number;
+          }
+      >;
+      overlaysVisible?: boolean;
+    };
     pixelLayers?: {
       layers: Array<{ id: string; name: string; visible: boolean }>;
       activeLayerId?: string;
