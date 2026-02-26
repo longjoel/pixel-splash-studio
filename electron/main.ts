@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
 import type { OpenDialogOptions } from 'electron';
 import { join } from 'path';
-import { access, appendFile, mkdir, readFile, writeFile } from 'fs/promises';
+import { access, appendFile, mkdir, mkdtemp, readFile, writeFile } from 'fs/promises';
 import { spawn } from 'child_process';
 import https from 'https';
 import { tmpdir } from 'os';
@@ -52,6 +52,16 @@ const pathExists = async (path: string) => {
 
 const perfLoggingEnabled = { value: false };
 const memoryUsageEnabled = { value: false };
+const recordingAvailability = {
+  available: false,
+  checked: false,
+  reason: 'Recording is unavailable.',
+};
+type RecordingSession = {
+  frameDir: string;
+  frameCount: number;
+};
+let recordingSession: RecordingSession | null = null;
 const viewMenuState = {
   showReferenceLayer: true,
   showPixelLayer: true,
@@ -101,6 +111,88 @@ const runCommand = (command: string, args: string[]) =>
       resolve({ code: 127, stdout, stderr: error instanceof Error ? error.message : String(error) })
     );
   });
+
+const formatFrameNumber = (value: number) => String(value).padStart(6, '0');
+
+const createRecordingSession = async () => {
+  const frameDir = await mkdtemp(join(tmpdir(), 'pixel-splash-recording-'));
+  recordingSession = {
+    frameDir,
+    frameCount: 0,
+  };
+  return recordingSession;
+};
+
+const encodeRecordingVideo = async (frameDir: string, outputPath: string, fps: number) => {
+  const pattern = join(frameDir, 'frame-%06d.png');
+  const ffmpegArgs = [
+    '-y',
+    '-framerate',
+    String(Math.max(1, Math.floor(fps))),
+    '-start_number',
+    '1',
+    '-i',
+    pattern,
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    outputPath,
+  ];
+
+  const result = await runCommand('ffmpeg', ffmpegArgs);
+  if (result.code === 0) {
+    return;
+  }
+
+  const fallbackArgs = [
+    '-y',
+    '-framerate',
+    String(Math.max(1, Math.floor(fps))),
+    '-start_number',
+    '1',
+    '-i',
+    pattern,
+    '-c:v',
+    'mpeg4',
+    outputPath,
+  ];
+  const fallback = await runCommand('ffmpeg', fallbackArgs);
+  if (fallback.code === 0) {
+    return;
+  }
+
+  const reason =
+    (fallback.stderr || result.stderr || fallback.stdout || result.stdout || 'unknown error')
+      .trim()
+      .slice(0, 800);
+  throw new Error(`ffmpeg failed to encode video: ${reason}`);
+};
+
+const probeRecordingAvailability = async () => {
+  const result = await runCommand('ffmpeg', ['-version']);
+  if (result.code === 0) {
+    recordingAvailability.available = true;
+    recordingAvailability.checked = true;
+    recordingAvailability.reason = '';
+    return;
+  }
+  recordingAvailability.available = false;
+  recordingAvailability.checked = true;
+  recordingAvailability.reason = 'ffmpeg is not available on PATH.';
+};
+
+const updateRecordingMenuItems = () => {
+  const menu = Menu.getApplicationMenu();
+  const startItem = menu?.getMenuItemById('file:recording:start');
+  const stopItem = menu?.getMenuItemById('file:recording:stop');
+  if (startItem) {
+    startItem.enabled = recordingAvailability.available && recordingSession === null;
+  }
+  if (stopItem) {
+    stopItem.enabled = recordingAvailability.available && recordingSession !== null;
+  }
+};
 
 const registerLospecUrlHandlerLinux = async () => {
   if (process.platform !== 'linux') {
@@ -300,6 +392,7 @@ app.on('open-url', (event, url) => {
 
 app.whenReady().then(async () => {
   createWindow();
+  await probeRecordingAvailability();
 
   try {
     app.setAsDefaultProtocolClient('lospec-palette');
@@ -442,6 +535,25 @@ app.whenReady().then(async () => {
               },
             },
           ],
+        },
+        { type: 'separator' as const },
+        {
+          id: 'file:recording:start',
+          label: 'Start Recording',
+          enabled: recordingAvailability.available,
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'recording:start');
+          },
+        },
+        {
+          id: 'file:recording:stop',
+          label: 'Stop Recording',
+          enabled: false,
+          click: () => {
+            const window = BrowserWindow.getFocusedWindow();
+            window?.webContents.send('menu:action', 'recording:stop');
+          },
         },
         { type: 'separator' as const },
         {
@@ -788,6 +900,7 @@ app.whenReady().then(async () => {
   ];
   const menu = Menu.buildFromTemplate(template);
   Menu.setApplicationMenu(menu);
+  updateRecordingMenuItems();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -1286,6 +1399,84 @@ ipcMain.handle('debug:perf-log', async (_event, message: string) => {
   const line = `[${new Date().toISOString()}] ${message}\n`;
   await appendFile(filePath, line);
   return filePath;
+});
+
+ipcMain.handle('recording:start', async () => {
+  if (!recordingAvailability.available) {
+    throw new Error(recordingAvailability.reason || 'Recording is unavailable.');
+  }
+  if (recordingSession) {
+    updateRecordingMenuItems();
+    return {
+      frameDir: recordingSession.frameDir,
+    };
+  }
+  const session = await createRecordingSession();
+  updateRecordingMenuItems();
+  return {
+    frameDir: session.frameDir,
+  };
+});
+
+ipcMain.handle('recording:add-frame', async (_event, data: Uint8Array) => {
+  if (!recordingSession) {
+    throw new Error('Recording has not started.');
+  }
+  const nextFrame = recordingSession.frameCount + 1;
+  const filename = `frame-${formatFrameNumber(nextFrame)}.png`;
+  const framePath = join(recordingSession.frameDir, filename);
+  await writeFile(framePath, Buffer.from(data));
+  recordingSession.frameCount = nextFrame;
+  return {
+    framePath,
+    frameCount: recordingSession.frameCount,
+  };
+});
+
+ipcMain.handle('recording:stop', async (_event, fps?: number) => {
+  if (!recordingAvailability.available) {
+    throw new Error(recordingAvailability.reason || 'Recording is unavailable.');
+  }
+  const session = recordingSession;
+  recordingSession = null;
+  updateRecordingMenuItems();
+  if (!session) {
+    return null;
+  }
+  if (session.frameCount === 0) {
+    return {
+      frameDir: session.frameDir,
+      frameCount: 0,
+      videoPath: null,
+      canceled: false,
+    };
+  }
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const suggestedName = `pixel-splash-recording-${stamp}.mp4`;
+  const defaultPath = join(app.getPath('downloads'), suggestedName);
+  const window = BrowserWindow.getFocusedWindow() ?? getMainWindow();
+  const dialogOptions = {
+    filters: [{ name: 'MP4 Video', extensions: ['mp4'] }],
+    defaultPath,
+  };
+  const { filePath, canceled } = window
+    ? await dialog.showSaveDialog(window, dialogOptions)
+    : await dialog.showSaveDialog(dialogOptions);
+  if (canceled || !filePath) {
+    return {
+      frameDir: session.frameDir,
+      frameCount: session.frameCount,
+      videoPath: null,
+      canceled: true,
+    };
+  }
+  await encodeRecordingVideo(session.frameDir, filePath, typeof fps === 'number' ? fps : 12);
+  return {
+    frameDir: session.frameDir,
+    frameCount: session.frameCount,
+    videoPath: filePath,
+    canceled: false,
+  };
 });
 
 ipcMain.on('app:set-title', (event, title: string) => {

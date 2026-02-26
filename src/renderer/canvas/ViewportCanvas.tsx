@@ -37,6 +37,7 @@ import { useTileMapStore } from '@/state/tileMapStore';
 import { useWorkspaceStore } from '@/state/workspaceStore';
 import { useBookmarkStore } from '@/state/bookmarkStore';
 import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
+import { useRecordingStore } from '@/state/recordingStore';
 import ToolContextMenu from '@/ui/ToolContextMenu';
 import { getBlocksUnderConstruction } from '@/services/largeOperationQueue';
 import { addReferencesFromFiles } from '@/services/references';
@@ -804,6 +805,7 @@ const ViewportCanvas = () => {
     anchor: { x: number; y: number } | null;
     frame: number | null;
   }>({ remainingLogDelta: 0, anchor: null, frame: null });
+  const frameCaptureQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
     const wrapper = wrapperRef.current;
@@ -1207,6 +1209,31 @@ const ViewportCanvas = () => {
     }
     const cursor = toCursorState(event);
     controllerRef.current?.handleEvent('end', cursor);
+    if (useRecordingStore.getState().isRecording) {
+      const captureCanvas = canvasRef.current;
+      if (captureCanvas && window.recordingApi?.addFrame) {
+        frameCaptureQueueRef.current = frameCaptureQueueRef.current.then(
+          () =>
+            new Promise<void>((resolve) => {
+              requestAnimationFrame(() => {
+                captureCanvas.toBlob(async (blob) => {
+                  if (!blob) {
+                    resolve();
+                    return;
+                  }
+                  try {
+                    const bytes = new Uint8Array(await blob.arrayBuffer());
+                    await window.recordingApi.addFrame(bytes);
+                  } catch (error) {
+                    console.error('Failed to capture recording frame:', error);
+                  }
+                  resolve();
+                }, 'image/png');
+              });
+            })
+        );
+      }
+    }
     event.currentTarget.releasePointerCapture(event.pointerId);
   };
 

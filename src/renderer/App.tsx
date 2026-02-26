@@ -54,6 +54,7 @@ import { useClipboardStore } from './state/clipboardStore';
 import { usePaletteStore } from './state/paletteStore';
 import { useViewportStore } from './state/viewportStore';
 import { useLayerVisibilityStore } from './state/layerVisibilityStore';
+import { useRecordingStore } from './state/recordingStore';
 import { addReferenceFromFile } from './services/references';
 import { copyTextToClipboard, type TextFontFamily } from './services/textClipboard';
 import { getGlobalHotkeyAction } from './services/hotkeys';
@@ -284,6 +285,8 @@ const App = () => {
   const [memoryLabel, setMemoryLabel] = useState('');
   const [paletteHeight, setPaletteHeight] = useState(96);
   const [tilePaletteHeight, setTilePaletteHeight] = useState(220);
+  const isRecording = useRecordingStore((state) => state.isRecording);
+  const setIsRecording = useRecordingStore((state) => state.setIsRecording);
   const activeTool = useToolStore((state) => state.activeTool);
   const setActiveTool = useToolStore((state) => state.setActiveTool);
   const workspaceMode = useWorkspaceStore((state) => state.mode);
@@ -800,6 +803,53 @@ const App = () => {
   const handleShortcuts = React.useCallback(() => {
     setShowShortcuts(true);
   }, [setShowShortcuts]);
+
+  const handleStartRecording = React.useCallback(async () => {
+    if (browserDemo || isRecording) {
+      return;
+    }
+    if (!window.recordingApi?.start) {
+      window.alert('Recording is unavailable. Restart the app to load the latest recording support.');
+      return;
+    }
+    try {
+      const session = await window.recordingApi.start();
+      setIsRecording(true);
+      window.alert(`Recording started.\nFrames will be saved to:\n${session.frameDir}`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to start recording.';
+      window.alert(message);
+    }
+  }, [browserDemo, isRecording, setIsRecording]);
+
+  const handleStopRecording = React.useCallback(async () => {
+    if (!isRecording || !window.recordingApi?.stop) {
+      return;
+    }
+    try {
+      const result = await window.recordingApi.stop(12);
+      setIsRecording(false);
+      if (!result) {
+        window.alert('No active recording session.');
+        return;
+      }
+      if (result.canceled) {
+        window.alert(
+          `Recording stopped. Video export was canceled.\nFrames are still available at:\n${result.frameDir}`
+        );
+        return;
+      }
+      if (!result.videoPath) {
+        window.alert(`Recording stopped with no frames captured.\nFrames directory:\n${result.frameDir}`);
+        return;
+      }
+      window.alert(`Recording saved.\nVideo:\n${result.videoPath}\n\nFrames:\n${result.frameDir}`);
+    } catch (error) {
+      setIsRecording(false);
+      const message = error instanceof Error ? error.message : 'Unable to stop recording.';
+      window.alert(message);
+    }
+  }, [isRecording, setIsRecording]);
 
   const handleMergeProject = useCallback(async () => {
     const result = await readSplashProject();
@@ -1575,6 +1625,12 @@ const App = () => {
         case 'mergeProject':
           void handleMergeProject();
           break;
+        case 'recording:start':
+          void handleStartRecording();
+          break;
+        case 'recording:stop':
+          void handleStopRecording();
+          break;
         case 'exportPng':
           void exportSelectionAsPng();
           break;
@@ -1654,9 +1710,11 @@ const App = () => {
     handleLoad,
     handleMergeProject,
     handleNew,
+    handleStartRecording,
     handleSave,
     handleSaveAs,
     handleShortcuts,
+    handleStopRecording,
     redo,
     setAdvancedMode,
     setActiveTool,

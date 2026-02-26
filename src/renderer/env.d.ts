@@ -192,6 +192,16 @@ interface Window {
   debugApi: {
     logPerf: (message: string) => Promise<string | null>;
   };
+  recordingApi: {
+    start: () => Promise<{ frameDir: string }>;
+    addFrame: (data: Uint8Array) => Promise<{ framePath: string; frameCount: number }>;
+    stop: (
+      fps?: number
+    ) => Promise<
+      | { frameDir: string; frameCount: number; videoPath: string | null; canceled: boolean }
+      | null
+    >;
+  };
   paletteApi: {
     importLospec: (urlOrSlug: string) => Promise<{
       name: string;

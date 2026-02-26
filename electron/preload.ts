@@ -61,6 +61,12 @@ contextBridge.exposeInMainWorld('debugApi', {
   logPerf: (message: string) => ipcRenderer.invoke('debug:perf-log', message),
 });
 
+contextBridge.exposeInMainWorld('recordingApi', {
+  start: () => ipcRenderer.invoke('recording:start'),
+  addFrame: (data: Uint8Array) => ipcRenderer.invoke('recording:add-frame', data),
+  stop: (fps?: number) => ipcRenderer.invoke('recording:stop', fps),
+});
+
 contextBridge.exposeInMainWorld('paletteApi', {
   importLospec: (urlOrSlug: string) => ipcRenderer.invoke('palette:import-lospec', urlOrSlug),
   onApply: (
