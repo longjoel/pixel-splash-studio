@@ -3,6 +3,7 @@ import type { Bookmark } from '@/state/bookmarkStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { exportTileMapPixelRegion } from '@/services/tileMapExport';
+import { platform } from '@/platform/api';
 
 const ensurePngFileName = (value: string) => {
   const trimmed = value.trim();
@@ -47,7 +48,7 @@ const buildRegionRgba = (bookmark: Bookmark) => {
 export const exportBookmarkRegionAsPng = async (bookmark: Bookmark) => {
   const suggestedName = ensurePngFileName(bookmark.fileName ?? '');
   if (!suggestedName) {
-    window.alert('Set a file name before exporting this bookmark.');
+    platform.alert('Set a file name before exporting this bookmark.');
     return null;
   }
 
@@ -57,7 +58,7 @@ export const exportBookmarkRegionAsPng = async (bookmark: Bookmark) => {
   canvas.height = height;
   const context = canvas.getContext('2d');
   if (!context) {
-    window.alert('Unable to export bookmark.');
+    platform.alert('Unable to export bookmark.');
     return null;
   }
   context.putImageData(new ImageData(data, width, height), 0, 0);
@@ -66,18 +67,23 @@ export const exportBookmarkRegionAsPng = async (bookmark: Bookmark) => {
     canvas.toBlob((result) => resolve(result), 'image/png')
   );
   if (!blob) {
-    window.alert('Unable to export bookmark.');
+    platform.alert('Unable to export bookmark.');
     return null;
   }
 
+  const projectApi = platform.project();
+  if (!projectApi?.exportPng) {
+    platform.alert('PNG export is unavailable in this host.');
+    return null;
+  }
   const buffer = new Uint8Array(await blob.arrayBuffer());
-  return window.projectApi.exportPng(buffer, suggestedName);
+  return projectApi.exportPng(buffer, suggestedName);
 };
 
 export const exportBookmarkRegionAsTileMap = async (bookmark: Bookmark) => {
   const baseName = ensurePngFileName(bookmark.fileName ?? '').replace(/\.png$/i, '');
   if (!baseName) {
-    window.alert('Set a file name before exporting this bookmark.');
+    platform.alert('Set a file name before exporting this bookmark.');
     return null;
   }
   return exportTileMapPixelRegion(
@@ -89,4 +95,10 @@ export const exportBookmarkRegionAsTileMap = async (bookmark: Bookmark) => {
     },
     { baseName }
   );
+};
+
+export const exportBookmarkRegionBoth = async (bookmark: Bookmark) => {
+  const pngPath = await exportBookmarkRegionAsPng(bookmark);
+  const tilemapPath = await exportBookmarkRegionAsTileMap(bookmark);
+  return { pngPath, tilemapPath };
 };

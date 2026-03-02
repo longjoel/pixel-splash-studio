@@ -1,4 +1,5 @@
 import { usePaletteStore } from '@/state/paletteStore';
+import { platform } from '@/platform/api';
 import { collectSelectionPixels } from './selectionData';
 import {
   TILE_SIZE,
@@ -68,21 +69,22 @@ const buildGbrFile = (
 };
 
 export const exportSelectionAsGbr = async () => {
-  if (!window.projectApi?.exportGbr) {
-    window.alert('Game Boy export is unavailable. Restart the app to load the latest export support.');
+  const projectApi = platform.project();
+  if (!projectApi?.exportGbr) {
+    platform.alert('Game Boy export is unavailable. Restart the app to load the latest export support.');
     return null;
   }
 
   const selection = collectSelectionPixels();
   if (!selection) {
-    window.alert('Select a region to export.');
+    platform.alert('Select a region to export.');
     return null;
   }
 
   const paletteState = usePaletteStore.getState();
   const { paletteIndices, paletteRgb } = pickFourColorPalette(selection, paletteState.colors);
   if (paletteIndices.length < 4) {
-    window.alert('Palette needs at least 4 colors to export.');
+    platform.alert('Palette needs at least 4 colors to export.');
     return null;
   }
 
@@ -97,5 +99,5 @@ export const exportSelectionAsGbr = async () => {
   const gbr = buildGbrFile(tileData, tileCount, [0, 1, 2, 3]);
 
   const suggestedName = `pixel-splash-selection-${padWidth}x${padHeight}.gbr`;
-  return window.projectApi.exportGbr(gbr, suggestedName);
+  return projectApi.exportGbr(gbr, suggestedName);
 };

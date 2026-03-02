@@ -254,4 +254,16 @@ interface Window {
     stepScale: (factor: number) => void;
     onScaleChange: (handler: (scale: number) => void) => () => void;
   };
+  __PSS_PLATFORM_CAPABILITIES__?: {
+    importImage?: boolean;
+    exportPng?: boolean;
+    exportTileMap?: boolean;
+    exportImage?: boolean;
+    recording?: boolean;
+    ai?: boolean;
+    options?: boolean;
+    menuActions?: boolean;
+    viewMenuState?: boolean;
+    fullscreenToggle?: boolean;
+  };
 }

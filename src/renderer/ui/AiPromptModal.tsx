@@ -4,6 +4,7 @@ import { useClipboardStore } from '@/state/clipboardStore';
 import { useToolStore } from '@/state/toolStore';
 import { quantizeImageToPalette } from '@/services/aiQuantize';
 import { buildSelectionPngBase64 } from '@/services/selectionPng';
+import { platform } from '@/platform/api';
 
 type AiPromptModalProps = {
   initialPrompt?: string;
@@ -71,7 +72,7 @@ export const AiPromptModal = ({
       setError('Enter a prompt.');
       return;
     }
-    if (!window.aiApi?.generateSprite) {
+    if (!platform.ai()?.generateSprite) {
       setError('AI is unavailable. Restart the app to load the latest AI support.');
       return;
     }
@@ -81,7 +82,7 @@ export const AiPromptModal = ({
       setBusyStage(useSelectionAsReference ? 'Encoding reference…' : 'Preparing prompt…');
       const referencePngBase64 = useSelectionAsReference ? await buildSelectionPngBase64() : null;
       setBusyStage('Waiting for OpenAI…');
-      const result = await window.aiApi.generateSprite({
+      const result = await platform.ai().generateSprite({
         prompt: trimmed,
         palette,
         cellWidth: clampInt(cellWidth, 1, 512),

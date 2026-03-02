@@ -10,3 +10,4 @@ dist-electron/
 
 out/
 *.log
+apps/vscode-extension/media/web/

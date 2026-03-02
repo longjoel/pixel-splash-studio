@@ -5,6 +5,7 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { useProjectStore } from '@/state/projectStore';
 import { useSelectionStore } from '@/state/selectionStore';
+import { platform } from '@/platform/api';
 
 const toColorKey = (r: number, g: number, b: number) => (r << 16) | (g << 8) | b;
 
@@ -114,21 +115,22 @@ const mapRgbaPixels = (payload: ImportedImagePayload) => {
 };
 
 export const importImageAsProject = async () => {
-  if (!window.projectApi?.importImage) {
-    window.alert('Import is unavailable. Restart the app to load the latest import support.');
+  const projectApi = platform.project();
+  if (!projectApi?.importImage) {
+    platform.alert('Import is unavailable. Restart the app to load the latest import support.');
     return null;
   }
 
-  const payload = await window.projectApi.importImage();
+  const payload = await projectApi.importImage();
   if (!payload) {
     return null;
   }
   if (payload.format === 'nes' || payload.format === 'gb' || payload.format === 'gbc' || payload.format === 'chr') {
-    window.alert('ROM import now uses the in-app picker. Use File → Import ROMs… from the main window.');
+    platform.alert('ROM import now uses the in-app picker. Use File → Import ROMs… from the main window.');
     return null;
   }
   if (payload.width > 512 || payload.height > 512) {
-    window.alert('Large images (over 512x512) can take a while to load.');
+    platform.alert('Large images (over 512x512) can take a while to load.');
   }
 
   const paletteStore = usePaletteStore.getState();

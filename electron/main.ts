@@ -1072,13 +1072,21 @@ ipcMain.handle(
 
     const basePath = filePaths[0];
     let outputPath = basePath;
-    const safeBaseName = (payload.baseName ?? 'tiles')
-      .trim()
-      .replace(/\.[^.]+$/, '')
-      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
-      .replace(/\s+/g, '-')
-      .replace(/-+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'tiles';
+    const stripControlChars = (value: string) =>
+      Array.from(value)
+        .filter((char) => char.charCodeAt(0) >= 32)
+        .join('');
+    const normalizedBaseName = stripControlChars(
+      (payload.baseName ?? 'tiles')
+        .trim()
+        .replace(/\.[^.]+$/, '')
+        .replace(/[<>:"/\\|?*]/g, '-')
+    );
+    const safeBaseName =
+      normalizedBaseName
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-+|-+$/g, '') || 'tiles';
     const pngPath = join(outputPath, `${safeBaseName}.png`);
     const tmxPath = join(outputPath, `${safeBaseName}.tmx`);
     if (await pathExists(pngPath) || await pathExists(tmxPath)) {

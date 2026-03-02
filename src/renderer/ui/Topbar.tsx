@@ -9,6 +9,7 @@ import { copyTilesToClipboard, cutTilesToClipboard } from '@/services/tileClipbo
 import { exportSelectionAsPng } from '@/services/selectionExport';
 import { useSelectionStore } from '@/state/selectionStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { platform } from '@/platform/api';
 
 type TopbarProps = {
   activeTool: ToolId;
@@ -705,7 +706,7 @@ const TopbarInner = ({
             type="button"
             className="topbar__tool-button"
             onClick={() => {
-              void window.windowApi?.toggleFullscreen?.();
+              void platform.appWindow()?.toggleFullscreen?.();
             }}
             title="Toggle Full Screen (F11)"
             aria-label="Toggle Full Screen"

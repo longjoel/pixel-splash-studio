@@ -2,6 +2,7 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import { enqueuePixelChanges } from '@/services/largeOperationQueue';
 import { BLOCK_SIZE } from '@/core/canvasStore';
+import { platform } from '@/platform/api';
 
 const palettesMatch = (a: string[], b: string[]) => {
   if (a.length !== b.length) {
@@ -16,11 +17,12 @@ const palettesMatch = (a: string[], b: string[]) => {
 };
 
 export const readSplashProject = async (existingPath?: string) => {
-  if (!window.projectApi?.read) {
-    window.alert('Project import is unavailable. Restart the app to load the latest import support.');
+  const projectApi = platform.project();
+  if (!projectApi?.read) {
+    platform.alert('Project import is unavailable. Restart the app to load the latest import support.');
     return null;
   }
-  return window.projectApi.read(existingPath);
+  return projectApi.read(existingPath);
 };
 
 export const mergeProjectPixels = (
@@ -30,7 +32,7 @@ export const mergeProjectPixels = (
   const incomingPalette = payload.data.palette?.colors ?? [];
   const paletteStore = usePaletteStore.getState();
   if (!palettesMatch(paletteStore.colors, incomingPalette)) {
-    window.alert(
+    platform.alert(
       'Palette mismatch. For now, project merge requires both projects to have identical palettes.'
     );
     return;

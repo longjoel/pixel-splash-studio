@@ -1,4 +1,5 @@
 import { usePaletteStore } from '@/state/paletteStore';
+import { platform } from '@/platform/api';
 import { collectSelectionPixels } from './selectionData';
 import {
   buildSelectionRgb,
@@ -9,21 +10,22 @@ import {
 } from './selectionExportTiles';
 
 export const exportSelectionAsChr = async () => {
-  if (!window.projectApi?.exportChr) {
-    window.alert('CHR export is unavailable. Restart the app to load the latest export support.');
+  const projectApi = platform.project();
+  if (!projectApi?.exportChr) {
+    platform.alert('CHR export is unavailable. Restart the app to load the latest export support.');
     return null;
   }
 
   const selection = collectSelectionPixels();
   if (!selection) {
-    window.alert('Select a region to export.');
+    platform.alert('Select a region to export.');
     return null;
   }
 
   const paletteState = usePaletteStore.getState();
   const { paletteIndices, paletteRgb } = pickFourColorPalette(selection, paletteState.colors);
   if (paletteIndices.length < 4) {
-    window.alert('Palette needs at least 4 colors to export.');
+    platform.alert('Palette needs at least 4 colors to export.');
     return null;
   }
 
@@ -36,5 +38,5 @@ export const exportSelectionAsChr = async () => {
 
   const { data: tileData } = buildTileBytes(indices, padWidth, padHeight);
   const suggestedName = `pixel-splash-selection-${padWidth}x${padHeight}.chr`;
-  return window.projectApi.exportChr(tileData, suggestedName);
+  return projectApi.exportChr(tileData, suggestedName);
 };

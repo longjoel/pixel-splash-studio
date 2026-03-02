@@ -1,6 +1,7 @@
 import { hexToRgb } from '@/core/colorUtils';
 import { usePaletteStore } from '@/state/paletteStore';
 import { useTileMapStore } from '@/state/tileMapStore';
+import { platform } from '@/platform/api';
 
 type TileBounds = {
   minTileX: number;
@@ -18,6 +19,10 @@ type PixelBounds = {
 
 const ATLAS_EXTRUDE_PX = 1;
 const DEFAULT_TILEMAP_BASE_NAME = 'tiles';
+const stripControlChars = (value: string) =>
+  Array.from(value)
+    .filter((char) => char.charCodeAt(0) >= 32)
+    .join('');
 
 const sanitizeBaseName = (value?: string) => {
   const trimmed = value?.trim() ?? '';
@@ -25,8 +30,8 @@ const sanitizeBaseName = (value?: string) => {
     return DEFAULT_TILEMAP_BASE_NAME;
   }
   const noExt = trimmed.replace(/\.[^.]+$/, '');
-  const safe = noExt
-    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+  const safe = stripControlChars(noExt)
+    .replace(/[<>:"/\\|?*]/g, '-')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
@@ -115,15 +120,16 @@ const buildTileAtlas = async (
 };
 
 export const exportTileMapRegion = async (bounds: TileBounds, options?: { baseName?: string }) => {
-  if (!window.projectApi?.exportTileMap) {
-    window.alert('Tile export is unavailable. Restart the app to load the latest export support.');
+  const projectApi = platform.project();
+  if (!projectApi?.exportTileMap) {
+    platform.alert('Tile export is unavailable. Restart the app to load the latest export support.');
     return null;
   }
 
   const tileStore = useTileMapStore.getState();
   const tileSet = tileStore.tileSets.find((set) => set.id === tileStore.activeTileSetId);
   if (!tileSet) {
-    window.alert('No tile set available.');
+    platform.alert('No tile set available.');
     return null;
   }
 
@@ -132,7 +138,7 @@ export const exportTileMapRegion = async (bounds: TileBounds, options?: { baseNa
       (map) => map.id === tileStore.activeTileMapId && map.tileSetId === tileSet.id
     ) ?? tileStore.tileMaps.find((map) => map.tileSetId === tileSet.id);
   if (!activeMap) {
-    window.alert('No tile map available.');
+    platform.alert('No tile map available.');
     return null;
   }
 
@@ -166,7 +172,7 @@ export const exportTileMapRegion = async (bounds: TileBounds, options?: { baseNa
   }
 
   if (usedTiles.size === 0) {
-    window.alert('No tiles in the selected region.');
+    platform.alert('No tiles in the selected region.');
     return null;
   }
 
@@ -206,7 +212,7 @@ ${dataRows.join('\n')}
 </map>
 `;
 
-  return window.projectApi.exportTileMap({
+  return projectApi.exportTileMap({
     png: atlas.buffer,
     tmx,
     baseName,
@@ -220,7 +226,7 @@ export const exportTileMapPixelRegion = async (
   const tileStore = useTileMapStore.getState();
   const tileSet = tileStore.tileSets.find((set) => set.id === tileStore.activeTileSetId);
   if (!tileSet) {
-    window.alert('No tile set available.');
+    platform.alert('No tile set available.');
     return null;
   }
   const width = Math.max(1, Math.round(bounds.width));

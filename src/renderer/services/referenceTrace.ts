@@ -4,6 +4,7 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
 import type { ReferenceImage } from '@/state/referenceStore';
 import { enqueuePixelChanges } from '@/services/largeOperationQueue';
+import { platform } from '@/platform/api';
 import {
   PIXEL_SIZE,
   TRACE_ALPHA_THRESHOLD,
@@ -71,7 +72,7 @@ const buildTraceCanvas = (reference: ReferenceImage): TraceCanvas | null => {
       `Reference trace is too large (${width}x${height}, ${pixelCount.toLocaleString()} px). ` +
       `Reduce the reference scale or set localStorage["${TRACE_CANVAS_OVERRIDE_STORAGE_KEY}"]="true" to override.`;
     if (typeof window !== 'undefined') {
-      window.alert(warning);
+      platform.alert(warning);
     }
     console.warn('[referenceTrace] Trace canvas exceeds limits.', {
       width,

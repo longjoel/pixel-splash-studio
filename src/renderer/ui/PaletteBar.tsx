@@ -4,6 +4,7 @@ import { usePaletteStore } from '@/state/paletteStore';
 import { useProjectStore } from '@/state/projectStore';
 import { hexToRgb, mix, type Rgb } from '@/core/colorUtils';
 import DropdownSelect from './DropdownSelect';
+import { platform } from '@/platform/api';
 
 type MenuState = {
   open: boolean;
@@ -613,7 +614,7 @@ const PaletteBar = () => {
   }, []);
 
   const submitLospec = async () => {
-    if (!window.paletteApi?.importLospec) {
+    if (!platform.palette()?.importLospec) {
       setLospecError('LoSpec import is unavailable (paletteApi not found). Restart the app.');
       return;
     }
@@ -632,7 +633,7 @@ const PaletteBar = () => {
     setLospecBusy(true);
     setLospecError(null);
     try {
-      const payload = await window.paletteApi.importLospec(input);
+      const payload = await platform.palette().importLospec(input);
       const nextColors = payload.colors.length > 0 ? payload.colors : colors;
       setPalette(nextColors);
       setSelectedIndices([Math.max(0, nextColors.length - 1)]);

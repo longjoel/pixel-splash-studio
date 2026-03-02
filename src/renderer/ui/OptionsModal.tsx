@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { platform } from '@/platform/api';
 
 type OptionsModalProps = {
   onClose: () => void;
@@ -28,12 +29,12 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
     let cancelled = false;
     const run = async () => {
       try {
-        const info = await window.optionsApi.getOpenAiKeyInfo();
-        const model = await window.optionsApi.getOpenAiImageModel();
-        const provider = await window.optionsApi.getAiImageProvider();
-        const localConfig = await window.optionsApi.getLocalAiConfig();
-        const localKeyInfo = await window.optionsApi.getLocalAiKeyInfo();
-        const advanced = await window.optionsApi.getAdvancedMode();
+        const info = await platform.options().getOpenAiKeyInfo();
+        const model = await platform.options().getOpenAiImageModel();
+        const provider = await platform.options().getAiImageProvider();
+        const localConfig = await platform.options().getLocalAiConfig();
+        const localKeyInfo = await platform.options().getLocalAiKeyInfo();
+        const advanced = await platform.options().getAdvancedMode();
         if (cancelled) {
           return;
         }
@@ -69,13 +70,13 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
   const saveKey = async () => {
     const trimmed = apiKeyDraft.trim();
     if (!trimmed) {
-      window.alert('Paste your OpenAI API key, or use Clear.');
+      platform.alert('Paste your OpenAI API key, or use Clear.');
       return;
     }
     setLoading(true);
     try {
-      await window.optionsApi.setOpenAiApiKey(trimmed);
-      const info = await window.optionsApi.getOpenAiKeyInfo();
+      await platform.options().setOpenAiApiKey(trimmed);
+      const info = await platform.options().getOpenAiKeyInfo();
       setHasKey(info.hasKey);
       setEncryptionAvailable(info.encryptionAvailable);
       setStoredEncrypted(info.storedEncrypted);
@@ -83,7 +84,7 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
       setShowKey(false);
     } catch (error) {
       console.error('Failed to save OpenAI API key:', error);
-      window.alert('Unable to save API key.');
+      platform.alert('Unable to save API key.');
     } finally {
       setLoading(false);
     }
@@ -95,8 +96,8 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
     }
     setLoading(true);
     try {
-      await window.optionsApi.setOpenAiApiKey(null);
-      const info = await window.optionsApi.getOpenAiKeyInfo();
+      await platform.options().setOpenAiApiKey(null);
+      const info = await platform.options().getOpenAiKeyInfo();
       setHasKey(info.hasKey);
       setEncryptionAvailable(info.encryptionAvailable);
       setStoredEncrypted(info.storedEncrypted);
@@ -104,7 +105,7 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
       setShowKey(false);
     } catch (error) {
       console.error('Failed to clear OpenAI API key:', error);
-      window.alert('Unable to clear API key.');
+      platform.alert('Unable to clear API key.');
     } finally {
       setLoading(false);
     }
@@ -113,11 +114,11 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
   const updateModel = async (next: 'gpt-image-1' | 'gpt-image-1-mini') => {
     setImageModel(next);
     try {
-      await window.optionsApi.setOpenAiImageModel(next);
+      await platform.options().setOpenAiImageModel(next);
     } catch (error) {
       console.error('Failed to set image model:', error);
-      window.alert('Unable to update image model.');
-      const current = await window.optionsApi.getOpenAiImageModel().catch(() => 'gpt-image-1');
+      platform.alert('Unable to update image model.');
+      const current = await platform.options().getOpenAiImageModel().catch(() => 'gpt-image-1');
       setImageModel(current);
     }
   };
@@ -125,11 +126,11 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
   const updateProvider = async (next: 'openai' | 'localai') => {
     setImageProvider(next);
     try {
-      await window.optionsApi.setAiImageProvider(next);
+      await platform.options().setAiImageProvider(next);
     } catch (error) {
       console.error('Failed to set image provider:', error);
-      window.alert('Unable to update image provider.');
-      const current = await window.optionsApi.getAiImageProvider().catch(() => 'openai');
+      platform.alert('Unable to update image provider.');
+      const current = await platform.options().getAiImageProvider().catch(() => 'openai');
       setImageProvider(current);
     }
   };
@@ -137,13 +138,13 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
   const saveLocalAiKey = async () => {
     const trimmed = localAiApiKeyDraft.trim();
     if (!trimmed) {
-      window.alert('Paste your LocalAI API key, or use Clear.');
+      platform.alert('Paste your LocalAI API key, or use Clear.');
       return;
     }
     setLoading(true);
     try {
-      await window.optionsApi.setLocalAiApiKey(trimmed);
-      const info = await window.optionsApi.getLocalAiKeyInfo();
+      await platform.options().setLocalAiApiKey(trimmed);
+      const info = await platform.options().getLocalAiKeyInfo();
       setLocalAiHasKey(info.hasKey);
       setLocalAiEncryptionAvailable(info.encryptionAvailable);
       setLocalAiStoredEncrypted(info.storedEncrypted);
@@ -151,7 +152,7 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
       setLocalAiShowKey(false);
     } catch (error) {
       console.error('Failed to save LocalAI API key:', error);
-      window.alert('Unable to save LocalAI API key.');
+      platform.alert('Unable to save LocalAI API key.');
     } finally {
       setLoading(false);
     }
@@ -163,8 +164,8 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
     }
     setLoading(true);
     try {
-      await window.optionsApi.setLocalAiApiKey(null);
-      const info = await window.optionsApi.getLocalAiKeyInfo();
+      await platform.options().setLocalAiApiKey(null);
+      const info = await platform.options().getLocalAiKeyInfo();
       setLocalAiHasKey(info.hasKey);
       setLocalAiEncryptionAvailable(info.encryptionAvailable);
       setLocalAiStoredEncrypted(info.storedEncrypted);
@@ -172,7 +173,7 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
       setLocalAiShowKey(false);
     } catch (error) {
       console.error('Failed to clear LocalAI API key:', error);
-      window.alert('Unable to clear LocalAI API key.');
+      platform.alert('Unable to clear LocalAI API key.');
     } finally {
       setLoading(false);
     }
@@ -181,12 +182,12 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
   const updateAdvancedMode = async (next: boolean) => {
     setAdvancedMode(next);
     try {
-      await window.optionsApi.setAdvancedMode(next);
+      await platform.options().setAdvancedMode(next);
       onAdvancedModeChange(next);
     } catch (error) {
       console.error('Failed to update advanced mode:', error);
-      window.alert('Unable to update advanced mode.');
-      const current = await window.optionsApi.getAdvancedMode().catch(() => true);
+      platform.alert('Unable to update advanced mode.');
+      const current = await platform.options().getAdvancedMode().catch(() => true);
       setAdvancedMode(current);
       onAdvancedModeChange(current);
     }
@@ -276,7 +277,7 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
                     type="text"
                     value={localAiBaseUrl}
                     onChange={(e) => setLocalAiBaseUrl(e.target.value)}
-                    onBlur={() => void window.optionsApi.setLocalAiBaseUrl(localAiBaseUrl)}
+                    onBlur={() => void platform.options().setLocalAiBaseUrl(localAiBaseUrl)}
                     disabled={loading}
                     style={{ width: 360 }}
                   />
@@ -290,7 +291,7 @@ export const OptionsModal = ({ onClose, onAdvancedModeChange }: OptionsModalProp
                     type="text"
                     value={localAiModel}
                     onChange={(e) => setLocalAiModel(e.target.value)}
-                    onBlur={() => void window.optionsApi.setLocalAiImageModel(localAiModel)}
+                    onBlur={() => void platform.options().setLocalAiImageModel(localAiModel)}
                     disabled={loading}
                     style={{ width: 240 }}
                   />

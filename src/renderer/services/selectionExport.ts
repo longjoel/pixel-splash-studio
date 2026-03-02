@@ -1,10 +1,11 @@
 import { collectSelectionPixels } from './selectionData';
 import { buildSelectionImageData } from './selectionExportData';
+import { platform } from '@/platform/api';
 
 export const exportSelectionAsPng = async () => {
   const selection = collectSelectionPixels();
   if (!selection) {
-    window.alert('Select a region to export.');
+    platform.alert('Select a region to export.');
     return null;
   }
 
@@ -14,7 +15,7 @@ export const exportSelectionAsPng = async () => {
   canvas.height = height;
   const context = canvas.getContext('2d');
   if (!context) {
-    window.alert('Unable to export selection.');
+    platform.alert('Unable to export selection.');
     return null;
   }
   const imageData = new ImageData(data, width, height);
@@ -24,11 +25,16 @@ export const exportSelectionAsPng = async () => {
     canvas.toBlob((result) => resolve(result), 'image/png')
   );
   if (!blob) {
-    window.alert('Unable to export selection.');
+    platform.alert('Unable to export selection.');
     return null;
   }
 
+  const projectApi = platform.project();
+  if (!projectApi?.exportPng) {
+    platform.alert('PNG export is unavailable in this host.');
+    return null;
+  }
   const buffer = new Uint8Array(await blob.arrayBuffer());
   const suggestedName = `pixel-splash-selection-${width}x${height}.png`;
-  return window.projectApi.exportPng(buffer, suggestedName);
+  return projectApi.exportPng(buffer, suggestedName);
 };

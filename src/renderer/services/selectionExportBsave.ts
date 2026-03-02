@@ -1,5 +1,6 @@
 import { usePaletteStore } from '@/state/paletteStore';
 import { hexToRgb } from '@/core/colorUtils';
+import { platform } from '@/platform/api';
 import { collectSelectionPixels } from './selectionData';
 
 type Rgb = { r: number; g: number; b: number };
@@ -147,13 +148,14 @@ const exportSelectionAsBsave = async (
   segment: number,
   suggestedName: string
 ) => {
-  if (!window.projectApi?.exportBsave) {
-    window.alert('BSAVE export is unavailable. Restart the app to load the latest export support.');
+  const projectApi = platform.project();
+  if (!projectApi?.exportBsave) {
+    platform.alert('BSAVE export is unavailable. Restart the app to load the latest export support.');
     return null;
   }
   const selection = collectSelectionPixels();
   if (!selection) {
-    window.alert('Select a region to export.');
+    platform.alert('Select a region to export.');
     return null;
   }
 
@@ -191,7 +193,7 @@ const exportSelectionAsBsave = async (
   output.set(header, 0);
   output.set(packed, header.length);
 
-  return window.projectApi.exportBsave(output, suggestedName);
+  return projectApi.exportBsave(output, suggestedName);
 };
 
 export const exportSelectionAsBsaveCga = () =>

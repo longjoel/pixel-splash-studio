@@ -5,6 +5,7 @@ import { getReferenceBounds } from '@/core/referenceTransforms';
 import { useViewportStore } from '@/state/viewportStore';
 import { PIXEL_SIZE } from '@/core/grid';
 import {
+  exportBookmarkRegionBoth,
   exportBookmarkRegionAsPng,
   exportBookmarkRegionAsTileMap,
 } from '@/services/bookmarkExport';
@@ -165,6 +166,15 @@ const NavigationPanel = () => {
                   </button>
                   {bookmark.fileName?.trim() ? (
                     <>
+                      <button
+                        type="button"
+                        className="nav-panel__button"
+                        onClick={() => {
+                          void exportBookmarkRegionBoth(bookmark);
+                        }}
+                      >
+                        Export Both
+                      </button>
                       <button
                         type="button"
                         className="nav-panel__button"

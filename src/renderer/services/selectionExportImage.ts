@@ -1,32 +1,39 @@
 import { usePaletteStore } from '@/state/paletteStore';
 import { hexToRgb } from '@/core/colorUtils';
+import { platform } from '@/platform/api';
 import { collectSelectionPixels } from './selectionData';
 import { buildSelectionImageData, buildSelectionIndexData } from './selectionExportData';
 
 type ExportFormat = 'bmp' | 'gif' | 'pcx' | 'tga';
 
 const ensureExportAvailable = () => {
-  if (!window.projectApi?.exportImage) {
-    window.alert('Image export is unavailable. Restart the app to load the latest export support.');
-    return false;
+  const projectApi = platform.project();
+  if (!projectApi?.exportImage) {
+    platform.alert('Image export is unavailable. Restart the app to load the latest export support.');
+    return null;
   }
-  return true;
+  return projectApi;
 };
 
 const exportSelectionAsImage = async (format: ExportFormat) => {
   const selection = collectSelectionPixels();
   if (!selection) {
-    window.alert('Select a region to export.');
+    platform.alert('Select a region to export.');
     return null;
   }
-  if (!ensureExportAvailable()) {
+  const projectApi = ensureExportAvailable();
+  if (!projectApi) {
     return null;
   }
 
   const { data, width, height } = buildSelectionImageData(selection);
   const rgba = new Uint8Array(data);
   const suggestedName = `pixel-splash-selection-${width}x${height}.${format}`;
-  return window.projectApi.exportImage(format, { kind: 'rgba', width, height, data: rgba }, suggestedName);
+  return projectApi.exportImage(
+    format,
+    { kind: 'rgba', width, height, data: rgba },
+    suggestedName
+  );
 };
 
 export const exportSelectionAsBmp = () => exportSelectionAsImage('bmp');
@@ -38,10 +45,11 @@ export const exportSelectionAsTga = () => exportSelectionAsImage('tga');
 export const exportSelectionAsPcx = async () => {
   const selection = collectSelectionPixels();
   if (!selection) {
-    window.alert('Select a region to export.');
+    platform.alert('Select a region to export.');
     return null;
   }
-  if (!ensureExportAvailable()) {
+  const projectApi = ensureExportAvailable();
+  if (!projectApi) {
     return null;
   }
 
@@ -52,7 +60,7 @@ export const exportSelectionAsPcx = async () => {
     }
   }
   if (maxPaletteIndex > 255) {
-    window.alert('PCX export supports palette indices up to 255.');
+    platform.alert('PCX export supports palette indices up to 255.');
     return null;
   }
 
@@ -75,7 +83,7 @@ export const exportSelectionAsPcx = async () => {
   }
 
   const suggestedName = `pixel-splash-selection-${width}x${height}.pcx`;
-  return window.projectApi.exportImage(
+  return projectApi.exportImage(
     'pcx',
     { kind: 'indexed', width, height, data, palette: paletteBytes },
     suggestedName

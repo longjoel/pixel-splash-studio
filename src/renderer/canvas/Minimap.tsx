@@ -6,6 +6,7 @@ import { useLayerVisibilityStore } from '@/state/layerVisibilityStore';
 import { BLOCK_SIZE } from '@/core/canvasStore';
 import { PIXEL_SIZE } from '@/core/grid';
 import { ensureContrast, getComplement, hexToRgb, mix, toRgb, toRgba } from '@/core/colorUtils';
+import { platform } from '@/platform/api';
 import { MIN_WORLD_SIZE } from '../../constants';
 
 const getPixelBounds = () => {
@@ -258,7 +259,7 @@ const Minimap = () => {
       const duration = end - start;
       if (duration > 50 && end - lastPerfLogRef.current > 500) {
         lastPerfLogRef.current = end;
-        window.debugApi?.logPerf(
+        platform.debug()?.logPerf(
           [
             'minimap:render',
             `ms=${duration.toFixed(2)}`,

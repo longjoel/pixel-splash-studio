@@ -8,6 +8,7 @@ import { useReferenceStore } from '@/state/referenceStore';
 import { useTileMapStore } from '@/state/tileMapStore';
 import { useBookmarkStore } from '@/state/bookmarkStore';
 import { clearLargeOperationQueue } from '@/services/largeOperationQueue';
+import { platform } from '@/platform/api';
 
 const loadImageFromBytes = (data: Uint8Array, type: string) =>
   new Promise<HTMLImageElement>((resolve, reject) => {
@@ -185,8 +186,13 @@ export const applyProjectPayload = async (payload: ProjectPayload) => {
 };
 
 export const saveProject = async (existingPath?: string) => {
+  const projectApi = platform.project();
+  if (!projectApi?.save) {
+    platform.alert('Save is unavailable in this host.');
+    return null;
+  }
   const payload = buildProjectPayload();
-  const path = await window.projectApi.save(payload, existingPath);
+  const path = await projectApi.save(payload, existingPath);
   if (path) {
     const project = useProjectStore.getState();
     project.setPath(path);
@@ -197,7 +203,12 @@ export const saveProject = async (existingPath?: string) => {
 
 export const loadProject = async (existingPath?: string) => {
   clearLargeOperationQueue();
-  const result = await window.projectApi.load(existingPath);
+  const projectApi = platform.project();
+  if (!projectApi?.load) {
+    platform.alert('Load is unavailable in this host.');
+    return null;
+  }
+  const result = await projectApi.load(existingPath);
   if (!result) {
     return null;
   }

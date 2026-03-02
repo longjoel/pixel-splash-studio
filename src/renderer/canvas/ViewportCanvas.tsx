@@ -41,6 +41,7 @@ import { useRecordingStore } from '@/state/recordingStore';
 import ToolContextMenu from '@/ui/ToolContextMenu';
 import { getBlocksUnderConstruction } from '@/services/largeOperationQueue';
 import { addReferencesFromFiles } from '@/services/references';
+import { platform } from '@/platform/api';
 import {
   getReferenceBounds,
   getReferenceTransform,
@@ -1088,7 +1089,7 @@ const ViewportCanvas = () => {
       const duration = frameEnd - frameStart;
       if (duration > 50 && frameEnd - lastPerfLogRef.current > 500) {
         lastPerfLogRef.current = frameEnd;
-        window.debugApi?.logPerf(
+        platform.debug()?.logPerf(
           [
             'viewport:render',
             `ms=${duration.toFixed(2)}`,
@@ -1211,7 +1212,8 @@ const ViewportCanvas = () => {
     controllerRef.current?.handleEvent('end', cursor);
     if (useRecordingStore.getState().isRecording) {
       const captureCanvas = canvasRef.current;
-      if (captureCanvas && window.recordingApi?.addFrame) {
+      const recordingApi = platform.recording();
+      if (captureCanvas && recordingApi?.addFrame) {
         frameCaptureQueueRef.current = frameCaptureQueueRef.current.then(
           () =>
             new Promise<void>((resolve) => {
@@ -1223,7 +1225,7 @@ const ViewportCanvas = () => {
                   }
                   try {
                     const bytes = new Uint8Array(await blob.arrayBuffer());
-                    await window.recordingApi.addFrame(bytes);
+                    await recordingApi.addFrame(bytes);
                   } catch (error) {
                     console.error('Failed to capture recording frame:', error);
                   }

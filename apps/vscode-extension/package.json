@@ -1,0 +1,25 @@
+{
+  "name": "pixel-splash-studio-vscode",
+  "displayName": "Pixel Splash Studio (Workspace)",
+  "description": "Pixel Splash Studio inside VS Code with workspace-backed file operations.",
+  "version": "0.0.1",
+  "publisher": "pixel-splash-studio",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onCommand:pixelSplashStudio.openEditor"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "pixelSplashStudio.openEditor",
+        "title": "Pixel Splash Studio: Open Editor"
+      }
+    ]
+  }
+}

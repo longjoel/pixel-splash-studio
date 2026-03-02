@@ -71,6 +71,7 @@ import {
 } from './state/tileMapStore';
 import { TILE_SIZE } from './core/grid';
 import { useWorkspaceStore } from './state/workspaceStore';
+import { platform } from '@/platform/api';
 import {
   applyPaletteMap,
   buildNearestPaletteMap,
@@ -249,6 +250,7 @@ const buildMemorySummary = () => {
 
 const App = () => {
   const browserDemo = isBrowserDemo();
+  const [platformCaps, setPlatformCaps] = useState(() => platform.capabilities());
   const undo = useHistoryStore((state) => state.undo);
   const redo = useHistoryStore((state) => state.redo);
   const selectionCount = useSelectionStore((state) => state.selectedCount);
@@ -391,8 +393,8 @@ const App = () => {
       const nextScale = Number.isFinite(scale) && scale > 0 ? scale : 1;
       root.style.setProperty('--ui-scale', String(nextScale));
     };
-    applyScale(window.uiScaleApi?.getScale?.() ?? 1);
-    const unsubscribe = window.uiScaleApi?.onScaleChange?.(applyScale);
+    applyScale(platform.uiScale()?.getScale?.() ?? 1);
+    const unsubscribe = platform.uiScale()?.onScaleChange?.(applyScale);
     return () => {
       if (unsubscribe) {
         unsubscribe();
@@ -401,10 +403,10 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (!window.paletteApi?.onApply) {
+    if (!platform.palette()?.onApply) {
       return;
     }
-    return window.paletteApi.onApply((payload) => {
+    return platform.palette().onApply((payload) => {
       const colors = Array.isArray(payload.colors) ? payload.colors : [];
       if (colors.length === 0) {
         return;
@@ -720,14 +722,21 @@ const App = () => {
   const paletteRightOffset = (minimapCollapsed ? 0 : 324) + 24;
 
   useEffect(() => {
-    if (browserDemo) {
+    setPlatformCaps(platform.capabilities());
+    return platform.onCapabilitiesChange((next) => {
+      setPlatformCaps(next);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (browserDemo || !platformCaps.options) {
       setAdvancedMode(false);
       return;
     }
     let cancelled = false;
     const run = async () => {
       try {
-        const value = await window.optionsApi.getAdvancedMode();
+        const value = await platform.options().getAdvancedMode();
         if (!cancelled) {
           setAdvancedMode(Boolean(value));
         }
@@ -739,7 +748,7 @@ const App = () => {
     return () => {
       cancelled = true;
     };
-  }, [browserDemo]);
+  }, [browserDemo, platformCaps.options]);
 
   useEffect(() => {
     if (activeTool !== 'reference-handle') {
@@ -808,46 +817,46 @@ const App = () => {
     if (browserDemo || isRecording) {
       return;
     }
-    if (!window.recordingApi?.start) {
-      window.alert('Recording is unavailable. Restart the app to load the latest recording support.');
+    if (!platform.recording()?.start) {
+      platform.alert('Recording is unavailable. Restart the app to load the latest recording support.');
       return;
     }
     try {
-      const session = await window.recordingApi.start();
+      const session = await platform.recording().start();
       setIsRecording(true);
-      window.alert(`Recording started.\nFrames will be saved to:\n${session.frameDir}`);
+      platform.alert(`Recording started.\nFrames will be saved to:\n${session.frameDir}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to start recording.';
-      window.alert(message);
+      platform.alert(message);
     }
   }, [browserDemo, isRecording, setIsRecording]);
 
   const handleStopRecording = React.useCallback(async () => {
-    if (!isRecording || !window.recordingApi?.stop) {
+    if (!isRecording || !platform.recording()?.stop) {
       return;
     }
     try {
-      const result = await window.recordingApi.stop(12);
+      const result = await platform.recording().stop(12);
       setIsRecording(false);
       if (!result) {
-        window.alert('No active recording session.');
+        platform.alert('No active recording session.');
         return;
       }
       if (result.canceled) {
-        window.alert(
+        platform.alert(
           `Recording stopped. Video export was canceled.\nFrames are still available at:\n${result.frameDir}`
         );
         return;
       }
       if (!result.videoPath) {
-        window.alert(`Recording stopped with no frames captured.\nFrames directory:\n${result.frameDir}`);
+        platform.alert(`Recording stopped with no frames captured.\nFrames directory:\n${result.frameDir}`);
         return;
       }
-      window.alert(`Recording saved.\nVideo:\n${result.videoPath}\n\nFrames:\n${result.frameDir}`);
+      platform.alert(`Recording saved.\nVideo:\n${result.videoPath}\n\nFrames:\n${result.frameDir}`);
     } catch (error) {
       setIsRecording(false);
       const message = error instanceof Error ? error.message : 'Unable to stop recording.';
-      window.alert(message);
+      platform.alert(message);
     }
   }, [isRecording, setIsRecording]);
 
@@ -864,12 +873,12 @@ const App = () => {
   }, []);
 
   const handleImport = useCallback(async () => {
-    if (!window.projectApi?.importImage) {
-      window.alert('Import is unavailable. Restart the app to load the latest import support.');
+    if (!platform.project()?.importImage) {
+      platform.alert('Import is unavailable. Restart the app to load the latest import support.');
       return;
     }
 
-    const payload = await window.projectApi.importImage();
+    const payload = await platform.project().importImage();
     if (!payload) {
       return;
     }
@@ -881,14 +890,14 @@ const App = () => {
       payload.format === 'chr';
     if (!isRom) {
       if (payload.width > 512 || payload.height > 512) {
-        window.alert('Large images (over 512x512) can take a while to load.');
+        platform.alert('Large images (over 512x512) can take a while to load.');
       }
       applyImportedImageAsNewProject(payload);
       return;
     }
 
     if (payload.colorType !== 'indexed') {
-      window.alert('ROM import preview requires indexed pixels.');
+      platform.alert('ROM import preview requires indexed pixels.');
       return;
     }
 
@@ -953,14 +962,14 @@ const App = () => {
       return;
     }
     if (!romPayload.palette) {
-      window.alert('ROM palette is missing.');
+      platform.alert('ROM palette is missing.');
       return;
     }
     const extractedRegions = romSelections
       .map((rect) => clampRect(rect, romTilesAcross, romTilesDown))
       .filter((rect) => rect.width > 0 && rect.height > 0);
     if (extractedRegions.length === 0) {
-      window.alert('Select at least one region.');
+      platform.alert('Select at least one region.');
       return;
     }
 
@@ -1311,17 +1320,17 @@ const App = () => {
       }
       if (key === '+' || key === '=') {
         event.preventDefault();
-        window.uiScaleApi?.stepScale?.(1.1);
+        platform.uiScale()?.stepScale?.(1.1);
         return;
       }
       if (key === '-') {
         event.preventDefault();
-        window.uiScaleApi?.stepScale?.(1 / 1.1);
+        platform.uiScale()?.stepScale?.(1 / 1.1);
         return;
       }
       if (key === '0') {
         event.preventDefault();
-        window.uiScaleApi?.resetScale?.();
+        platform.uiScale()?.resetScale?.();
         return;
       }
       if (key === 'z') {
@@ -1528,7 +1537,7 @@ const App = () => {
       memoryInfoEnabled && memoryLabel
         ? `${projectTitle} • ${memoryLabel}`
         : projectTitle;
-    window.appApi?.setTitle?.(title);
+    platform.app()?.setTitle?.(title);
   }, [projectTitle, memoryInfoEnabled, memoryLabel]);
 
   useEffect(() => {
@@ -1558,7 +1567,7 @@ const App = () => {
 
   useEffect(() => {
     const unsubscribe =
-      window.menuApi?.onAction?.((action) => {
+      platform.menu()?.onAction?.((action) => {
       if (action.startsWith('view:set:')) {
         const parts = action.split(':');
         const key = parts[2] ?? '';
@@ -1689,7 +1698,7 @@ const App = () => {
           setShowOptions(true);
           break;
         case 'uiScale:reset':
-          window.uiScaleApi?.resetScale?.();
+          platform.uiScale()?.resetScale?.();
           break;
         case 'tileDebug:on':
           setTileDebugOverlay(true);
@@ -1733,7 +1742,7 @@ const App = () => {
   ]);
 
   useEffect(() => {
-    window.viewMenuApi?.setState?.({
+    platform.viewMenu()?.setState?.({
       showReferenceLayer,
       showPixelLayer,
       showTileLayer,
@@ -2755,9 +2764,9 @@ const App = () => {
           switchWorkspace={switchWorkspace}
           showAdvancedTools={!browserDemo && advancedMode}
           showTileTools={isTileWorkspace}
-          showAiTool={!browserDemo}
-          showExportButton={!browserDemo}
-          showFullscreenButton={!browserDemo}
+          showAiTool={!browserDemo && platformCaps.ai}
+          showExportButton={!browserDemo && platformCaps.exportPng}
+          showFullscreenButton={!browserDemo && platformCaps.fullscreenToggle}
           showTileLayerControls={!browserDemo}
           toolOptions={renderToolOptions()}
         />

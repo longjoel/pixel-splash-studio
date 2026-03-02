@@ -6,6 +6,7 @@ import { usePixelStore } from '@/state/pixelStore';
 import { useHistoryStore } from '@/state/historyStore';
 import { useBrushStore } from '@/state/brushStore';
 import { useSelectionStore } from '@/state/selectionStore';
+import { platform } from '@/platform/api';
 
 const getBrushOffsets = (radius: number, shape: 'square' | 'round') => {
   const offsets: Array<[number, number]> = [];
@@ -162,7 +163,7 @@ export class PenTool implements Tool {
     this.layerId = null;
     this.lastPoint = null;
     const end = performance.now();
-    window.debugApi?.logPerf(
+    platform.debug()?.logPerf(
       [
         'pen:onEnd',
         `entries=${entryCount}`,
