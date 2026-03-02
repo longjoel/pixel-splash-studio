@@ -19,7 +19,7 @@ contextBridge.exposeInMainWorld('projectApi', {
     ipcRenderer.invoke('export:chr', data, suggestedName),
   exportBsave: (data: Uint8Array, suggestedName?: string) =>
     ipcRenderer.invoke('export:bsave', data, suggestedName),
-  exportTileMap: (payload: { png: Uint8Array; tmx: string }) =>
+  exportTileMap: (payload: { png: Uint8Array; tmx: string; baseName?: string }) =>
     ipcRenderer.invoke('export:tilemap', payload),
   importImage: () => ipcRenderer.invoke('import:image'),
   exportImage: (format: string, payload: unknown, suggestedName?: string) =>

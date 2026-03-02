@@ -2,6 +2,7 @@ import { hexToRgb } from '@/core/colorUtils';
 import type { Bookmark } from '@/state/bookmarkStore';
 import { usePaletteStore } from '@/state/paletteStore';
 import { usePixelStore } from '@/state/pixelStore';
+import { exportTileMapPixelRegion } from '@/services/tileMapExport';
 
 const ensurePngFileName = (value: string) => {
   const trimmed = value.trim();
@@ -71,4 +72,21 @@ export const exportBookmarkRegionAsPng = async (bookmark: Bookmark) => {
 
   const buffer = new Uint8Array(await blob.arrayBuffer());
   return window.projectApi.exportPng(buffer, suggestedName);
+};
+
+export const exportBookmarkRegionAsTileMap = async (bookmark: Bookmark) => {
+  const baseName = ensurePngFileName(bookmark.fileName ?? '').replace(/\.png$/i, '');
+  if (!baseName) {
+    window.alert('Set a file name before exporting this bookmark.');
+    return null;
+  }
+  return exportTileMapPixelRegion(
+    {
+      x: bookmark.x,
+      y: bookmark.y,
+      width: bookmark.width,
+      height: bookmark.height,
+    },
+    { baseName }
+  );
 };

@@ -9,7 +9,29 @@ type TileBounds = {
   maxTileY: number;
 };
 
+type PixelBounds = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 const ATLAS_EXTRUDE_PX = 1;
+const DEFAULT_TILEMAP_BASE_NAME = 'tiles';
+
+const sanitizeBaseName = (value?: string) => {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) {
+    return DEFAULT_TILEMAP_BASE_NAME;
+  }
+  const noExt = trimmed.replace(/\.[^.]+$/, '');
+  const safe = noExt
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return safe || DEFAULT_TILEMAP_BASE_NAME;
+};
 
 const buildTileAtlas = async (
   tileSet: { tileWidth: number; tileHeight: number; tiles: Array<{ pixels: number[] }> },
@@ -92,7 +114,7 @@ const buildTileAtlas = async (
   return { buffer, columns, rows, width, height, margin, spacing };
 };
 
-export const exportTileMapRegion = async (bounds: TileBounds) => {
+export const exportTileMapRegion = async (bounds: TileBounds, options?: { baseName?: string }) => {
   if (!window.projectApi?.exportTileMap) {
     window.alert('Tile export is unavailable. Restart the app to load the latest export support.');
     return null;
@@ -148,6 +170,7 @@ export const exportTileMapRegion = async (bounds: TileBounds) => {
     return null;
   }
 
+  const baseName = sanitizeBaseName(options?.baseName);
   const usedTileIndices = Array.from(usedTiles).sort((a, b) => a - b);
   const tileIndexMap = new Map<number, number>();
   usedTileIndices.forEach((index, order) => tileIndexMap.set(index, order));
@@ -173,7 +196,7 @@ export const exportTileMapRegion = async (bounds: TileBounds) => {
   const tmx = `<?xml version="1.0" encoding="UTF-8"?>
 <map version="1.0" orientation="orthogonal" renderorder="right-down" width="${mapWidth}" height="${mapHeight}" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" infinite="0" nextlayerid="2" nextobjectid="1">
   <tileset firstgid="1" name="tiles" tilewidth="${tileSet.tileWidth}" tileheight="${tileSet.tileHeight}" tilecount="${usedTileIndices.length}" columns="${atlas.columns}" spacing="${atlas.spacing}" margin="${atlas.margin}">
-    <image source="tiles.png" width="${atlas.width}" height="${atlas.height}"/>
+    <image source="${baseName}.png" width="${atlas.width}" height="${atlas.height}"/>
   </tileset>
   <layer id="1" name="Tile Layer 1" width="${mapWidth}" height="${mapHeight}">
     <data encoding="csv">
@@ -186,5 +209,25 @@ ${dataRows.join('\n')}
   return window.projectApi.exportTileMap({
     png: atlas.buffer,
     tmx,
+    baseName,
   });
+};
+
+export const exportTileMapPixelRegion = async (
+  bounds: PixelBounds,
+  options?: { baseName?: string }
+) => {
+  const tileStore = useTileMapStore.getState();
+  const tileSet = tileStore.tileSets.find((set) => set.id === tileStore.activeTileSetId);
+  if (!tileSet) {
+    window.alert('No tile set available.');
+    return null;
+  }
+  const width = Math.max(1, Math.round(bounds.width));
+  const height = Math.max(1, Math.round(bounds.height));
+  const minTileX = Math.floor(bounds.x / tileSet.tileWidth);
+  const minTileY = Math.floor(bounds.y / tileSet.tileHeight);
+  const maxTileX = Math.ceil((bounds.x + width) / tileSet.tileWidth) - 1;
+  const maxTileY = Math.ceil((bounds.y + height) / tileSet.tileHeight) - 1;
+  return exportTileMapRegion({ minTileX, minTileY, maxTileX, maxTileY }, options);
 };

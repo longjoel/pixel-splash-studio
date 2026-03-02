@@ -161,7 +161,7 @@ interface Window {
     exportGbr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportChr: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
     exportBsave: (data: Uint8Array, suggestedName?: string) => Promise<string | null>;
-    exportTileMap: (payload: { png: Uint8Array; tmx: string }) => Promise<string | null>;
+    exportTileMap: (payload: { png: Uint8Array; tmx: string; baseName?: string }) => Promise<string | null>;
     importImage: () => Promise<ImportedImagePayload | null>;
     exportImage: (
       format: string,

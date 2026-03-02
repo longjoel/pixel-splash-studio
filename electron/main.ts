@@ -1057,7 +1057,7 @@ ipcMain.handle('export:png', async (_event, data: Uint8Array, suggestedName?: st
 
 ipcMain.handle(
   'export:tilemap',
-  async (_event, payload: { png: Uint8Array; tmx: string }) => {
+  async (_event, payload: { png: Uint8Array; tmx: string; baseName?: string }) => {
     const window = BrowserWindow.getFocusedWindow();
     const dialogOptions: OpenDialogOptions = {
       properties: ['openDirectory', 'createDirectory'],
@@ -1072,16 +1072,23 @@ ipcMain.handle(
 
     const basePath = filePaths[0];
     let outputPath = basePath;
-    const pngPath = join(outputPath, 'tiles.png');
-    const tmxPath = join(outputPath, 'tiles.tmx');
+    const safeBaseName = (payload.baseName ?? 'tiles')
+      .trim()
+      .replace(/\.[^.]+$/, '')
+      .replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'tiles';
+    const pngPath = join(outputPath, `${safeBaseName}.png`);
+    const tmxPath = join(outputPath, `${safeBaseName}.tmx`);
     if (await pathExists(pngPath) || await pathExists(tmxPath)) {
       const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-      outputPath = join(outputPath, `tile-export-${stamp}`);
+      outputPath = join(outputPath, `${safeBaseName}-export-${stamp}`);
       await mkdir(outputPath, { recursive: true });
     }
 
-    const finalPngPath = join(outputPath, 'tiles.png');
-    const finalTmxPath = join(outputPath, 'tiles.tmx');
+    const finalPngPath = join(outputPath, `${safeBaseName}.png`);
+    const finalTmxPath = join(outputPath, `${safeBaseName}.tmx`);
     await writeFile(finalPngPath, Buffer.from(payload.png));
     await writeFile(finalTmxPath, payload.tmx);
     return outputPath;

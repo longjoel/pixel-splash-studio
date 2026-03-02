@@ -4,7 +4,10 @@ import { useReferenceStore } from '@/state/referenceStore';
 import { getReferenceBounds } from '@/core/referenceTransforms';
 import { useViewportStore } from '@/state/viewportStore';
 import { PIXEL_SIZE } from '@/core/grid';
-import { exportBookmarkRegionAsPng } from '@/services/bookmarkExport';
+import {
+  exportBookmarkRegionAsPng,
+  exportBookmarkRegionAsTileMap,
+} from '@/services/bookmarkExport';
 
 const formatWorld = (value: number) => Math.round(value / PIXEL_SIZE);
 
@@ -161,15 +164,26 @@ const NavigationPanel = () => {
                     Go
                   </button>
                   {bookmark.fileName?.trim() ? (
-                    <button
-                      type="button"
-                      className="nav-panel__button"
-                      onClick={() => {
-                        void exportBookmarkRegionAsPng(bookmark);
-                      }}
-                    >
-                      Export
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="nav-panel__button"
+                        onClick={() => {
+                          void exportBookmarkRegionAsPng(bookmark);
+                        }}
+                      >
+                        Export PNG
+                      </button>
+                      <button
+                        type="button"
+                        className="nav-panel__button"
+                        onClick={() => {
+                          void exportBookmarkRegionAsTileMap(bookmark);
+                        }}
+                      >
+                        Export Tilemap
+                      </button>
+                    </>
                   ) : null}
                   <button
                     type="button"
