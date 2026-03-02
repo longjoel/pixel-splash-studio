@@ -144,6 +144,7 @@ export type ProjectPayload = {
             y: number;
             width: number;
             height: number;
+            fileName?: string;
           }
       >;
       overlaysVisible?: boolean;

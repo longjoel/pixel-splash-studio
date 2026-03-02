@@ -1035,7 +1035,7 @@ body {
   position: absolute;
   bottom: 16px;
   right: 16px;
-  width: 324px;
+  width: min(440px, calc(100vw - 32px));
 }
 
 .app__minimap-launch {
@@ -1387,6 +1387,10 @@ body {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.nav-panel__row--bookmark {
+  grid-template-columns: minmax(0, 1fr) minmax(88px, auto);
+}
+
 .nav-panel__meta {
   display: grid;
   gap: 4px;
@@ -1419,11 +1423,43 @@ body {
   white-space: nowrap;
 }
 
+.nav-panel__region-fields {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(56px, 1fr));
+  gap: 6px;
+}
+
+.nav-panel__field {
+  display: grid;
+  gap: 4px;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.nav-panel__number {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(0, 0, 0, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 5px 8px;
+  font-size: 12px;
+  min-width: 0;
+}
+
 .nav-panel__actions {
   display: grid;
   grid-auto-flow: column;
   gap: 6px;
   align-items: start;
+}
+
+.nav-panel__actions--bookmark {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-content: flex-start;
+  max-width: 132px;
 }
 
 .nav-panel__button {
@@ -1534,7 +1570,7 @@ body {
 
   .app__minimap {
     right: 12px;
-    width: 284px;
+    width: min(380px, calc(100vw - 24px));
   }
 
   .app__minimap-launch {

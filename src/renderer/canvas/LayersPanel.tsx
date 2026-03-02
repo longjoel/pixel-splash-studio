@@ -9,7 +9,10 @@ const LayersPanel = () => {
   const renameLayer = usePixelStore((state) => state.renameLayer);
   const toggleLayerVisible = usePixelStore((state) => state.toggleLayerVisible);
   const moveLayer = usePixelStore((state) => state.moveLayer);
+  const mergeLayerDown = usePixelStore((state) => state.mergeLayerDown);
   const setActiveLayer = usePixelStore((state) => state.setActiveLayer);
+  const activeLayerIndex = layers.findIndex((layer) => layer.id === activeLayerId);
+  const canMergeDown = activeLayerIndex > 0;
 
   const ordered = [...layers].reverse();
 
@@ -26,6 +29,14 @@ const LayersPanel = () => {
           disabled={layers.length <= 1}
         >
           Delete
+        </button>
+        <button
+          type="button"
+          className="panel__item"
+          onClick={() => mergeLayerDown(activeLayerId)}
+          disabled={!canMergeDown}
+        >
+          Merge Down
         </button>
       </div>
 
@@ -91,4 +102,3 @@ const LayersPanel = () => {
 };
 
 export default LayersPanel;
-

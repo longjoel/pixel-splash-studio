@@ -10,19 +10,21 @@ describe('bookmarkStore', () => {
     useViewportStore.getState().setCamera({ x: 0, y: 0, zoom: 2 });
   });
 
-  it('adds a bookmark at the current camera center', () => {
+  it('adds a region bookmark from the current viewport bounds', () => {
     useBookmarkStore.getState().addFromCamera();
     const items = useBookmarkStore.getState().items;
     expect(items).toHaveLength(1);
     const first = items[0];
     expect(first?.name).toBe('Bookmark 1');
-    expect(first?.kind).toBe('camera');
-    if (!first || first.kind !== 'camera') {
+    expect(first?.kind).toBe('region');
+    if (!first || first.kind !== 'region') {
       return;
     }
-    expect(first.centerX).toBe(200);
-    expect(first.centerY).toBe(150);
-    expect(first.zoom).toBe(2);
+    expect(first.x).toBe(0);
+    expect(first.y).toBe(0);
+    expect(first.width).toBe(34);
+    expect(first.height).toBe(25);
+    expect(first.fileName).toBe('');
   });
 
   it('reorders bookmarks', () => {
@@ -40,8 +42,7 @@ describe('bookmarkStore', () => {
     expect(useBookmarkStore.getState().items[1]?.id).toBe(second.id);
   });
 
-  it('jumps to a bookmark and restores zoom', () => {
-    useViewportStore.getState().setCamera({ x: 50, y: 25, zoom: 1 });
+  it('jumps to a region bookmark center at current zoom', () => {
     useBookmarkStore.getState().addFromCamera();
     const id = useBookmarkStore.getState().items[0]?.id;
     expect(id).toBeTruthy();
@@ -53,9 +54,9 @@ describe('bookmarkStore', () => {
     useBookmarkStore.getState().jumpTo(id);
 
     const camera = useViewportStore.getState().camera;
-    expect(camera.zoom).toBe(1);
-    expect(camera.x).toBe(50);
-    expect(camera.y).toBe(25);
+    expect(camera.zoom).toBe(4);
+    expect(camera.x).toBe(104);
+    expect(camera.y).toBe(75);
   });
 
   it('clears bookmarks on new project', () => {
@@ -82,6 +83,49 @@ describe('bookmarkStore', () => {
     }
     expect(tag.x).toBe(40);
     expect(tag.y).toBe(50);
+  });
+
+  it('resizes a region and sets export file name', () => {
+    useBookmarkStore.getState().addRegionTag({ x: 10, y: 12, width: 16, height: 8 });
+    const id = useBookmarkStore.getState().items[0]?.id;
+    expect(id).toBeTruthy();
+    if (!id) {
+      return;
+    }
+
+    useBookmarkStore.getState().setRegionSize(id, 64, 40);
+    useBookmarkStore.getState().setRegionFileName(id, 'hero-idle');
+    const tag = useBookmarkStore.getState().items[0];
+    expect(tag?.kind).toBe('region');
+    if (!tag || tag.kind !== 'region') {
+      return;
+    }
+    expect(tag.width).toBe(64);
+    expect(tag.height).toBe(40);
+    expect(tag.fileName).toBe('hero-idle');
+  });
+
+  it('normalizes legacy camera bookmarks into region bookmarks', () => {
+    useBookmarkStore.getState().setAll([
+      {
+        id: 'legacy',
+        name: 'Legacy',
+        kind: 'camera',
+        centerX: 120,
+        centerY: 240,
+        zoom: 2,
+      },
+    ]);
+
+    const item = useBookmarkStore.getState().items[0];
+    expect(item?.kind).toBe('region');
+    if (!item || item.kind !== 'region') {
+      return;
+    }
+    expect(item.x).toBe(10);
+    expect(item.y).toBe(20);
+    expect(item.width).toBe(32);
+    expect(item.height).toBe(32);
   });
 
   it('toggles bookmark overlay visibility', () => {

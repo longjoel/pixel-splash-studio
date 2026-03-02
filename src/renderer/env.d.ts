@@ -75,6 +75,7 @@ type BookmarkPayload =
       y: number;
       width: number;
       height: number;
+      fileName?: string;
     };
 
 type ProjectPayload = {

@@ -29,6 +29,7 @@ type PixelState = {
   setLayerVisible: (id: string, visible: boolean) => void;
   toggleLayerVisible: (id: string) => void;
   moveLayer: (id: string, direction: 'up' | 'down') => void;
+  mergeLayerDown: (id: string) => void;
   setActiveLayer: (id: string) => void;
   getPixel: (x: number, y: number) => number;
   getPixelInLayer: (layerId: string, x: number, y: number) => number;
@@ -128,6 +129,37 @@ export const usePixelStore = create<PixelState>((set, get) => ({
       const [moved] = next.splice(index, 1);
       next.splice(nextIndex, 0, moved);
       return { layers: next, version: state.version + 1 };
+    }),
+  mergeLayerDown: (id) =>
+    set((state) => {
+      const sourceIndex = state.layers.findIndex((layer) => layer.id === id);
+      if (sourceIndex <= 0) {
+        return state;
+      }
+
+      const sourceLayer = state.layers[sourceIndex];
+      const targetLayer = state.layers[sourceIndex - 1];
+
+      for (const { row, col, block } of sourceLayer.store.getBlocks()) {
+        let targetBlock = targetLayer.store.getBlock(row, col);
+        if (!targetBlock) {
+          targetBlock = new Uint8Array(BLOCK_SIZE * BLOCK_SIZE);
+          targetLayer.store.setBlock(row, col, targetBlock);
+        }
+        for (let i = 0; i < block.length; i += 1) {
+          if (block[i] !== 0) {
+            targetBlock[i] = block[i];
+          }
+        }
+      }
+
+      return {
+        layers: state.layers.filter((_, index) => index !== sourceIndex),
+        activeLayerId: targetLayer.id,
+        version: state.version + 1,
+        dirtyAll: true,
+        dirtyBlocks: new Set(),
+      };
     }),
   setActiveLayer: (id) =>
     set((state) => {

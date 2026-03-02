@@ -4,6 +4,7 @@ import { useReferenceStore } from '@/state/referenceStore';
 import { getReferenceBounds } from '@/core/referenceTransforms';
 import { useViewportStore } from '@/state/viewportStore';
 import { PIXEL_SIZE } from '@/core/grid';
+import { exportBookmarkRegionAsPng } from '@/services/bookmarkExport';
 
 const formatWorld = (value: number) => Math.round(value / PIXEL_SIZE);
 
@@ -27,6 +28,9 @@ const NavigationPanel = () => {
   const removeBookmark = useBookmarkStore((state) => state.remove);
   const moveBookmark = useBookmarkStore((state) => state.move);
   const jumpToBookmark = useBookmarkStore((state) => state.jumpTo);
+  const setRegionPosition = useBookmarkStore((state) => state.setRegionPosition);
+  const setRegionSize = useBookmarkStore((state) => state.setRegionSize);
+  const setRegionFileName = useBookmarkStore((state) => state.setRegionFileName);
   const overlaysVisible = useBookmarkStore((state) => state.overlaysVisible);
   const toggleOverlaysVisible = useBookmarkStore((state) => state.toggleOverlaysVisible);
   const references = useReferenceStore((state) => state.items);
@@ -68,7 +72,7 @@ const NavigationPanel = () => {
               className="nav-panel__button"
               onClick={addBookmark}
             >
-              Add
+              Add Region
             </button>
           </div>
         </div>
@@ -77,7 +81,7 @@ const NavigationPanel = () => {
         ) : (
           <div className="nav-panel__list">
             {bookmarks.map((bookmark, index) => (
-              <div key={bookmark.id} className="nav-panel__row">
+              <div key={bookmark.id} className="nav-panel__row nav-panel__row--bookmark">
                 <div className="nav-panel__meta">
                   <input
                     className="nav-panel__name"
@@ -88,12 +92,67 @@ const NavigationPanel = () => {
                     }
                   />
                   <div className="nav-panel__coords">
-                    {bookmark.kind === 'camera'
-                      ? `${formatWorld(bookmark.centerX)},${formatWorld(bookmark.centerY)} • z${bookmark.zoom.toFixed(2)}`
-                      : `${bookmark.x},${bookmark.y} • ${bookmark.width}x${bookmark.height}`}
+                    {bookmark.x},{bookmark.y} • {bookmark.width}x{bookmark.height}
                   </div>
+                  <div className="nav-panel__region-fields">
+                    <label className="nav-panel__field">
+                      X
+                      <input
+                        className="nav-panel__number"
+                        type="number"
+                        value={bookmark.x}
+                        onChange={(event) =>
+                          setRegionPosition(bookmark.id, Number(event.currentTarget.value), bookmark.y)
+                        }
+                      />
+                    </label>
+                    <label className="nav-panel__field">
+                      Y
+                      <input
+                        className="nav-panel__number"
+                        type="number"
+                        value={bookmark.y}
+                        onChange={(event) =>
+                          setRegionPosition(bookmark.id, bookmark.x, Number(event.currentTarget.value))
+                        }
+                      />
+                    </label>
+                    <label className="nav-panel__field">
+                      W
+                      <input
+                        className="nav-panel__number"
+                        type="number"
+                        min={1}
+                        value={bookmark.width}
+                        onChange={(event) =>
+                          setRegionSize(bookmark.id, Number(event.currentTarget.value), bookmark.height)
+                        }
+                      />
+                    </label>
+                    <label className="nav-panel__field">
+                      H
+                      <input
+                        className="nav-panel__number"
+                        type="number"
+                        min={1}
+                        value={bookmark.height}
+                        onChange={(event) =>
+                          setRegionSize(bookmark.id, bookmark.width, Number(event.currentTarget.value))
+                        }
+                      />
+                    </label>
+                  </div>
+                  <input
+                    className="nav-panel__name"
+                    value={bookmark.fileName ?? ''}
+                    aria-label={`Bookmark export file ${index + 1}`}
+                    placeholder="export file name (e.g. hero-idle.png)"
+                    onChange={(event) =>
+                      setRegionFileName(bookmark.id, event.currentTarget.value)
+                    }
+                  />
                 </div>
-                <div className="nav-panel__actions">
+                <div className="nav-panel__actions nav-panel__actions--bookmark">
                   <button
                     type="button"
                     className="nav-panel__button"
@@ -101,6 +160,17 @@ const NavigationPanel = () => {
                   >
                     Go
                   </button>
+                  {bookmark.fileName?.trim() ? (
+                    <button
+                      type="button"
+                      className="nav-panel__button"
+                      onClick={() => {
+                        void exportBookmarkRegionAsPng(bookmark);
+                      }}
+                    >
+                      Export
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="nav-panel__button"

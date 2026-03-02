@@ -182,7 +182,7 @@ const drawBookmarkTags = (
     context.fillRect(left, top, width, height);
     context.strokeRect(left + 0.5, top + 0.5, Math.max(0, width - 1), Math.max(0, height - 1));
 
-    const label = tag.name?.trim() || 'Tile Tag';
+    const label = tag.name?.trim() || 'Bookmark';
     const labelWidth = context.measureText(label).width;
     const padX = 5;
     const barHeight = 16;
